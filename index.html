@@ -74,6 +74,9 @@ details summary{cursor:pointer;padding:6px 0;color:var(--pri);font-weight:600}
 .filebtn{position:relative}
 .summary{text-align:center;padding-top:40px}.summary .plan{text-align:left;background:var(--card);border-radius:12px;padding:8px 14px;border:1px solid var(--line)}.big-emoji{font-size:3rem}
 #toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:#14201b;color:#fff;padding:10px 16px;border-radius:99px;font-size:.9rem;opacity:0;pointer-events:none;transition:all .2s;z-index:10}#toast.show{opacity:1;transform:translateX(-50%)}
+.qlist{margin:4px 0 10px;padding-left:20px}.qlist li{margin:4px 0}
+.mod.project{border:2px solid var(--pri)}.mod a{color:var(--pri)}
+.srcf{text-transform:none;font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
 
 </style>
 </head>
@@ -861,10 +864,777 @@ const ETL_LESSONS = [
 }
 ];
 
+/* ===== MASTER PROJECT 1: Naija Chart Pipeline =====
+   Teaches the learner's own repo (github.com/orimogunjetolu/naija-chart-pipeline).
+   Code items with `src` are copied verbatim from that file (validate.js checks every line).
+   SQL runs on PROJECT_SQL: same columns as the real DuckDB chart_entries table
+   (SQLite types), 3 days x top 8. Tracks are real; positions are illustrative. */
+const PROJECT_SQL = `
+CREATE TABLE chart_entries (
+    chart_date   TEXT,     -- DATE in DuckDB
+    position     INTEGER,
+    track_id     INTEGER,  -- BIGINT in DuckDB
+    title        TEXT,
+    artist       TEXT,
+    album        TEXT,
+    duration_sec INTEGER,
+    deezer_rank  INTEGER,
+    explicit     INTEGER,  -- BOOLEAN in DuckDB (0/1 here)
+    PRIMARY KEY (chart_date, track_id)
+);
+CREATE TABLE tracks_tmp (track_id INTEGER, title TEXT, artist TEXT, album TEXT, duration_sec INTEGER, deezer_rank INTEGER, explicit INTEGER);
+INSERT INTO tracks_tmp VALUES
+ (4209009742,'Heaven Baby','Ayra Starr','Starrgirl',159,914621,0),
+ (542389502,'God is a woman','Ariana Grande','Sweetener',197,827371,1),
+ (1869853847,'Dicey','Dice Ailes','Dicey',182,68909,0),
+ (4127326321,'SLICK','Victony','SLICK',106,873724,1),
+ (4275874582,'waf','FOLA','9',161,427308,0),
+ (2578028182,'Honey B','X Kappe','Honey B',191,211861,0),
+ (3639739822,'Freddy Kooger','LAZER DIM 700','The Formula',103,132155,1),
+ (2816368222,'Goodbye (Warm Up)','Ayra Starr','The Year I Turned 21',163,431923,1),
+ (4257488141,'Owo Oluwa','Kizz Daniel','Owo Oluwa (feat. Young Jonn, Krizbeatz & Wave Choir)',177,540452,0),
+ (3812185122,'DON''T LOVE ME','Omah Lay','DON''T LOVE ME',181,253109,0);
+CREATE TABLE pos_tmp (chart_date TEXT, position INTEGER, track_id INTEGER);
+INSERT INTO pos_tmp VALUES
+ ('2026-10-16',1,4127326321),('2026-10-16',2,4209009742),('2026-10-16',3,4257488141),('2026-10-16',4,4275874582),
+ ('2026-10-16',5,3639739822),('2026-10-16',6,3812185122),('2026-10-16',7,542389502),('2026-10-16',8,2578028182),
+ ('2026-10-17',1,4209009742),('2026-10-17',2,4127326321),('2026-10-17',3,4275874582),('2026-10-17',4,542389502),
+ ('2026-10-17',5,4257488141),('2026-10-17',6,2816368222),('2026-10-17',7,2578028182),('2026-10-17',8,3812185122),
+ ('2026-10-18',1,4209009742),('2026-10-18',2,542389502),('2026-10-18',3,1869853847),('2026-10-18',4,4127326321),
+ ('2026-10-18',5,3639739822),('2026-10-18',6,4257488141),('2026-10-18',7,2816368222),('2026-10-18',8,4275874582);
+INSERT INTO chart_entries
+SELECT p.chart_date, p.position, t.track_id, t.title, t.artist, t.album, t.duration_sec, t.deezer_rank, t.explicit
+FROM pos_tmp p JOIN tracks_tmp t ON t.track_id = p.track_id;
+DROP TABLE pos_tmp; DROP TABLE tracks_tmp;
+CREATE VIEW chart_movement AS
+SELECT
+    chart_date,
+    position,
+    title,
+    artist,
+    LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position,
+    LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) - position AS places_gained
+FROM chart_entries;
+CREATE VIEW artist_summary AS
+SELECT
+    artist,
+    COUNT(DISTINCT track_id)  AS songs_charted,
+    MIN(position)             AS best_position,
+    COUNT(DISTINCT chart_date) AS days_on_chart
+FROM chart_entries
+GROUP BY artist
+ORDER BY songs_charted DESC, best_position;
+`;
+const PROJECT_SCHEMA = [
+  ['chart_entries', 'chart_date, position, track_id, title, artist, album, duration_sec, deezer_rank, explicit. PK (chart_date, track_id). 24 rows: top 8 for 2026-10-16/17/18 (real tracks, illustrative positions)'],
+  ['chart_movement', 'view from sql/01_chart_movement.sql: chart_date, position, title, artist, prev_position, places_gained'],
+  ['artist_summary', 'view from sql/02_artist_summary.sql: artist, songs_charted, best_position, days_on_chart']
+];
+
+const PROJECT_LESSONS_A = [
+{ id:'pj1', title:'Big picture & architecture',
+  theory:{
+    why:'Deezer\'s "Top Nigeria" playlist only ever shows <b>today\'s</b> chart. Yesterday\'s positions are gone the moment it updates. To answer "which songs are climbing?" you have to take a <b>snapshot every day</b>, keep it, clean it, store it somewhere you can query, and model the changes. That is the whole job of a batch pipeline, and your repo does it with one file per responsibility.',
+    body:[
+      '<b>The flow</b>: GitHub Actions (<code>cron: "17 7 * * *"</code>) runs <code>run_pipeline.py</code> → <code>extract()</code> saves <code>data/raw/top_nigeria_&lt;date&gt;.json</code> → <code>clean_rows()</code> returns a list of dicts → <code>load()</code> writes table <code>chart_entries</code> in <code>data/charts.duckdb</code> → <code>build_models()</code> runs <code>sql/*.sql</code> to create the views <code>chart_movement</code> and <code>artist_summary</code> → the workflow commits <code>data/</code> back to the repo.',
+      '<b>Contracts between stages</b>: <code>extract()</code> returns a <code>Path</code> (the raw file), <code>clean_rows(raw_file)</code> returns <code>list[dict]</code>, and <code>load(rows)</code> returns the table\'s row count as an <code>int</code>. Each stage can be run and tested on its own.',
+      '<b>Grain</b> (from the transform docstring): "Each row = one song\'s position on one day\'s chart". The database enforces it with <code>PRIMARY KEY (chart_date, track_id)</code>.',
+      'Precision matters in interviews. The README diagram labels the load "idempotent upsert", but the code actually does <b>delete-then-insert</b> for the run date. Both are idempotent, so name the mechanism your code uses.',
+      '<code>requirements.txt</code> lists <code>duckdb</code>, <code>requests</code> and <code>pytest</code> with <b>no pinned versions</b>. That\'s fine for a portfolio, but a future release could change behaviour. Pinning is an easy improvement to mention.'
+    ],
+    pro:'"It\'s a daily batch ETL: a GitHub Actions cron runs run_pipeline.py, which extracts the Deezer chart to a raw JSON layer, transforms and validates it in Python, loads it idempotently into DuckDB at a grain of one track per chart day, and builds SQL views for movement and artist dominance."',
+    q:{ q:'Why does extract() return a Path instead of returning the tracks directly?', a:'Because the raw file on disk is the hand-off point. Transform reads from the file, so you can re-run transform and load from any saved raw file without calling the API again. That\'s the replayability the raw layer exists for.' }
+  },
+  terms:[
+    { id:'pj1-t1', term:'Batch pipeline', def:'A job that processes a [[bounded]] chunk of data on a [[schedule]]; here, one chart snapshot per day.' },
+    { id:'pj1-t2', term:'Snapshot', def:'A [[point-in-time]] copy of a source that keeps changing, saved so you can build [[history]].' },
+    { id:'pj1-t3', term:'Separation of concerns', def:'Splitting the pipeline so each file has [[one responsibility]] (extract, transform, load, models) and can be [[tested on its own]].' },
+    { id:'pj1-t4', term:'Grain of chart_entries', def:'[[One row]] is one song\'s position on [[one day\'s chart]], identified by (chart_date, track_id).' }
+  ],
+  code:[
+    { id:'pj1-c1', src:'run_pipeline.py', task:'run_pipeline.py: import the three stages.', lang:'python',
+      code:`from pipeline.extract import [[extract]]
+from pipeline.load import [[DB_PATH]], load
+from pipeline.transform import [[clean_rows]]` },
+    { id:'pj1-c2', src:'pipeline/extract.py|pipeline/load.py', task:'Where the raw layer and the warehouse live (extract.py and load.py constants).', lang:'python',
+      code:`RAW_DIR = Path("[[data/raw]]")
+DB_PATH = "data/[[charts.duckdb]]"` },
+    { id:'pj1-c3', src:'README.md', task:'README: run the project locally (after creating the venv).', lang:'bash',
+      code:`pip install -r [[requirements.txt]]
+pytest [[-q]]
+python [[run_pipeline.py]]` }
+  ],
+  qa:[
+    { id:'pj1-q1', q:'What breaks if the Deezer API is down at 07:17 UTC?', a:'raise_for_status() raises, run_pipeline.py stops and the GitHub Actions job [[fails]] before anything is loaded. Nothing is committed, so that day is [[missing]] unless you re-run it with workflow_dispatch [[before the chart updates]], because the API only serves today\'s chart.' },
+    { id:'pj1-q2', q:'Why is the raw JSON saved before any cleaning happens?', a:'So the [[untouched source data]] survives even if transform has a bug; you can fix the code and [[replay]] from the raw file instead of losing that day.' }
+  ],
+  problems:[
+    { id:'pj1-p1', kind:'open', title:'Draw it from memory',
+      scenario:'Without looking, list the pipeline\'s stages <b>in order</b>. For each one, name the file and function and what it hands to the next stage. Include the scheduler and the final commit.',
+      hint:'Six stages: trigger, extract, transform, load, models, commit.',
+      solution:`1. Trigger: .github/workflows/daily.yml, cron "17 7 * * *" (07:17 UTC) or workflow_dispatch; runs pytest -q, then python run_pipeline.py
+2. Extract: pipeline/extract.py extract() -> follows Deezer pagination, saves data/raw/top_nigeria_<date>.json, returns the Path
+3. Transform: pipeline/transform.py clean_rows(raw_file) -> list of flat dicts (9 keys), positions via enumerate(start=1), 3 asserts
+4. Load: pipeline/load.py load(rows) -> CREATE TABLE IF NOT EXISTS, DELETE that chart_date, executemany INSERT into data/charts.duckdb; returns total row count
+5. Models: run_pipeline.py build_models() -> runs sql/01_chart_movement.sql then sql/02_artist_summary.sql (views)
+6. Commit: workflow step "Commit new data" -> git add data/, commit only if something changed, git push`,
+      explain:'If you can rebuild this list from memory, you can draw the architecture on a whiteboard in an interview. Practise saying it in under 60 seconds.' }
+  ]
+},
+
+{ id:'pj2', title:'extract.py: pagination & the raw layer',
+  theory:{
+    why:'APIs return big lists in <b>pages</b> to protect their servers, and this source is <b>volatile</b>: today\'s chart replaces yesterday\'s. So extract has three jobs. It must collect <i>every</i> page, fail loudly on HTTP errors instead of saving an error page as "data", and save an <b>untouched copy</b> before any interpretation happens.',
+    body:[
+      'Constants: <code>CHART_PLAYLIST_ID = 1362516565</code> (Deezer Charts "Top Nigeria"), <code>URL = f"https://api.deezer.com/playlist/{CHART_PLAYLIST_ID}/tracks"</code>, <code>RAW_DIR = Path("data/raw")</code>.',
+      '<b>Pagination loop</b>: start with <code>tracks, url = [], URL + "?limit=100"</code>. While <code>url</code> is truthy: GET with <code>timeout=30</code>, <code>raise_for_status()</code>, parse <code>body = resp.json()</code>, <code>tracks.extend(body.get("data", []))</code>, then <code>url = body.get("next")</code>. On the last page there is no <code>"next"</code>, so <code>.get</code> returns <code>None</code> and the loop ends.',
+      '<b>timeout=30</b>: requests has no default timeout, so a hung connection could block the job until GitHub cancels it (the default job limit is 6 hours).',
+      '<b>Raw layer</b>: <code>RAW_DIR.mkdir(parents=True, exist_ok=True)</code>, a file name stamped with <code>run_date.isoformat()</code>, and a payload of <code>{"chart_date": ..., "tracks": tracks}</code>. Putting the date <i>inside</i> the file means transform never has to parse it from the file name. Re-running on the same day overwrites the same file, so the raw layer is idempotent too.',
+      '<b>run_date: date | None = None</b> defaults to <code>date.today()</code>. Careful: the date only <b>labels</b> the file. The API always returns the <i>current</i> chart, so passing an old date does <b>not</b> fetch history.'
+    ],
+    pro:'"Extract follows the API\'s next-page links until there are none, uses a 30-second timeout and raise_for_status so failures are loud, and lands the untouched response as date-stamped raw JSON, which makes the downstream steps replayable."',
+    q:{ q:'Why body.get("next") instead of body["next"]?', a:'The last page has no "next" key. .get returns None, which ends the while loop cleanly, but body["next"] would raise KeyError on the final page and crash every run.' }
+  },
+  terms:[
+    { id:'pj2-t1', term:'Pagination', def:'When an API splits results into [[pages]] and returns a link to the [[next]] page, so the client loops until there is none.' },
+    { id:'pj2-t2', term:'raise_for_status()', def:'A requests method that [[raises an exception]] when the HTTP status is an [[error]] (4xx or 5xx), so a failed call is never treated as data.' },
+    { id:'pj2-t3', term:'Request timeout', def:'A limit on how long to [[wait]] for the server; without one a hung connection can [[block the job]] indefinitely.' },
+    { id:'pj2-t4', term:'Raw layer (data/raw/)', def:'Untouched API responses saved [[per run date]] so later steps can be [[re-run]] without calling the API again.' }
+  ],
+  code:[
+    { id:'pj2-c1', src:'pipeline/extract.py', task:'The API URL and raw folder constants.', lang:'python',
+      code:`URL = f"https://api.deezer.com/playlist/{CHART_PLAYLIST_ID}/[[tracks]]"
+RAW_DIR = [[Path]]("data/raw")` },
+    { id:'pj2-c2', src:'pipeline/extract.py', task:'Follow the pages until the API stops returning a "next" link.', lang:'python',
+      code:`tracks, url = [], URL + "?limit=100"
+while [[url]]:  # the API returns pages; follow "next" until done
+    resp = requests.get(url, [[timeout=30]])
+    resp.[[raise_for_status]]()
+    body = resp.json()
+    tracks.[[extend]](body.get("data", []))
+    url = body.get("[[next]]")` },
+    { id:'pj2-c3', src:'pipeline/extract.py', task:'Save the raw payload, stamped with the run date.', lang:'python',
+      code:`RAW_DIR.mkdir(parents=True, [[exist_ok=True]])
+out = RAW_DIR / f"top_nigeria_{run_date.[[isoformat]]()}.json"
+out.[[write_text]](json.dumps({"chart_date": run_date.isoformat(), "tracks": tracks}))` },
+    { id:'pj2-c4', src:'pipeline/extract.py', task:'The function signature and the default date.', lang:'python',
+      code:`def extract(run_date: date | None = None) -> [[Path]]:
+    run_date = run_date [[or]] date.[[today]]()` }
+  ],
+  qa:[
+    { id:'pj2-q1', q:'What breaks if you remove the line url = body.get("next")?', a:'url never changes, so while url: loops [[forever]], requesting the [[same first page]] again and again and piling duplicates into tracks until GitHub [[cancels the job]].' },
+    { id:'pj2-q2', q:'What breaks if tracks.extend(...) becomes tracks = body.get("data", [])?', a:'Each page [[overwrites]] the previous one, so only the [[last page]] is kept. It looks fine while the chart fits in one page of 100, then silently [[loses data]] once it spans more.' },
+    { id:'pj2-q3', q:'What happens if you call extract(date(2026, 10, 1)) to backfill?', a:'It still downloads [[today\'s chart]] (the API has no history) and saves it [[mislabelled]] as 2026-10-01. Real backfills must come from [[saved raw files]].' }
+  ],
+  problems:[
+    { id:'pj2-p1', kind:'open', title:'Retry on HTTP 429',
+      scenario:'Deezer sometimes answers <b>429 Too Many Requests</b>. Change extract so it retries a request up to 3 times with an increasing pause, but still fails loudly on other errors. Write the helper and show where it goes in the loop.',
+      hint:'Check resp.status_code. Sleep longer each attempt (back-off). Keep raise_for_status for everything else.',
+      solution:`import time
+
+def get_with_retry(url, attempts=3, wait=5):
+    for i in range(attempts):
+        resp = requests.get(url, timeout=30)
+        if resp.status_code != 429:
+            resp.raise_for_status()
+            return resp.json()
+        time.sleep(wait * (i + 1))   # back off: 5s, 10s, 15s
+    resp.raise_for_status()          # still 429 after 3 tries -> fail loudly
+
+# in extract(), replace the three request lines with:
+#     body = get_with_retry(url)`,
+      explain:'Only retry errors that are <b>transient</b> (429, and often 502/503). A 404 won\'t fix itself. <b>Back-off</b> stops you hammering a struggling server. The final <code>raise_for_status()</code> keeps the fail-loudly principle. Airflow and similar tools give you task-level retries like this for free.' }
+  ]
+},
+
+{ id:'pj3', title:'transform.py: flattening & quality gates',
+  theory:{
+    why:'The raw JSON is nested and shaped for Deezer\'s app: <code>artist</code> and <code>album</code> are objects, and fields can be missing or null. A SQL table needs <b>flat rows with fixed columns and types</b>. Loading bad data is worse than loading nothing, so transform is also the <b>gatekeeper</b>.',
+    body:[
+      '<code>payload = json.loads(Path(raw_file).read_text())</code>, then <code>chart_date = payload["chart_date"]</code>. The date comes from inside the file, as extract wrote it.',
+      '<b>Positions</b>: <code>for position, t in enumerate(payload["tracks"], start=1)</code>. The playlist order <i>is</i> the chart, so the first track is position 1.',
+      '<b>Flattening</b>: each track becomes a dict with 9 keys in a fixed order: chart_date, position, track_id, title, artist, album, duration_sec, deezer_rank, explicit. Nested values are reached with <code>t.get("artist", {}).get("name")</code>.',
+      '<b>Defensive defaults</b>: <code>(t.get("title") or "").strip()</code> turns a missing or <code>None</code> title into "" so <code>.strip()</code> never crashes. <code>int(t.get("duration") or 0)</code> and <code>bool(t.get("explicit_lyrics"))</code> coerce types. <code>deezer_rank</code> is Deezer\'s popularity score, <b>not</b> the chart position.',
+      '<b>Quality gates</b>: <code>assert rows</code> (something was extracted), unique <code>track_id</code>s, and every row has a title and an artist. A failed assert raises <code>AssertionError</code>, the run stops and nothing is loaded. Caveat: Python <b>skips asserts</b> under <code>python -O</code>, so production code often uses <code>if …: raise ValueError(…)</code>.',
+      '<b>Key order matters</b>: load.py inserts <code>tuple(r.values())</code> by position, so the dict\'s key order must match the table\'s column order.'
+    ],
+    pro:'"Transform flattens each nested track into a fixed nine-column row, derives the position from playlist order with enumerate(start=1), coerces types defensively, and enforces three quality gates (non-empty, unique track_id, title and artist present) before anything reaches the warehouse."',
+    q:{ q:'t.get("artist", {}) has a default. Why can it still crash?', a:'The default {} is only used when the "artist" key is missing. If Deezer sends "artist": null, .get returns None and None.get("name") raises AttributeError. (t.get("artist") or {}) handles both cases.' }
+  },
+  terms:[
+    { id:'pj3-t1', term:'Flattening', def:'Turning [[nested]] JSON objects into [[flat rows]] with one value per column.' },
+    { id:'pj3-t2', term:'enumerate(start=1)', def:'A Python built-in that yields [[index and item]] pairs; start=1 makes the first chart position [[1]] instead of 0.' },
+    { id:'pj3-t3', term:'Data-quality gate (assert)', def:'A check that raises [[AssertionError]] when a rule is broken, stopping the run [[before bad data is loaded]].' },
+    { id:'pj3-t4', term:'Defensive default', def:'A pattern like or "" or .get() with a default so [[missing or null]] fields don\'t [[crash]] the transform.' }
+  ],
+  code:[
+    { id:'pj3-c1', src:'pipeline/transform.py', task:'Read the raw file and start the loop over tracks.', lang:'python',
+      code:`payload = json.loads(Path(raw_file).[[read_text]]())
+chart_date = payload["[[chart_date]]"]
+rows = []
+for position, t in [[enumerate]](payload["tracks"], [[start=1]]):` },
+    { id:'pj3-c2', src:'pipeline/transform.py', task:'Flatten the id, title and nested artist name.', lang:'python',
+      code:`"track_id": t["[[id]]"],
+"title": (t.get("title") [[or ""]]).[[strip]](),
+"artist": (t.get("artist", {}).get("[[name]]") or "").strip(),` },
+    { id:'pj3-c3', src:'pipeline/transform.py', task:'Coerce duration, rank and explicit to the right types.', lang:'python',
+      code:`"duration_sec": [[int]](t.get("duration") or 0),
+"deezer_rank": int(t.get("[[rank]]") or 0),
+"explicit": [[bool]](t.get("explicit_lyrics")),` },
+    { id:'pj3-c4', src:'pipeline/transform.py', task:'The three data-quality gates.', lang:'python',
+      code:`assert [[rows]], "no rows extracted"
+assert len({r["track_id"] for r in rows}) == [[len(rows)]], "duplicate tracks"
+assert [[all]](r["title"] and r["artist"] for r in rows), "missing title/artist"` }
+  ],
+  qa:[
+    { id:'pj3-q1', q:'What breaks if you remove the duplicate-tracks assert and Deezer sends a track twice?', a:'The duplicate reaches load.py after the DELETE has run. The [[primary key]] then rejects it with a [[ConstraintException]] partway through executemany, so that day is left [[incomplete]] in the warehouse. The assert fails earlier, before anything is touched.' },
+    { id:'pj3-q2', q:'What breaks if Deezer sends "artist": null for one track?', a:'t.get("artist", {}) returns [[None]] because the key exists, so .get("name") raises [[AttributeError]] and the run fails. Fix: [[(t.get("artist") or {})]].get("name").' },
+    { id:'pj3-q3', q:'What breaks if you drop start=1 from enumerate?', a:'Positions become [[0-based]], so the #1 song is stored as position 0. best_position shows 0, filters like position = 1 pick the [[second]] song, and test_positions_follow_order [[fails]].' }
+  ],
+  problems:[
+    { id:'pj3-p1', kind:'open', title:'bool("false") is True',
+      scenario:'Suppose Deezer starts sending <code>"explicit_lyrics": "false"</code> as a <b>string</b>. What does <code>bool("false")</code> return, what goes wrong in your data, and how would you fix the transform? Include a test.',
+      hint:'Any non-empty string is truthy in Python.',
+      solution:`bool("false") is True (any non-empty string is truthy), so every track would be stored as explicit = TRUE.
+
+def to_bool(v):
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes")
+    return bool(v)
+
+# in clean_rows:
+#     "explicit": to_bool(t.get("explicit_lyrics")),
+
+def test_string_false_is_not_explicit(tmp_path):
+    t = _track(1)
+    t["explicit_lyrics"] = "false"
+    rows = clean_rows(_raw(tmp_path, [t]))
+    assert rows[0]["explicit"] is False`,
+      explain:'This is <b>schema drift</b>: the source changed a type without warning, and nothing crashed, so the data is just silently wrong. The fix is to make conversion rules explicit and to lock the behaviour in with a test that uses the existing <code>_raw</code> and <code>_track</code> helpers.' }
+  ]
+},
+
+{ id:'pj4', title:'load.py: DDL, keys & idempotent loads',
+  theory:{
+    why:'Scheduled jobs <b>get re-run</b>: retries, manual re-runs, a second trigger. The load has to give the same result however many times it runs for a day. A table also needs a schema and a key so the <b>database itself</b> enforces the rules, even if Python has a bug. <b>DuckDB</b> is an in-process analytical database stored in a single file. It has no server, costs nothing, runs fast columnar SQL with window functions, and the file can live in the repo.',
+    body:[
+      '<code>DB_PATH = "data/charts.duckdb"</code>. <code>duckdb.connect(db_path)</code> creates the file if it doesn\'t exist.',
+      '<b>DDL</b>: <code>CREATE TABLE IF NOT EXISTS chart_entries (…)</code> creates the table on the first run and does nothing afterwards, so it\'s safe to run every time. The types are DATE, INTEGER, BIGINT (Deezer ids exceed 32-bit), VARCHAR and BOOLEAN.',
+      '<code>PRIMARY KEY (chart_date, track_id)</code> is a <b>composite key</b> that enforces the grain: the same track can appear once per day.',
+      '<b>Delete-then-insert</b>: <code>chart_date = rows[0]["chart_date"]</code> (every row in one file shares the date), then <code>DELETE FROM chart_entries WHERE chart_date = ?</code>, then <code>executemany("INSERT INTO chart_entries VALUES (?,?,?,?,?,?,?,?,?)", [tuple(r.values()) for r in rows])</code>. Running it twice leaves exactly one copy of the day. Other days are untouched.',
+      'The <code>?</code> placeholders are a <b>parameterized query</b>: values are sent separately, so there are no quoting bugs and no SQL injection. There are 9 placeholders for 9 columns, filled <b>by position</b>.',
+      '<b>Logging</b>: it counts the whole table, prints <code>load: N rows for DATE; table now has M rows</code>, closes the connection and returns the count.',
+      '⚠️ <b>Gap</b>: DELETE and INSERT are not wrapped in a transaction, and DuckDB autocommits each statement. If the INSERT fails (a bad row, a crash), the DELETE has already happened and the day is left empty or partial until the next good run. The fix is <code>BEGIN TRANSACTION</code> … <code>COMMIT</code>, with <code>ROLLBACK</code> on error.'
+    ],
+    pro:'"The load is idempotent by partition. It deletes the run date\'s rows and re-inserts them with a parameterized executemany, and a composite primary key on (chart_date, track_id) makes the database reject duplicates. The next improvement is wrapping both statements in one transaction so a failure can\'t leave a partial day."',
+    q:{ q:'Why DELETE only WHERE chart_date = ? instead of deleting everything and reloading?', a:'Only today\'s partition is being reloaded. Earlier days exist only in the table (and the raw files), so wiping everything would destroy history. Replacing just one partition keeps the load cheap and safe.' }
+  },
+  terms:[
+    { id:'pj4-t1', term:'DDL', def:'Data Definition Language: SQL statements such as [[CREATE TABLE]] that define [[structure]] rather than data.' },
+    { id:'pj4-t2', term:'CREATE TABLE IF NOT EXISTS', def:'Creates the table only when it is [[missing]], so the statement is safe to run on [[every run]].' },
+    { id:'pj4-t3', term:'Composite primary key', def:'A primary key made of [[more than one column]], here (chart_date, track_id), so a track can appear [[once per day]].' },
+    { id:'pj4-t4', term:'Delete-then-insert', def:'An idempotent load that first [[removes the partition]] being loaded (the run date) and then inserts it [[fresh]].' },
+    { id:'pj4-t5', term:'DuckDB', def:'An [[in-process]] analytical SQL database stored in a [[single file]], with no server to run.' },
+    { id:'pj4-t6', term:'Parameterized query', def:'SQL with [[placeholders]] (?) whose values are passed separately, avoiding [[SQL injection]] and quoting bugs.' }
+  ],
+  code:[
+    { id:'pj4-c1', src:'pipeline/load.py', task:'The start of the DDL.', lang:'sql',  run:false,
+      code:`CREATE TABLE IF [[NOT EXISTS]] chart_entries (
+    chart_date   [[DATE]],
+    position     INTEGER,
+    track_id     [[BIGINT]],` },
+    { id:'pj4-c2', src:'pipeline/load.py', task:'The end of the DDL: the key that enforces the grain.', lang:'sql', run:false,
+      code:`    explicit     BOOLEAN,
+    [[PRIMARY KEY]] ([[chart_date, track_id]])
+);` },
+    { id:'pj4-c3', src:'pipeline/load.py', task:'Open the database and make sure the table exists.', lang:'python',
+      code:`def load(rows: list[dict], db_path: str = DB_PATH) -> int:
+    con = duckdb.[[connect]](db_path)
+    con.execute([[DDL]])` },
+    { id:'pj4-c4', src:'pipeline/load.py', task:'The idempotent heart of the load: delete the day, then insert it.', lang:'python',
+      code:`chart_date = rows[0]["chart_date"]
+con.execute("[[DELETE]] FROM chart_entries WHERE chart_date = [[?]]", [chart_date])
+con.[[executemany]](
+    "INSERT INTO chart_entries VALUES (?,?,?,?,?,?,?,?,?)",
+    [tuple(r.[[values]]()) for r in rows],
+)` },
+    { id:'pj4-c5', src:'pipeline/load.py', task:'Count the rows for the log line, then close.', lang:'python',
+      code:`n = con.execute("SELECT [[count(*)]] FROM chart_entries").[[fetchone]]()[0]
+con.[[close]]()` }
+  ],
+  qa:[
+    { id:'pj4-q1', q:'What happens if you remove the DELETE line and re-run the same day?', a:'The INSERT hits rows whose (chart_date, track_id) [[already exist]], so the [[primary key]] raises a ConstraintException and the job fails. Without the key it would silently insert [[duplicates]] and double every count.' },
+    { id:'pj4-q2', q:'What breaks if you delete PRIMARY KEY from the DDL in load.py?', a:'For new databases, nothing stops a bug from loading [[duplicates]]. For the existing data/charts.duckdb, nothing changes at all: CREATE TABLE [[IF NOT EXISTS]] skips the existing table, so DDL edits need a [[migration]] or a rebuild from raw files.' },
+    { id:'pj4-q3', q:'What breaks if transform adds an 11th key like "genre" to each row?', a:'tuple(r.values()) now has [[10 values]] for [[9 placeholders]], so executemany raises InvalidInputException. The DELETE has already run, so that day is [[emptied]]. The DDL, the placeholders and a migration must change together.' },
+    { id:'pj4-q4', q:'What happens if the job crashes between the DELETE and the INSERT?', a:'DuckDB [[autocommits]] each statement, so the old rows for the day are gone and the new ones never arrive. The day stays [[empty]] until a re-run. Wrapping both in BEGIN/COMMIT makes the load [[atomic]].' }
+  ],
+  problems:[
+    { id:'pj4-p1', kind:'sql', ordered:true, title:'Volume check after load',
+      scenario:'After each load you want to confirm every chart day has the expected number of rows. Return chart_date and n (row count) for every day, oldest first.',
+      hint:'GROUP BY chart_date, ORDER BY chart_date.',
+      solution:`SELECT chart_date, COUNT(*) AS n
+FROM chart_entries
+GROUP BY chart_date
+ORDER BY chart_date;`,
+      explain:'Each sample day has 8 rows, and the real chart has 100. A <b>volume check</b> like this catches the partial-day failure described in this lesson, which uniqueness and NULL checks would miss. You could fail the job if any day is under 100.' },
+    { id:'pj4-p2', kind:'open', title:'Make the load atomic',
+      scenario:'Rewrite the DELETE + executemany part of <code>load()</code> so that either <b>both</b> happen or <b>neither</b> does.',
+      hint:'DuckDB supports BEGIN TRANSACTION, COMMIT and ROLLBACK through con.execute.',
+      solution:`con.execute("BEGIN TRANSACTION")
+try:
+    con.execute("DELETE FROM chart_entries WHERE chart_date = ?", [chart_date])
+    con.executemany(
+        "INSERT INTO chart_entries VALUES (?,?,?,?,?,?,?,?,?)",
+        [tuple(r.values()) for r in rows],
+    )
+    con.execute("COMMIT")
+except Exception:
+    con.execute("ROLLBACK")
+    raise`,
+      explain:'If anything fails inside the try, ROLLBACK restores the previous rows for that day, and <code>raise</code> still fails the job loudly. I tested this against DuckDB: a duplicate key in executemany otherwise leaves the day <b>partially</b> inserted. Saying "I\'d wrap it in a transaction" is a strong answer to "what would you improve?".' }
+  ]
+},
+
+{ id:'pj5', title:'SQL models: chart_movement & artist_summary',
+  theory:{
+    why:'Raw rows answer "what was the chart on day X?". The questions people actually ask are about <b>change</b> ("who climbed?") and <b>dominance</b> ("who owns the chart?"). Models encode those questions <b>once</b>, so every query and dashboard uses the same logic. They\'re views, so they always reflect the latest load and take up no storage.',
+    body:[
+      '<code>CREATE OR REPLACE VIEW</code> is DuckDB syntax that creates the view or overwrites its definition, so editing a .sql file takes effect on the next run. A view stores the <i>query</i>, not data. SQLite (the engine in this app) has no OR REPLACE, so the app runs <code>DROP VIEW IF EXISTS</code> + <code>CREATE VIEW</code> instead.',
+      '<b>chart_movement</b>: <code>LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position</code> gives the song\'s position on its <b>previous appearance</b>. <code>… - position AS places_gained</code>: a lower number is better, so <b>positive = climbed</b>. A first appearance has no previous row, LAG returns NULL, and NULL minus anything is NULL.',
+      'It partitions by <b>track_id</b>, not title, because different songs can share a title and track_id is the stable key.',
+      '"Previous appearance" is not the same as "yesterday". If a song drops out and comes back (a <b>re-entry</b>), LAG compares it with its last appearance. In the sample data, Freddy Kooger is #5 on 10-16, missing on 10-17 and #5 again on 10-18, so places_gained is 0.',
+      'The window is written twice. That\'s fine, and a CTE could compute it once, but it\'s a matter of style.',
+      '<b>artist_summary</b>: <code>GROUP BY artist</code> with <code>COUNT(DISTINCT track_id) AS songs_charted</code>, <code>MIN(position) AS best_position</code> (the lowest number is the best) and <code>COUNT(DISTINCT chart_date) AS days_on_chart</code>. It needs DISTINCT because one artist can have several songs on the same day. It ends with <code>ORDER BY songs_charted DESC, best_position</code>.',
+      'Caveats: it groups by the artist <i>name string</i>, so featured artists aren\'t credited. An ORDER BY inside a view isn\'t guaranteed once you query the view with other clauses, so put ORDER BY in the final query.'
+    ],
+    pro:'"chart_movement uses LAG partitioned by track_id and ordered by chart_date to get each song\'s previous position, and places_gained is prev minus current, so positive means it climbed and NULL marks a new entry. artist_summary aggregates by artist with COUNT DISTINCT for songs and days, and MIN position as the best peak."',
+    q:{ q:'Why COUNT(DISTINCT chart_date) and not COUNT(*) for days_on_chart?', a:'COUNT(*) counts rows. Ayra Starr has two songs on 2026-10-17, so COUNT(*) would count that one day twice. COUNT(DISTINCT chart_date) counts days.' }
+  },
+  terms:[
+    { id:'pj5-t1', term:'View', def:'A [[stored query]] that behaves like a table but holds [[no data]] itself; it is recomputed when queried.' },
+    { id:'pj5-t2', term:'CREATE OR REPLACE VIEW', def:'DuckDB syntax that creates a view or [[overwrites]] its definition, so re-running the SQL file is [[idempotent]].' },
+    { id:'pj5-t3', term:'prev_position', def:'The song\'s position on its [[previous appearance]], found with LAG over a partition by [[track_id]] ordered by chart_date.' },
+    { id:'pj5-t4', term:'places_gained', def:'prev_position [[minus]] position: [[positive]] means the song climbed and NULL means a new entry.' },
+    { id:'pj5-t5', term:'Re-entry', def:'A song that [[left the chart]] and came back; LAG compares it with its [[last appearance]], not with yesterday.' }
+  ],
+  code:[
+    { id:'pj5-c1', src:'sql/01_chart_movement.sql', task:'sql/01_chart_movement.sql: the whole model.', lang:'sql',
+      runSql:`DROP VIEW IF EXISTS chart_movement;
+CREATE VIEW chart_movement AS
+SELECT chart_date, position, title, artist,
+    LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position,
+    LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) - position AS places_gained
+FROM chart_entries;`,
+      show:`SELECT * FROM chart_movement WHERE chart_date = '2026-10-18' ORDER BY position;`,
+      code:`CREATE OR REPLACE [[VIEW]] chart_movement AS
+SELECT
+    chart_date,
+    position,
+    title,
+    artist,
+    [[LAG]](position) OVER (PARTITION BY [[track_id]] ORDER BY chart_date) AS prev_position,
+    LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) [[- position]] AS places_gained
+FROM chart_entries;` },
+    { id:'pj5-c2', src:'sql/02_artist_summary.sql', task:'sql/02_artist_summary.sql: who dominates the chart.', lang:'sql',
+      runSql:`DROP VIEW IF EXISTS artist_summary;
+CREATE VIEW artist_summary AS
+SELECT artist,
+    COUNT(DISTINCT track_id)  AS songs_charted,
+    MIN(position)             AS best_position,
+    COUNT(DISTINCT chart_date) AS days_on_chart
+FROM chart_entries
+GROUP BY artist
+ORDER BY songs_charted DESC, best_position;`,
+      show:'SELECT * FROM artist_summary;',
+      code:`CREATE OR REPLACE VIEW artist_summary AS
+SELECT
+    artist,
+    COUNT([[DISTINCT]] track_id)  AS songs_charted,
+    [[MIN]](position)             AS best_position,
+    COUNT(DISTINCT [[chart_date]]) AS days_on_chart
+FROM chart_entries
+[[GROUP BY]] artist
+ORDER BY songs_charted [[DESC]], best_position;` },
+    { id:'pj5-c3', src:'README.md', task:'README example: biggest climbers today.', lang:'sql',
+      runSql:`SELECT * FROM chart_movement
+WHERE chart_date = (SELECT MAX(chart_date) FROM chart_entries) ORDER BY places_gained DESC LIMIT 10;`,
+      code:`SELECT * FROM [[chart_movement]]
+WHERE chart_date = [[CURRENT_DATE]] ORDER BY [[places_gained]] DESC LIMIT 10;` }
+  ],
+  qa:[
+    { id:'pj5-q1', q:'What breaks if chart_movement used PARTITION BY title instead of track_id?', a:'Two [[different songs]] with the same title would be treated as one, so LAG would compare positions of unrelated tracks and places_gained would be [[wrong]]. track_id is the stable [[unique key]].' },
+    { id:'pj5-q2', q:'What breaks if you remove ORDER BY chart_date inside OVER (...)?', a:'LAG then has no defined order, so the "previous" row is [[arbitrary]] and prev_position becomes [[meaningless]]. Results can even change between runs.' },
+    { id:'pj5-q3', q:'In the README query, why would a NULLs-first database put new entries at the top of ORDER BY places_gained DESC?', a:'New entries have places_gained = [[NULL]]. Databases differ on where NULLs [[sort]] (DuckDB and SQLite put them last in DESC, Postgres puts them first), so add [[NULLS LAST]] or filter them out to be explicit.' }
+  ],
+  problems:[
+    { id:'pj5-p1', kind:'sql', ordered:true, title:'Today\'s biggest climber',
+      scenario:'Using the <code>chart_movement</code> view, return the title and places_gained of the single biggest climber on the <b>latest</b> chart date in the table.',
+      hint:'Latest date = (SELECT MAX(chart_date) FROM chart_entries). ORDER BY places_gained DESC LIMIT 1.',
+      solution:`SELECT title, places_gained
+FROM chart_movement
+WHERE chart_date = (SELECT MAX(chart_date) FROM chart_entries)
+ORDER BY places_gained DESC
+LIMIT 1;`,
+      explain:'"God is a woman" went from #4 to #2 (+2). The sample data stops at a fixed date, so the README\'s <code>CURRENT_DATE</code> would match nothing here. <code>MAX(chart_date)</code> means "the latest load", which also works when you re-run old data.' }
+  ]
+}
+];
+
+const PROJECT_LESSONS_B = [
+{ id:'pj6', title:'tests: pytest, tmp_path & what each test protects',
+  theory:{
+    why:'transform.py holds your business rules: positions, quality gates. If someone (future you) edits it, you want a machine to tell you <b>instantly</b> whether the rules still hold, <b>before</b> the daily job loads anything. Tests also document intended behaviour, and your workflow runs <code>pytest -q</code> before the pipeline, so a failing test blocks the run.',
+    body:[
+      'pytest collects files named <code>test_*.py</code> and functions named <code>test_*</code>. Checks are plain <code>assert</code>s. <code>with pytest.raises(AssertionError):</code> passes <b>only if</b> the code inside raises that exception.',
+      '<b>pytest.ini</b>: <code>[pytest]</code> / <code>pythonpath = .</code> adds the repo root to the import path, so <code>from pipeline.transform import clean_rows</code> works when you run plain <code>pytest</code>. Without it, the workflow\'s <code>pytest -q</code> fails with <code>ModuleNotFoundError: No module named \'pipeline\'</code>. (I checked: <code>python -m pytest</code> happens to work because it adds the current folder.)',
+      '<b>tmp_path</b> is a <b>built-in fixture</b>. pytest sees a parameter with that name and injects a fresh, unique temporary directory as a <code>pathlib.Path</code>, so tests never touch the real <code>data/raw/</code>.',
+      '<b>Helpers</b>: <code>_raw(tmp_path, tracks)</code> writes a fake raw file in exactly the shape extract produces, and <code>_track(i, title="Song")</code> builds a minimal Deezer-like track. The leading underscore and the missing <code>test_</code> prefix mean pytest doesn\'t collect them as tests.',
+      '<b>What each test protects</b>: <code>test_positions_follow_order</code> protects <code>enumerate(start=1)</code>, <code>test_rejects_duplicates</code> protects the unique track_id gate, and <code>test_rejects_missing_title</code> protects the title/artist gate.',
+      '<b>Gaps</b>: nothing tests load (idempotency), extract (pagination, with a mocked HTTP call) or the SQL models. A load test is easy. Load the same rows twice into a DuckDB file under tmp_path and assert the count doesn\'t change (it\'s in this lesson\'s problem).'
+    ],
+    pro:'"Transform is covered by pytest unit tests that build fake raw files with the tmp_path fixture: positions follow playlist order, duplicates are rejected, and missing titles are rejected. They run in CI before the pipeline, so a broken rule can\'t load data."',
+    q:{ q:'Why don\'t the tests call the real Deezer API?', a:'Tests must be fast, deterministic and offline. Real chart data changes daily and the network can fail, so the tests build their own input with _raw and _track, and a failure always means the code changed.' }
+  },
+  terms:[
+    { id:'pj6-t1', term:'pytest fixture', def:'A reusable setup value that pytest [[injects]] into a test function by its [[parameter name]].' },
+    { id:'pj6-t2', term:'tmp_path', def:'A built-in pytest fixture that gives each test a [[unique temporary directory]] as a [[pathlib.Path]].' },
+    { id:'pj6-t3', term:'pytest.raises', def:'A context manager that makes a test [[pass only if]] the code inside raises the [[expected exception]].' },
+    { id:'pj6-t4', term:'Test isolation', def:'Each test builds its [[own input]] and does not depend on the network, real files or [[other tests]].' },
+    { id:'pj6-t5', term:'pythonpath = .', def:'A pytest.ini setting that adds the [[project root]] to the import path so tests can import the [[pipeline]] package.' }
+  ],
+  code:[
+    { id:'pj6-c1', src:'tests/test_transform.py', task:'The helper that writes a fake raw file.', lang:'python',
+      code:`def _raw(tmp_path, tracks):
+    f = tmp_path / "[[raw.json]]"
+    f.[[write_text]](json.dumps({"chart_date": "2026-10-17", "tracks": tracks}))
+    return [[f]]` },
+    { id:'pj6-c2', src:'tests/test_transform.py', task:'The helper that builds a minimal Deezer track.', lang:'python',
+      code:`def _track(i, title="[[Song]]"):
+    return {"id": i, "title": title, "artist": {"[[name]]": "Artist"},
+            "album": {"title": "Album"}, "duration": 180, "rank": 5000}` },
+    { id:'pj6-c3', src:'tests/test_transform.py', task:'Test: positions follow the playlist order.', lang:'python',
+      code:`def test_positions_follow_order([[tmp_path]]):
+    rows = clean_rows([[_raw]](tmp_path, [_track(1), _track(2)]))
+    [[assert]] [r["position"] for r in rows] == [1, 2]` },
+    { id:'pj6-c4', src:'tests/test_transform.py', task:'Test: duplicate tracks are rejected.', lang:'python',
+      code:`def test_rejects_duplicates(tmp_path):
+    with pytest.[[raises]]([[AssertionError]]):
+        clean_rows(_raw(tmp_path, [_track(1), _track(1)]))` },
+    { id:'pj6-c5', src:'pytest.ini', task:'pytest.ini: make the pipeline package importable.', lang:'ini',
+      code:`[pytest]
+[[pythonpath]] = [[.]]` }
+  ],
+  qa:[
+    { id:'pj6-q1', q:'What breaks if you delete test_rejects_duplicates?', a:'Nothing fails today. But if someone later removes the duplicate assert in transform.py, [[no test catches it]], and duplicates reach load.py, where the primary key [[fails the run]] mid-load.' },
+    { id:'pj6-q2', q:'What breaks if you remove pythonpath = . from pytest.ini?', a:'Plain pytest can\'t import the pipeline package: [[ModuleNotFoundError]], because the repo root is [[not on the import path]]. The workflow\'s pytest -q step fails and the pipeline [[never runs]].' },
+    { id:'pj6-q3', q:'Why write the fake file to tmp_path instead of data/raw/?', a:'tmp_path is [[unique per test]] and managed by pytest, so tests can\'t [[overwrite real raw files]] or interfere with each other.' }
+  ],
+  problems:[
+    { id:'pj6-p1', kind:'open', title:'Test that load() is idempotent',
+      scenario:'Write a pytest test proving that calling <code>load()</code> twice with the same rows leaves the table with the same number of rows. Use <code>tmp_path</code> so it never touches <code>data/charts.duckdb</code>.',
+      hint:'load(rows, db_path=...) returns the table\'s total row count. Build rows with all 9 keys in the right order.',
+      solution:`from pipeline.load import load
+
+
+def _row(track_id, position):
+    return {"chart_date": "2026-10-17", "position": position, "track_id": track_id,
+            "title": "Song", "artist": "Artist", "album": "Album",
+            "duration_sec": 180, "deezer_rank": 5000, "explicit": False}
+
+
+def test_load_is_idempotent(tmp_path):
+    db = str(tmp_path / "test.duckdb")
+    rows = [_row(1, 1), _row(2, 2)]
+    assert load(rows, db_path=db) == 2
+    assert load(rows, db_path=db) == 2   # re-run: still 2, no duplicates`,
+      explain:'I ran this exact test against your repo\'s code with pytest, and it passes. It turns your main design claim ("loads are idempotent") into something CI checks on every run. The dict keys must follow the column order because load inserts <code>tuple(r.values())</code> by position.' }
+  ]
+},
+
+{ id:'pj7', title:'GitHub Actions: cron, permissions & the commit step',
+  theory:{
+    why:'A pipeline that only runs when you remember to run it isn\'t a pipeline. You need a <b>scheduler</b>, a <b>clean machine</b> each time, the tests as a <b>gate</b>, and somewhere to <b>keep the output</b>. GitHub Actions gives free runners for public repos, and committing <code>data/</code> back to the repo makes Git your storage, with full history.',
+    body:[
+      '<code>on: schedule: - cron: "17 7 * * *"</code> has five fields: minute, hour, day-of-month, month and day-of-week. It means 07:17 <b>UTC</b> every day. GitHub can delay scheduled runs when it\'s busy (especially on the hour), and an odd minute like :17 helps.',
+      '<code>workflow_dispatch: {}</code> adds a <b>Run workflow</b> button (and API/CLI trigger) for manual runs and re-runs. Your first data commit, "data: chart for 2026-10-18" by chart-bot, came from a run shortly after the initial push.',
+      '<code>permissions: contents: write</code> lets the job\'s automatic <code>GITHUB_TOKEN</code> push commits. If the default token is read-only (the default for newer repos), the final <code>git push</code> is rejected without it.',
+      'Steps run <b>in order</b>, and a failing step stops the job: <code>actions/checkout@v4</code> → <code>actions/setup-python@v5</code> with Python 3.12 → <code>pip install -r requirements.txt</code> → <code>pytest -q</code> (the <b>gate</b>) → <code>python run_pipeline.py</code> → "Commit new data".',
+      '<b>Commit step</b>: set a bot identity, <code>git add data/</code>, then <code>git diff --cached --quiet || git commit -m "data: chart for $(date -u +%F)"</code>. <code>diff --cached --quiet</code> exits 0 when nothing is staged, so the commit is skipped instead of failing. <code>$(date -u +%F)</code> is today\'s date as YYYY-MM-DD in UTC. Then <code>git push</code>.',
+      'Trade-offs: every run commits the whole DuckDB binary (it went from about 0.8 MB to 1.3 MB in one day), so the repo grows. In public repos, GitHub disables scheduled workflows after 60 days with no repository activity.'
+    ],
+    pro:'"A GitHub Actions workflow runs daily at 07:17 UTC (and on demand via workflow_dispatch). It installs dependencies, runs pytest as a gate, runs the pipeline, and commits only when data changed, using a contents: write token."',
+    q:{ q:'Why run pytest before run_pipeline.py in the same job?', a:'Steps run in order and a failed step stops the job. If transform\'s rules are broken, the pipeline never runs and no bad data is loaded or committed.' }
+  },
+  terms:[
+    { id:'pj7-t1', term:'Cron expression', def:'Five fields (minute, hour, day of month, month, day of week); "17 7 * * *" means [[07:17]] [[UTC]] every day.' },
+    { id:'pj7-t2', term:'workflow_dispatch', def:'A trigger that lets you run a workflow [[manually]] from the [[Actions tab]], API or CLI.' },
+    { id:'pj7-t3', term:'GITHUB_TOKEN permissions', def:'The automatic token\'s rights; [[contents: write]] is needed for the job to [[push commits]] back to the repo.' },
+    { id:'pj7-t4', term:'CI gate', def:'Running the [[tests before]] the pipeline so a failing test [[stops the job]] before data changes.' }
+  ],
+  code:[
+    { id:'pj7-c1', src:'.github/workflows/daily.yml', task:'Triggers: daily schedule plus a manual button.', lang:'yaml',
+      code:`on:
+  [[schedule]]:
+    - cron: "[[17 7 * * *]]"   # 07:17 UTC daily
+  [[workflow_dispatch]]: {}` },
+    { id:'pj7-c2', src:'.github/workflows/daily.yml', task:'Let the job push commits.', lang:'yaml',
+      code:`permissions:
+  [[contents]]: [[write]]` },
+    { id:'pj7-c3', src:'.github/workflows/daily.yml', task:'The job steps up to running the pipeline.', lang:'yaml',
+      code:`- uses: actions/[[checkout]]@v4
+- uses: actions/setup-python@v5
+  with: { python-version: "[[3.12]]" }
+- run: pip install -r requirements.txt
+- run: [[pytest -q]]
+- run: python [[run_pipeline.py]]` },
+    { id:'pj7-c4', src:'.github/workflows/daily.yml', task:'Commit the new data only if something changed.', lang:'bash',
+      code:`git add [[data/]]
+git diff [[--cached --quiet]] || git commit -m "data: chart for $(date -u +%F)"
+git [[push]]` }
+  ],
+  qa:[
+    { id:'pj7-q1', q:'What breaks if you remove permissions: contents: write?', a:'With a read-only default token, the pipeline still runs but the final [[git push]] is [[rejected]], the job fails, and the new data is [[lost]] when the runner is destroyed.' },
+    { id:'pj7-q2', q:'What breaks if you drop "git diff --cached --quiet ||"?', a:'On a run where nothing changed, git commit exits with an [[error]] because there is [[nothing to commit]], so the job goes red even though the pipeline worked.' },
+    { id:'pj7-q3', q:'What happens to the data if the pytest step fails?', a:'The later steps [[don\'t run]], so the pipeline never touches the data that day. You get no bad data, but a [[missing day]] unless you fix it and re-run before the chart updates.' }
+  ],
+  problems:[
+    { id:'pj7-p1', kind:'open', title:'Run twice a day',
+      scenario:'You want a second run at 19:17 UTC as a safety net. Change the schedule, and explain whether the data stays correct when both runs happen on the same day.',
+      hint:'Cron fields accept lists like 7,19. What does load do for a date that already exists?',
+      solution:`on:
+  schedule:
+    - cron: "17 7,19 * * *"   # 07:17 and 19:17 UTC
+  workflow_dispatch: {}
+
+Still correct: both runs use the same UTC date, so extract overwrites the same raw file and load deletes that chart_date and re-inserts it. The second run replaces the first; no duplicates. If nothing changed, the commit step skips the commit.`,
+      explain:'This is idempotency paying off. Because the load replaces a partition, adding triggers or retries is safe. Mentioning that link between scheduling and idempotency is exactly what interviewers look for.' }
+  ]
+},
+
+{ id:'pj8', title:'run_pipeline.py: orchestration',
+  theory:{
+    why:'Each stage is a function. Something has to call them <b>in the right order</b>, pass each output to the next input, and <b>stop if one fails</b>. That\'s orchestration. In your repo it\'s about 20 lines of Python. At larger scale Airflow does the same job, adding retries, dependencies, backfills and a UI.',
+    body:[
+      '<code>if __name__ == "__main__":</code>, then <code>raw = extract()</code>, <code>load(clean_rows(raw))</code>, <code>build_models()</code>. This block runs only when the file is executed directly (<code>python run_pipeline.py</code>), not when it\'s imported.',
+      '<b>Fail-fast</b>: Python stops at the first uncaught exception. A failed assert in clean_rows means load never runs, and a failed load means the models aren\'t rebuilt.',
+      '<b>build_models</b> connects to <code>DB_PATH</code> and loops over <code>sorted(Path("sql").glob("*.sql"))</code>. <code>sorted</code> makes the order deterministic, and the <code>01_</code>/<code>02_</code> prefixes decide which model builds first, which matters once one view depends on another. Each file runs with <code>con.execute(sql_file.read_text())</code> and logs <code>model: built {sql_file.stem}</code>.',
+      '<b>Relative paths</b>: "sql", "data/raw" and "data/charts.duckdb" resolve from the <b>working directory</b>, so the script must start from the repo root (as GitHub Actions does after checkout).',
+      'What it doesn\'t have: a way to re-load a saved raw file (a backfill option), retries, or alerting. That\'s the gap Airflow (Module 5) fills.'
+    ],
+    pro:'"run_pipeline.py is a small fail-fast orchestrator. It chains extract, transform and load through their return values, then builds the SQL models in a deterministic sorted order. At scale I\'d move these steps into an Airflow DAG for retries and backfills."',
+    q:{ q:'Why wrap the glob in sorted()?', a:'glob returns files in filesystem order, which isn\'t guaranteed. sorted() makes 01_chart_movement.sql build before 02_artist_summary.sql on every machine.' }
+  },
+  terms:[
+    { id:'pj8-t1', term:'Orchestration', def:'Coordinating pipeline [[steps]] so they run in the right [[order]], pass data along and stop on failure.' },
+    { id:'pj8-t2', term:'Fail-fast', def:'Stopping at the [[first error]] so later steps never run on [[bad or missing]] input.' },
+    { id:'pj8-t3', term:'if __name__ == "__main__"', def:'A guard so code runs only when the file is [[executed directly]], not when it is [[imported]].' },
+    { id:'pj8-t4', term:'Deterministic build order', def:'Using [[sorted()]] and numeric file prefixes (01_, 02_) so models always build in the [[same order]].' }
+  ],
+  code:[
+    { id:'pj8-c1', src:'run_pipeline.py', task:'The entry point: chain the three stages, then build the models.', lang:'python',
+      code:`if __name__ == "[[__main__]]":
+    raw = [[extract]]()
+    [[load]](clean_rows(raw))
+    build_models()` },
+    { id:'pj8-c2', src:'run_pipeline.py', task:'build_models: run every SQL file in order.', lang:'python',
+      code:`def build_models(db_path: str = DB_PATH) -> None:
+    con = duckdb.connect(db_path)
+    for sql_file in [[sorted]](Path("sql").[[glob]]("*.sql")):
+        con.execute(sql_file.[[read_text]]())
+        print(f"model: built {sql_file.[[stem]]}")
+    con.close()` }
+  ],
+  qa:[
+    { id:'pj8-q1', q:'What breaks if you start it from another folder, e.g. cd pipeline && python ../run_pipeline.py?', a:'Imports still work, because Python adds the script\'s folder to the path. But relative paths resolve from the [[working directory]]: data is written under pipeline/data/, and Path("sql").glob finds [[no files]], so no models are built and [[nothing errors]].' },
+    { id:'pj8-q2', q:'What breaks if you remove sorted() around the glob?', a:'Files come back in [[filesystem order]], which isn\'t guaranteed. Today the two views are independent, but a model that [[depends on another view]] could fail when it builds first.' },
+    { id:'pj8-q3', q:'What breaks if build_models() runs before load() on a brand-new repo?', a:'The views reference chart_entries, which [[doesn\'t exist yet]]. DuckDB raises a [[Catalog Error]] when creating the view, so the run fails.' }
+  ],
+  problems:[
+    { id:'pj8-p1', kind:'open', title:'Add a --from-raw backfill option',
+      scenario:'The API can\'t give you old charts, but your <code>data/raw/</code> folder can. Add a command-line option so <code>python run_pipeline.py --from-raw data/raw/top_nigeria_2026-10-17.json</code> re-transforms and re-loads a saved file instead of calling the API.',
+      hint:'argparse. If the option is given, skip extract() and use that Path.',
+      solution:`import argparse
+from pathlib import Path
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from-raw", help="re-load a saved raw file instead of calling the API")
+    args = parser.parse_args()
+    raw = Path(args.from_raw) if args.from_raw else extract()
+    load(clean_rows(raw))
+    build_models()`,
+      explain:'This is a real <b>backfill</b>. It works because the raw file stores its own chart_date and the load is idempotent, so re-loading a past day just replaces that partition. Raw layer + idempotent load = safe replays: say that sentence in interviews.' }
+  ]
+},
+
+{ id:'pj9', title:'Hands-on: extend the pipeline',
+  theory:{
+    why:'"How would you extend it?" is one of the most common interview follow-ups. Actually building small extensions proves you understand your own data model. These tasks run on a sample <code>chart_entries</code> table with the <b>same columns as your DuckDB table</b>: the top 8 for 2026-10-16, 17 and 18. The tracks are real, the positions are illustrative, and the <code>chart_movement</code> and <code>artist_summary</code> views already exist.',
+    body:[
+      '<b>"Today"</b> = <code>(SELECT MAX(chart_date) FROM chart_entries)</code>. <code>CURRENT_DATE</code> won\'t match sample data, and MAX also works when you re-run old loads.',
+      '<b>New entry vs re-entry</b>: a new entry has <code>prev_position IS NULL</code>. A re-entry (Freddy Kooger: #5 on 10-16, absent on 10-17, back on 10-18) has a prev_position from its last appearance, so it is <i>not</i> new.',
+      '<b>Dropper vs drop-out</b>: a dropper is still on today\'s chart with negative places_gained. A drop-out was on the previous chart and is <b>missing</b> today, so it never appears in today\'s rows. Finding it needs an <b>anti-join</b> against the previous date.',
+      'Make results <b>deterministic</b>: when values tie, add a tie-breaker to ORDER BY (for example title).'
+    ],
+    pro:'"I extended the model with a new-entries view based on LAG returning NULL, a droppers report, and a drop-outs check using an anti-join against the previous chart date."',
+    q:{ q:'On the very first day the pipeline ever ran, how many songs would a naive "prev_position IS NULL" view call new?', a:'All of them, because nothing has a previous row yet. That\'s why the view also filters on the latest date, and why you\'d treat the first load as a baseline rather than "100 new entries".' }
+  },
+  terms:[
+    { id:'pj9-t1', term:'New entry', def:'A song whose [[first-ever]] appearance is today, so its prev_position is [[NULL]].' },
+    { id:'pj9-t2', term:'Dropper', def:'A song still on today\'s chart whose places_gained is [[negative]], meaning it [[fell]].' },
+    { id:'pj9-t3', term:'Drop-out', def:'A song on the previous chart that is [[missing]] today; finding it needs an [[anti-join]].' },
+    { id:'pj9-t4', term:'Deterministic tie-break', def:'Adding a second ORDER BY column such as [[title]] so tied rows always come back in the [[same order]].' }
+  ],
+  code:[
+    { id:'pj9-c1', task:'Find the latest chart date ("today" for this data).', lang:'sql', code:'SELECT [[MAX]](chart_date) AS today\nFROM [[chart_entries]];' },
+    { id:'pj9-c2', task:'New entries on the latest date, using chart_movement.', lang:'sql',
+      code:`SELECT title, artist
+FROM chart_movement
+WHERE [[prev_position IS NULL]]
+  AND chart_date = (SELECT [[MAX]](chart_date) FROM chart_entries);` },
+    { id:'pj9-c3', task:'Count #1 days per artist.', lang:'sql',
+      code:`SELECT artist, [[COUNT(*)]] AS days_at_1
+FROM chart_entries
+WHERE position = [[1]]
+GROUP BY [[artist]];` }
+  ],
+  qa:[],
+  problems:[
+    { id:'pj9-p1', kind:'sql', title:'Task 1: a view of today\'s new entries',
+      after:'SELECT title, artist FROM new_entries;',
+      scenario:'Create a view <code>new_entries</code> with chart_date, position, title and artist for songs appearing on the chart for the <b>first time</b> on the latest chart date. Re-entries don\'t count. (The checker runs <code>SELECT title, artist FROM new_entries</code> after your code.)',
+      hint:'Build on chart_movement: prev_position IS NULL, plus chart_date = the MAX date.',
+      solution:`CREATE VIEW new_entries AS
+SELECT chart_date, position, title, artist
+FROM chart_movement
+WHERE prev_position IS NULL
+  AND chart_date = (SELECT MAX(chart_date) FROM chart_entries);`,
+      explain:'Only <b>Dicey</b> (Dice Ailes) is new. Freddy Kooger is a re-entry, because LAG finds his 10-16 row. Reusing chart_movement rather than repeating the LAG logic is how layered models (and dbt) work: one definition, many consumers. In DuckDB you\'d write <code>CREATE OR REPLACE VIEW</code> to match your other models.' },
+    { id:'pj9-p2', kind:'sql', ordered:true, title:'Task 2: biggest droppers',
+      scenario:'For the latest chart date, list songs that <b>fell</b>: title, prev_position, position and places_gained. Order by places_gained (worst first), with ties broken by title.',
+      hint:'chart_movement, latest date, places_gained < 0, ORDER BY places_gained, title.',
+      solution:`SELECT title, prev_position, position, places_gained
+FROM chart_movement
+WHERE chart_date = (SELECT MAX(chart_date) FROM chart_entries)
+  AND places_gained < 0
+ORDER BY places_gained, title;`,
+      explain:'"waf" fell 5 places (3 → 8). "Goodbye (Warm Up)" and "Owo Oluwa" tie at −1, so the title tie-breaker makes the order deterministic. <code>places_gained < 0</code> also excludes new entries automatically, because NULL < 0 is UNKNOWN, not TRUE.' },
+    { id:'pj9-p3', kind:'sql', title:'Task 3: artist with the most #1 days',
+      scenario:'Which artist held position 1 on the most chart days? Return artist and days_at_1 for the top artist only.',
+      hint:'WHERE position = 1, GROUP BY artist, ORDER BY the count DESC, LIMIT 1.',
+      solution:`SELECT artist, COUNT(*) AS days_at_1
+FROM chart_entries
+WHERE position = 1
+GROUP BY artist
+ORDER BY days_at_1 DESC
+LIMIT 1;`,
+      explain:'Ayra Starr had 2 of the 3 days (Victony had 10-16). One row per (date, position) means COUNT(*) counts days here. With real data, ties are possible: <code>RANK() OVER (ORDER BY COUNT(*) DESC)</code> and then <code>WHERE rnk = 1</code> returns every tied artist instead of an arbitrary one.' },
+    { id:'pj9-p4', kind:'sql', title:'Bonus: songs that dropped off the chart',
+      scenario:'Return the title and artist of every song that was on the chart on the <b>previous</b> chart date but is <b>missing</b> from the latest one.',
+      hint:'Previous date = MAX(chart_date) below the latest. Then NOT EXISTS a row for the same track_id on the latest date.',
+      solution:`WITH d AS (
+  SELECT MAX(chart_date) AS today,
+         (SELECT MAX(chart_date) FROM chart_entries
+          WHERE chart_date < (SELECT MAX(chart_date) FROM chart_entries)) AS prev_day
+  FROM chart_entries
+)
+SELECT c.title, c.artist
+FROM chart_entries c, d
+WHERE c.chart_date = d.prev_day
+  AND NOT EXISTS (
+    SELECT 1 FROM chart_entries t
+    WHERE t.track_id = c.track_id AND t.chart_date = d.today
+  );`,
+      explain:'"Honey B" and "DON\'T LOVE ME" dropped out. They\'re invisible in chart_movement for today because they have no row today. That\'s why drop-outs need an <b>anti-join</b> (NOT EXISTS or LEFT JOIN … IS NULL) against yesterday.' },
+    { id:'pj9-p5', kind:'open', title:'Task 4: a positions-are-1..N quality check (Python)',
+      scenario:'Add a data-quality check to <code>transform.py</code>: the positions must be exactly 1..N with no gaps and no duplicates. Call it from <code>clean_rows</code>, and write a pytest test that proves it rejects a gap.',
+      hint:'sorted(positions) should equal list(range(1, len(rows) + 1)).',
+      solution:`# pipeline/transform.py
+def check_positions(rows: list[dict]) -> None:
+    positions = sorted(r["position"] for r in rows)
+    assert positions == list(range(1, len(rows) + 1)), "positions must be 1..N with no gaps"
+
+# in clean_rows, just before "return rows":
+#     check_positions(rows)
+
+# tests/test_transform.py
+from pipeline.transform import check_positions
+
+
+def test_rejects_position_gap():
+    with pytest.raises(AssertionError):
+        check_positions([{"position": 1}, {"position": 3}])
+
+
+def test_accepts_full_sequence():
+    check_positions([{"position": 2}, {"position": 1}])`,
+      explain:'I ran these tests against a copy of your repo and they pass. Be honest in interviews: today positions come from <code>enumerate(start=1)</code>, so they can\'t have gaps. The check guards <b>future changes</b>, such as reading a position field from the API or filtering rows. That\'s what quality checks are for: they protect the rule, not the current implementation.' },
+    { id:'pj9-p6', kind:'sql', title:'Task 4b: the same check in SQL',
+      setup:`INSERT INTO chart_entries (chart_date, position, track_id, title, artist, album, duration_sec, deezer_rank, explicit) VALUES
+ ('2026-10-19',1,4209009742,'Heaven Baby','Ayra Starr','Starrgirl',159,914621,0),
+ ('2026-10-19',2,542389502,'God is a woman','Ariana Grande','Sweetener',197,827371,1),
+ ('2026-10-19',4,1869853847,'Dicey','Dice Ailes','Dicey',182,68909,0);`,
+      scenario:'A broken load added 2026-10-19 with positions 1, 2, 4. Write a query that returns each chart_date whose positions are <b>not</b> exactly 1..N. Return chart_date, n (rows) and max_pos.',
+      hint:'Per date, positions are 1..N exactly when MIN = 1, MAX = COUNT(*) and COUNT(DISTINCT position) = COUNT(*).',
+      solution:`SELECT chart_date, COUNT(*) AS n, MAX(position) AS max_pos
+FROM chart_entries
+GROUP BY chart_date
+HAVING MIN(position) <> 1
+    OR MAX(position) <> COUNT(*)
+    OR COUNT(DISTINCT position) <> COUNT(*);`,
+      explain:'This returns 2026-10-19 (3 rows but max position 4). In SQL the check runs <b>after</b> load, against everything in the warehouse, which complements the Python check that runs <b>before</b> load. A dbt test is exactly this: a query that should return zero rows.' }
+  ]
+},
+
+{ id:'pj10', title:'Mock interview: your project',
+  theory:{
+    why:'In an interview you have to explain <b>your own code</b>, fluently, under pressure. If the core answers are drilled until they come automatically, your working memory is free for the follow-up questions, which is where interviews are won. Every answer below is checked against your actual repo.',
+    body:[
+      '<b>Frame for any answer</b>: Point (one sentence) → Evidence from the code (file, function, line) → Trade-off → Improvement. Keep it to 30–60 seconds, then stop and let them dig.',
+      '<b>Be precise</b>: say "delete-then-insert of the run date\'s partition", not "upsert", because that\'s what load.py does.',
+      '<b>Own the limitations</b>: no transaction around DELETE + INSERT, asserts are skipped under -O, no backfill option, unpinned dependencies, and the DuckDB binary is committed to Git. Naming a gap <i>and</i> its fix sounds senior.',
+      'Drill each question below through the fade ladder until Level 4. Then say the answers out loud while walking. Spoken fluency is a separate skill from typing.'
+    ],
+    pro:'"I\'d be happy to walk you through it, and I can also tell you the three things I\'d change first."',
+    q:{ q:'An interviewer asks something about your project that you\'ve never thought about. What\'s the best move?', a:'Think aloud from first principles using your code. Say what the code does today, what would happen in their scenario, and how you\'d change it. Honest reasoning beats a bluff.' }
+  },
+  terms:[],
+  code:[],
+  qa:[
+    { id:'pj10-q1', q:'"Walk me through your pipeline."', a:'It\'s a daily [[batch ETL]] for the Deezer Top Nigeria chart. A [[GitHub Actions cron]] runs run_pipeline.py at 07:17 UTC. extract.py follows the API\'s pagination and saves [[raw JSON]] per date, transform.py flattens the tracks and asserts quality rules, load.py does an [[idempotent]] delete-then-insert into DuckDB, and SQL views use [[LAG]] for chart movement. Tests run first, and the job commits the data back to the repo.' },
+    { id:'pj10-q2', q:'"How do you handle failures and re-runs?"', a:'Every stage [[fails loudly]]: raise_for_status for HTTP errors, asserts for bad data, and pytest runs first, so a failure stops the job before data changes. Re-runs are safe because load replaces the [[run date\'s partition]], with a [[primary key]] as a backstop, and I can re-run with [[workflow_dispatch]]. One gap I\'d fix: wrapping the delete and insert in a [[transaction]].' },
+    { id:'pj10-q3', q:'"What exactly makes the load idempotent?"', a:'load.py runs DELETE FROM chart_entries WHERE chart_date = ? and then inserts that day\'s rows, so running it [[twice]] leaves exactly [[one copy]] of the day. The [[composite primary key]] (chart_date, track_id) makes a duplicate raise an error instead of silently doubling counts.' },
+    { id:'pj10-q4', q:'"Why DuckDB?"', a:'It\'s an [[in-process]] columnar analytical database in a [[single file]]: no server, free, and fast SQL with [[window functions]], and the file can live in the repo for GitHub Actions. For many users or much bigger data I\'d move to a [[cloud warehouse]] like BigQuery.' },
+    { id:'pj10-q5', q:'"Why keep the raw JSON?"', a:'The API only serves [[today\'s chart]], so the raw files are my only copy of history. They let me [[replay]] transform and load after a bug fix or a logic change, and show exactly what the [[source]] sent.' },
+    { id:'pj10-q6', q:'"How would you scale it to many charts or much more data?"', a:'[[Parameterize]] extract by playlist and run charts in parallel, store raw data as [[Parquet]] in object storage like S3 or GCS, load into [[partitioned]] cloud-warehouse tables, move the SQL views to [[dbt]] models with tests, and orchestrate with [[Airflow]] for retries and backfills.' },
+    { id:'pj10-q7', q:'"What would you change for streaming?"', a:'The official chart only changes [[daily]], so streaming adds nothing for this source. For real-time play events I\'d publish to [[Kafka]] topics, use [[idempotent]] consumers (at-least-once delivery means duplicates), handle [[late-arriving]] events with time windows, and keep the daily batch for the official chart.' },
+    { id:'pj10-q8', q:'"How do you test it?"', a:'pytest [[unit tests]] on clean_rows, using the [[tmp_path]] fixture to write fake raw files. They check that positions follow order, duplicates are rejected and missing titles are rejected, and they run in the workflow [[before]] the pipeline. Next I\'d add a load test that runs load twice and asserts the count is [[unchanged]].' },
+    { id:'pj10-q9', q:'"How does chart_movement work?"', a:'It\'s a view using LAG(position) OVER (PARTITION BY [[track_id]] ORDER BY [[chart_date]]) to get each song\'s previous position. places_gained is prev_position minus position, so [[positive]] means it climbed and [[NULL]] marks a new entry.' },
+    { id:'pj10-q10', q:'"What are the limitations, and what would you improve first?"', a:'There\'s no [[transaction]] around delete and insert, asserts are skipped under python [[-O]], there\'s no [[backfill]] option, dependencies aren\'t [[pinned]], and the DuckDB file is committed to Git so the repo grows. I\'d add a transaction, explicit checks, a --from-raw option, pinned versions and alerting.' }
+  ],
+  problems:[
+    { id:'pj10-p1', kind:'open', title:'Follow-up under pressure',
+      scenario:'Interviewer: <i>"At 07:17 Deezer returned HTTP 500. What happens to today\'s data, and what do you do?"</i> Answer as you would out loud.',
+      hint:'Trace the code: extract → raise_for_status → which steps run? What\'s in the warehouse? Then: immediate action and long-term fix.',
+      solution:`What happens: requests.get gets a 500 and resp.raise_for_status() raises HTTPError inside extract(). run_pipeline.py stops (fail-fast), so transform, load and build_models never run, and the commit step never runs. The warehouse is unchanged and still correct up to yesterday. No partial data.
+
+What I do: the failed run shows in the Actions tab. I re-run it with workflow_dispatch the same day, before Deezer updates the chart, because the API can't give me today's chart later. The load is idempotent, so re-running is safe.
+
+Long-term: add retries with back-off for 5xx/429 inside extract, and an alert (e.g. a notification on workflow failure) so I don't rely on checking manually.`,
+      explain:'A strong answer <b>traces the actual code path</b>, states the data impact ("no partial data"), gives the immediate action, and names a structural fix. That\'s the Point → Evidence → Trade-off → Improvement frame.' }
+  ]
+}
+];
+
 const CURRICULUM = { modules: [
 { id:'sql', num:1, title:'SQL fundamentals → intermediate', icon:'🗄️', status:'ready',
   blurb:'The #1 skill in every data engineering interview. SELECT to window functions.',
   lessons: SQL_LESSONS_A.concat(SQL_LESSONS_B) },
+{ id:'proj', num:'P1', title:'Master Project 1: Naija Chart Pipeline', icon:'🇳🇬', status:'ready', db:'project',
+  requires:['etl1','etl2','etl3','etl4'],
+  repo:'https://github.com/orimogunjetolu/naija-chart-pipeline',
+  blurb:'Your own portfolio repo, line by line: extract, transform, load, SQL models, tests, CI. Then defend it in a mock interview.',
+  lessons: PROJECT_LESSONS_A.concat(PROJECT_LESSONS_B) },
 { id:'py', num:2, title:'Python for data', icon:'🐍', status:'soon', blurb:'The glue language of pipelines.',
   lessons:[ {id:'py1',title:'Types, lists & dicts'},{id:'py2',title:'Functions & error handling'},
     {id:'py3',title:'Files, CSV & JSON'},{id:'py4',title:'Calling APIs with requests'},
@@ -897,7 +1667,12 @@ const z2 = n => String(n).padStart(2, '0');
 function today(d) { d = d || new Date(); return d.getFullYear() + '-' + z2(d.getMonth() + 1) + '-' + z2(d.getDate()); }
 function addDays(ds, n) { const p = ds.split('-').map(Number); return today(new Date(p[0], p[1] - 1, p[2] + n)); }
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-const LANG_NAME = { sql: 'SQL', python: 'Python', yaml: 'YAML' };
+const LANG_NAME = { sql: 'SQL', python: 'Python', yaml: 'YAML', bash: 'shell', ini: 'pytest.ini' };
+const isText = it => it.kind !== 'code';
+const DATASETS = {
+  music: { label: 'Music sample (artists, songs, chart_entries)', sql: DATASET_SQL, schema: DATASET_SCHEMA },
+  project: { label: 'Project 1: chart_entries (same columns as your DuckDB table)', sql: PROJECT_SQL, schema: PROJECT_SCHEMA }
+};
 
 /* ---------- index the curriculum ---------- */
 const LESSONS = {}, ITEMS = {}, PROBLEMS = {}, READY = [];
@@ -908,14 +1683,15 @@ CURRICULUM.modules.forEach(m => {
     l.module = m.id; l.index = li; LESSONS[l.id] = l;
     l.itemIds = [];
     (l.terms || []).forEach(t => { ITEMS[t.id] = { id: t.id, kind: 'term', lesson: l.id, module: m.id, front: t.term, text: t.def }; l.itemIds.push(t.id); });
-    (l.code || []).forEach(c => { ITEMS[c.id] = { id: c.id, kind: 'code', lesson: l.id, module: m.id, front: c.task, text: c.code, lang: c.lang, run: c.lang === 'sql' && c.run !== false, show: c.show }; l.itemIds.push(c.id); });
-    (l.problems || []).forEach(p => { PROBLEMS[p.id] = Object.assign({ lesson: l.id, module: m.id }, p); });
+    (l.code || []).forEach(c => { ITEMS[c.id] = { id: c.id, kind: 'code', lesson: l.id, module: m.id, front: c.task, text: c.code, lang: c.lang, run: c.lang === 'sql' && c.run !== false, show: c.show, runSql: c.runSql, src: c.src, db: m.db || 'music' }; l.itemIds.push(c.id); });
+    (l.qa || []).forEach(q => { ITEMS[q.id] = { id: q.id, kind: 'qa', lesson: l.id, module: m.id, front: q.q, text: q.a }; l.itemIds.push(q.id); });
+    (l.problems || []).forEach(p => { PROBLEMS[p.id] = Object.assign({ lesson: l.id, module: m.id, db: m.db || 'music' }, p); });
   });
 });
 
 /* ---------- state ---------- */
 function defaultState() {
-  return { v: 1, xp: 0, streak: 0, best: 0, lastActive: null, days: {}, items: {}, cards: {}, theory: {}, problems: {},
+  return { v: 2, xp: 0, streak: 0, best: 0, lastActive: null, days: {}, items: {}, cards: {}, theory: {}, problems: {},
     settings: { minutes: 25, newPerDay: 8, focus: 'sql' }, created: today() };
 }
 let S, STORAGE_OK = true;
@@ -924,8 +1700,14 @@ function loadState() {
   try { raw = localStorage.getItem(STORE_KEY); } catch (e) { STORAGE_OK = false; }
   const d = defaultState();
   if (!raw) return d;
-  try { const o = JSON.parse(raw); return Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }); }
+  try { const o = JSON.parse(raw); return migrate(Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) })); }
   catch (e) { return d; }
+}
+/* v1 -> v2: new module only adds item ids; keep every existing record, drop nothing. */
+function migrate(s) {
+  ['items', 'cards', 'theory', 'problems', 'days'].forEach(k => { if (!s[k] || typeof s[k] !== 'object') s[k] = {}; });
+  if (!CURRICULUM.modules.some(m => m.id === s.settings.focus && m.status === 'ready')) s.settings.focus = 'sql';
+  s.v = 2; return s;
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { STORAGE_OK = false; } }
 
@@ -967,7 +1749,7 @@ function keySegments(text) {
 }
 function phraseSegments(item) {
   const text = item.text;
-  if (item.kind === 'term') {
+  if (isText(item)) {
     if (/\{\{/.test(text)) {
       const t = text.replace(/\[\[(.+?)\]\]/g, (m, a) => a.split('|')[0]); const segs = []; const re = /\{\{(.+?)\}\}/g; let last = 0, m;
       while ((m = re.exec(t))) { if (m.index > last) segs.push({ s: t.slice(last, m.index) }); segs.push({ blank: true, s: m[1], alts: [m[1]], long: true }); last = re.lastIndex; }
@@ -1066,8 +1848,10 @@ function gradeCard(id, g) { S.cards[id] = sm2(S.cards[id], g); addXP(g === 0 ? 1
 /* ---------- session builder ---------- */
 const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5 };
 function orderedReadyModules() { const f = S.settings.focus; return READY.slice().sort((a, b) => (b.id === f) - (a.id === f)); }
+function lessonStarted(id) { const l = LESSONS[id]; return !!(l && S.theory[id] && l.itemIds.every(x => S.items[x])); }
+function moduleUnlocked(m) { return !m.requires || m.requires.every(lessonStarted); }
 function nextLesson() {
-  for (const m of orderedReadyModules()) for (const l of m.lessons) {
+  for (const m of orderedReadyModules()) if (moduleUnlocked(m)) for (const l of m.lessons) {
     if (!S.theory[l.id] || l.itemIds.some(id => !S.items[id])) return l;
   }
   return null;
@@ -1129,9 +1913,9 @@ function getSQL() {
   }
   return SQLP;
 }
-async function runSQL(query, setup) {
+async function runSQL(query, setup, dbKey) {
   const SQL = await getSQL(); const db = new SQL.Database();
-  try { db.exec(DATASET_SQL); if (setup) db.exec(setup); const r = db.exec(query); return r.length ? r[r.length - 1] : { columns: [], values: [] }; }
+  try { db.exec((DATASETS[dbKey] || DATASETS.music).sql); if (setup) db.exec(setup); const r = db.exec(query); return r.length ? r[r.length - 1] : { columns: [], values: [] }; }
   finally { db.close(); }
 }
 function tableHTML(r, max) {
@@ -1255,13 +2039,14 @@ function viewSession() {
 /* ---------- theory ---------- */
 function theoryHTML(l) {
   const th = l.theory; const m = CURRICULUM.modules.find(x => x.id === l.module);
-  return '<div class="kicker">' + m.icon + ' Module ' + m.num + ' · Lesson ' + (l.index + 1) + ' · Theory</div><h2>' + esc(l.title) + '</h2>' +
+  return '<div class="kicker">' + m.icon + ' ' + (typeof m.num === 'number' ? 'Module ' + m.num : 'Master Project ' + m.num.slice(1)) + ' · Lesson ' + (l.index + 1) + ' · Theory</div><h2>' + esc(l.title) + '</h2>' +
     '<div class="why"><div class="label">First principles: why does this exist?</div><p>' + th.why + '</p></div>' +
     th.body.map(p => '<p>' + p + '</p>').join('') +
     '<div class="pro"><div class="label">🎙 Say it like a pro</div><p>' + esc(th.pro) + '</p></div>' +
     '<div class="think"><div class="label">🤔 Think first</div><p>' + esc(th.q.q) + '</p>' +
       '<details><summary>Reveal answer</summary><p>' + esc(th.q.a) + '</p></details></div>' +
-    '<div class="label">Key terms you\'ll drill</div><div class="chips static">' + l.terms.map(t => '<span class="chip">' + esc(t.term) + '</span>').join('') + '</div>';
+    (l.terms.length ? '<div class="label">Key terms you\'ll drill</div><div class="chips static">' + l.terms.map(t => '<span class="chip">' + esc(t.term) + '</span>').join('') + '</div>' : '') +
+    (l.qa && l.qa.length ? '<div class="label">' + (l.terms.length ? '💥 What breaks if… (you\'ll drill these)' : '🎤 Interview questions you\'ll drill') + '</div><ul class="qlist">' + l.qa.map(q => '<li>' + esc(q.q) + '</li>').join('') + '</ul>' : '');
 }
 function viewTheory(step) {
   const l = LESSONS[step.lesson];
@@ -1272,6 +2057,7 @@ function viewTheory(step) {
 function distractors(it, keys, n) {
   const pool = new Set(); const kl = new Set(keys.map(k => norm(k)));
   Object.values(ITEMS).forEach(o => { if (o.kind === it.kind && o.id !== it.id && (o.module === it.module || it.kind === 'code')) keySegments(o.text).filter(s => s.blank).forEach(s => { if (!kl.has(norm(s.s)) && (it.kind !== 'code' || o.lang === it.lang)) pool.add(s.s); }); });
+  if (pool.size < n) Object.values(ITEMS).forEach(o => { if (o.kind === it.kind && o.id !== it.id) keySegments(o.text).filter(s => s.blank).forEach(s => { if (!kl.has(norm(s.s))) pool.add(s.s); }); });
   return shuffle([...pool]).slice(0, n);
 }
 function initFade(step) {
@@ -1301,9 +2087,9 @@ function viewFade(step) {
   if (!F || F.id !== step.id || F.stepIndex !== SESSION.i) { F = initFade(step); F.stepIndex = SESSION.i; }
   const it = ITEMS[step.id]; const f = F; const L = LESSONS[it.lesson];
   const lvlNames = ['', 'Choose the keywords', 'Type the missing words', 'Type the missing phrase / line', 'Full recall'];
-  let h = '<div class="kicker">' + (it.kind === 'term' ? '📖 Definition' : '💻 ' + LANG_NAME[it.lang] + ' code') + ' · ' + esc(L.title) + (step.isNew && !step.second ? ' · <b class="new">NEW</b>' : '') + '</div>' +
+  let h = '<div class="kicker">' + (it.kind === 'term' ? '📖 Definition' : it.kind === 'qa' ? '🎤 Question' : '💻 ' + LANG_NAME[it.lang] + ' code' + (it.src ? ' · <span class="srcf">' + esc(it.src.split('|').join(' + ')) + '</span>' : '')) + ' · ' + esc(L.title) + (step.isNew && !step.second ? ' · <b class="new">NEW</b>' : '') + '</div>' +
     '<div class="ladder">' + [1, 2, 3, 4].map(n => '<i class="' + (n < f.lvl ? 'done' : n === f.lvl ? 'cur' : '') + '">' + n + '</i>').join('') + '<span>Level ' + f.lvl + ': ' + lvlNames[f.lvl] + '</span></div>';
-  h += it.kind === 'term' ? '<h2>' + (f.lvl === 4 ? 'Define from memory: ' : '') + esc(it.front) + '</h2>' : '<h2 class="task">' + esc(it.front) + '</h2>';
+  h += it.kind === 'term' ? '<h2>' + (f.lvl === 4 ? 'Define from memory: ' : '') + esc(it.front) + '</h2>' : '<h2 class="task">' + (it.kind === 'qa' && f.lvl === 4 ? 'Answer from memory: ' : '') + esc(it.front) + '</h2>';
   if (f.lvl <= 3) {
     h += it.kind === 'code' ? '<pre class="code">' + segHTML(f) + '</pre>' : '<p class="def">' + segHTML(f) + '</p>';
     if (f.lvl === 1) {
@@ -1313,7 +2099,7 @@ function viewFade(step) {
       h += '<div class="inputs">' + f.blanks.map((b, i) => '<label class="inp ' + (f.checked ? (f.res[i] ? 'ok' : 'bad') : '') + '"><span>' + (i + 1) + '</span><input type="text" data-i="' + i + '" value="' + esc(f.vals[i] || '') + '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + (i === 0 ? ' data-autofocus' : '') + ' placeholder="' + (b.long ? (it.kind === 'code' ? 'type the whole line' : 'type the phrase') : 'type the word(s)') + '"></label>').join('') + '</div>';
     }
   } else {
-    h += '<p class="muted">' + (it.kind === 'term' ? 'Write the full definition in your own words. Use the key technical terms.' : 'Write the whole ' + LANG_NAME[it.lang] + ' snippet.') + '</p>' +
+    h += '<p class="muted">' + (it.kind === 'term' ? 'Write the full definition in your own words. Use the key technical terms.' : it.kind === 'qa' ? 'Answer in your own words, as you would in an interview. Hit the key terms.' : 'Write the whole ' + LANG_NAME[it.lang] + ' snippet.') + '</p>' +
       '<textarea class="recall' + (it.kind === 'code' ? ' mono' : '') + '" rows="' + (it.kind === 'code' ? 7 : 4) + '" data-i="0" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + ' data-autofocus>' + esc(f.vals[0] || '') + '</textarea>';
   }
   // feedback / actions
@@ -1358,7 +2144,7 @@ function viewCard(step) {
   if (!F || F.stepIndex !== SESSION.i) F = { id: step.id, stepIndex: SESSION.i, shown: false };
   const it = ITEMS[step.id]; const c = S.cards[step.id] || { ease: 2.5, ivl: 0, reps: 0 };
   let h = '<div class="kicker">🃏 Flashcard · ' + esc(LESSONS[it.lesson].title) + '</div><div class="flash">';
-  h += it.kind === 'term' ? '<div class="muted small">Define</div><h2>' + esc(it.front) + '</h2>' : '<div class="muted small">Write the ' + LANG_NAME[it.lang] + '</div><h2 class="task">' + esc(it.front) + '</h2>';
+  h += it.kind === 'term' ? '<div class="muted small">Define</div><h2>' + esc(it.front) + '</h2>' : it.kind === 'qa' ? '<div class="muted small">Answer</div><h2 class="task">' + esc(it.front) + '</h2>' : '<div class="muted small">Write the ' + LANG_NAME[it.lang] + (it.src ? ' (' + esc(it.src.split('|')[0]) + ')' : '') + '</div><h2 class="task">' + esc(it.front) + '</h2>';
   if (F.shown) h += '<hr>' + (it.kind === 'code' ? '<pre class="code">' + esc(plain(it.text)) + '</pre>' : '<p class="def model">' + esc(plain(it.text)) + '</p>');
   h += '</div>';
   if (!F.shown) h += '<div class="actions"><button class="btn primary big" data-act="showCard" data-autofocus>Show answer</button></div>';
@@ -1375,7 +2161,7 @@ function viewProblem(step) {
   const f = F; const L = LESSONS[p.lesson];
   let h = '<div class="kicker">🧩 Problem · ' + esc(L.title) + (S.problems[p.id] && S.problems[p.id].solved && !f.solved ? ' · solved before' : '') + '</div><h2>' + esc(p.title) + '</h2><div class="scenario">' + p.scenario + '</div>';
   if (p.kind === 'sql') {
-    h += '<details class="schema"><summary>Tables available</summary>' + DATASET_SCHEMA.map(s => '<div><code>' + s[0] + '</code>: ' + esc(s[1]) + '</div>').join('') + (p.setup ? '<div><code>raw_loads</code>: created for this problem</div>' : '') + '</details>' +
+    h += '<details class="schema"><summary>Tables available</summary>' + DATASETS[p.db].schema.map(s => '<div><code>' + s[0] + '</code>: ' + esc(s[1]) + '</div>').join('') + (p.setup ? '<div><code>raw_loads</code>: created for this problem</div>' : '') + '</details>' +
       '<textarea class="mono editor" id="probCode" rows="8" placeholder="Write your SQL here…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">' + esc(f.code) + '</textarea>' +
       '<div class="actions three"><button class="btn" data-act="runProb">▶ Run</button><button class="btn primary" data-act="checkProb">✓ Check</button><button class="btn ghost" data-act="hint">Hint</button></div>';
     if (f.hint) h += '<div class="hintbox">💡 ' + esc(p.hint) + '</div>';
@@ -1424,8 +2210,10 @@ function viewRoadmap() {
   const nl = nextLesson();
   const mods = CURRICULUM.modules.map(m => {
     const ready = m.status === 'ready'; const p = moduleProgress(m);
-    let h = '<section class="card mod ' + (ready ? '' : 'soon') + '"><div class="row"><h3>' + m.icon + ' ' + m.num + '. ' + esc(m.title) + '</h3>' + (ready ? '<small>' + Math.round(p * 100) + '%</small>' : '<span class="pill grey">Coming soon</span>') + '</div>' +
-      '<div class="muted small">' + esc(m.blurb) + '</div>';
+    let h = '<section class="card mod ' + (ready ? '' : 'soon') + (m.db === 'project' ? ' project' : '') + '"><div class="row"><h3>' + m.icon + ' ' + (typeof m.num === 'number' ? m.num + '. ' : '') + esc(m.title) + '</h3>' + (ready ? '<small>' + Math.round(p * 100) + '%</small>' : '<span class="pill grey">Coming soon</span>') + '</div>' +
+      '<div class="muted small">' + esc(m.blurb) + '</div>' +
+      (m.requires && ready ? (moduleUnlocked(m) ? '<div class="small ok">🔓 Unlocked: daily sessions now offer these lessons.</div>' : '<div class="small muted">🔒 Daily sessions offer this after ETL lessons 1–4. You can open any lesson now.</div>') : '') +
+      (m.repo ? '<div class="small">Repo: <a href="' + m.repo + '" target="_blank" rel="noopener">' + esc(m.repo.replace('https://', '')) + '</a></div>' : '');
     if (ready) {
       h += bar(p) + (S.settings.focus === m.id ? '<div class="small ok">★ Current focus: new lessons come from here first</div>' : '<button class="btn small" data-act="focus" data-m="' + m.id + '">Make this my focus</button>');
       h += '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>';
@@ -1442,8 +2230,9 @@ function viewLesson() {
     '<button class="btn primary big" data-act="startLesson" data-l="' + l.id + '">▶ Practise this lesson</button>' +
     '<div class="muted small center">Theory, every item at its current level, then the problems.</div></section>' +
     '<section class="card"><details><summary><b>📘 Read the theory</b></summary>' + theoryHTML(l) + '</details></section>' +
-    '<section class="card"><h3>Terms</h3><ul class="items">' + l.terms.map(t => '<li><span>' + esc(t.term) + '</span>' + lvlTxt(t.id) + '</li>').join('') + '</ul>' +
-    '<h3>Code</h3><ul class="items">' + l.code.map(c => '<li><span>' + esc(c.task) + '</span>' + lvlTxt(c.id) + '</li>').join('') + '</ul>' +
+    '<section class="card">' + (l.terms.length ? '<h3>Terms</h3><ul class="items">' + l.terms.map(t => '<li><span>' + esc(t.term) + '</span>' + lvlTxt(t.id) + '</li>').join('') + '</ul>' : '') +
+    (l.code.length ? '<h3>Code</h3><ul class="items">' + l.code.map(c => '<li><span>' + esc(c.task) + '</span>' + lvlTxt(c.id) + '</li>').join('') + '</ul>' : '') +
+    (l.qa && l.qa.length ? '<h3>' + (l.terms.length ? 'What breaks if…' : 'Interview questions') + '</h3><ul class="items">' + l.qa.map(q => '<li><span>' + esc(q.q) + '</span>' + lvlTxt(q.id) + '</li>').join('') + '</ul>' : '') +
     '<h3>Problems</h3><ul class="items">' + l.problems.map(p => '<li><span>' + esc(p.title) + '</span>' + (S.problems[p.id] && S.problems[p.id].solved ? '<span class="lvlM">✓ solved</span>' : '<span class="lvl0">open</span>') + '</li>').join('') + '</ul></section>' +
     '</main>' + nav('roadmap');
 }
@@ -1464,6 +2253,11 @@ function viewCards() {
 }
 
 /* ============================ SQL LAB ============================ */
+const LAB_SAMPLES_PROJECT = [
+  ['Latest chart', "SELECT position, title, artist\nFROM chart_entries\nWHERE chart_date = (SELECT MAX(chart_date) FROM chart_entries)\nORDER BY position;"],
+  ['chart_movement', "SELECT * FROM chart_movement\nORDER BY chart_date DESC, position;"],
+  ['artist_summary', "SELECT * FROM artist_summary;"]
+];
 const LAB_SAMPLES = [
   ['Today\'s chart', "SELECT c.position, s.title, a.name AS artist, c.streams\nFROM chart_entries c\nJOIN songs s ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.chart_date = '2026-10-17'\nORDER BY c.position;"],
   ['Movement (LAG)', "SELECT chart_date, song_id, position,\n  LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) AS prev\nFROM chart_entries\nORDER BY song_id, chart_date;"],
@@ -1471,10 +2265,12 @@ const LAB_SAMPLES = [
   ['List tables', "SELECT name, sql FROM sqlite_master WHERE type = 'table';"]
 ];
 function viewLab() {
-  if (UI.labCode == null) UI.labCode = LAB_SAMPLES[0][1];
+  const db = UI.labDb || 'music'; const samples = db === 'project' ? LAB_SAMPLES_PROJECT : LAB_SAMPLES;
+  if (UI.labCode == null) UI.labCode = samples[0][1];
   return '<header class="top"><h1>SQL Lab</h1><div class="muted small">Real SQLite running offline in your browser. Experiment freely; the data resets every run.</div></header><main>' +
-    '<section class="card"><details><summary><b>Tables</b></summary>' + DATASET_SCHEMA.map(s => '<div class="small"><code>' + s[0] + '</code>: ' + esc(s[1]) + '</div>').join('') + '<div class="small muted">Sample data inspired by the Deezer Top Nigeria chart. Stream counts are illustrative.</div></details>' +
-    '<div class="chips">' + LAB_SAMPLES.map((s, i) => '<button class="chip" data-act="labSample" data-i="' + i + '">' + esc(s[0]) + '</button>').join('') + '</div>' +
+    '<section class="card"><div class="seg">' + Object.keys(DATASETS).map(k => '<button class="' + (k === db ? 'on' : '') + '" data-act="labDb" data-db="' + k + '">' + (k === 'music' ? 'Music sample' : 'Project 1 data') + '</button>').join('') + '</div>' +
+    '<details><summary><b>Tables</b></summary>' + DATASETS[db].schema.map(s => '<div class="small"><code>' + s[0] + '</code>: ' + esc(s[1]) + '</div>').join('') + '<div class="small muted">Sample data inspired by the Deezer Top Nigeria chart. Positions and stream counts are illustrative.</div></details>' +
+    '<div class="chips">' + samples.map((s, i) => '<button class="chip" data-act="labSample" data-i="' + i + '">' + esc(s[0]) + '</button>').join('') + '</div>' +
     '<textarea class="mono editor" id="labCode" rows="9" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">' + esc(UI.labCode) + '</textarea>' +
     '<div class="actions"><button class="btn primary big" data-act="labRun">▶ Run query</button></div><div class="out" id="labOut">' + (UI.labOut || '') + '</div></section>' +
     '</main>' + nav('lab');
@@ -1513,8 +2309,8 @@ function buildAnki(all) {
   const lines = ['#separator:tab', '#html:true', '#tags column:3'];
   ids.forEach(id => {
     const it = ITEMS[id];
-    const front = it.kind === 'term' ? '<b>' + esc(it.front) + '</b><br><i>Define it</i>' : esc(it.front) + '<br><i>Write the ' + LANG_NAME[it.lang] + '</i>';
-    const back = it.kind === 'term' ? esc(plain(it.text)) : '<pre style="text-align:left">' + esc(plain(it.text)).replace(/\n/g, '<br>') + '</pre>';
+    const front = it.kind === 'term' ? '<b>' + esc(it.front) + '</b><br><i>Define it</i>' : it.kind === 'qa' ? '<b>' + esc(it.front) + '</b><br><i>Answer it</i>' : esc(it.front) + '<br><i>Write the ' + LANG_NAME[it.lang] + (it.src ? ' (' + esc(it.src.split('|')[0]) + ')' : '') + '</i>';
+    const back = isText(it) ? esc(plain(it.text)) : '<pre style="text-align:left">' + esc(plain(it.text)).replace(/\n/g, '<br>') + '</pre>';
     lines.push([front, back, 'DE::' + it.module + '::' + it.lesson + ' DE::' + it.kind].map(clean).join('\t'));
   });
   return { text: lines.join('\n') + '\n', n: ids.length };
@@ -1560,18 +2356,19 @@ const ACT = {
   },
   runItem: async el => {
     const it = ITEMS[el.dataset.id]; const out = document.getElementById('out-' + it.id); out.innerHTML = '<div class="muted small">Running…</div>';
-    try { const r = await runSQL(plain(it.text) + (it.show ? '\n' + it.show : '')); out.innerHTML = tableHTML(r, 12); } catch (e) { out.innerHTML = '<div class="bad small">' + esc(e.message) + '</div>'; }
+    try { const r = await runSQL((it.runSql || plain(it.text)) + (it.show ? '\n' + it.show : ''), null, it.db); out.innerHTML = (it.runSql ? '<div class="muted small">Ran the SQLite equivalent (DuckDB-only syntax swapped).</div>' : '') + tableHTML(r, 12); } catch (e) { out.innerHTML = '<div class="bad small">' + esc(e.message) + '</div>'; }
   },
   runProb: async () => {
     const p = PROBLEMS[F.id]; F.code = document.getElementById('probCode').value; F.check = null;
-    try { const r = await runSQL(F.code, p.setup); F.out = tableHTML(r, 30); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
+    try { const r = await runSQL(F.code + (p.after ? '\n;' + p.after : ''), p.setup, p.db); F.out = tableHTML(r, 30); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
     render();
   },
   checkProb: async () => {
     const p = PROBLEMS[F.id]; F.code = document.getElementById('probCode').value;
     if (!F.code.trim()) { toast('Write a query first'); return; }
     try {
-      const [u, e] = [await runSQL(F.code, p.setup), await runSQL(p.solution, p.setup)];
+      const ex = p.after ? '\n;' + p.after : '';
+      const [u, e] = [await runSQL(F.code + ex, p.setup, p.db), await runSQL(p.solution + ex, p.setup, p.db)];
       F.out = tableHTML(u, 30); F.check = compareResults(u, e, !!p.ordered);
       const ps = S.problems[p.id] || (S.problems[p.id] = { solved: false, tries: 0 }); ps.tries++; ps.last = today();
       if (F.check.ok && !F.solved) { F.solved = true; ps.solved = true; addXP(30); SESSION.stats.solved++; }
@@ -1581,7 +2378,7 @@ const ACT = {
   },
   hint: () => { const el = document.getElementById('probCode'); if (el) F.code = el.value; F.hint = true; render(); },
   reveal: () => { const el = document.getElementById('probCode'); if (el) F.code = el.value; F.revealed = true; render(); },
-  expOut: async () => { const p = PROBLEMS[F.id]; try { F.expOut = tableHTML(await runSQL(p.solution, p.setup), 30); } catch (e) { F.expOut = '<div class="bad small">' + esc(e.message) + '</div>'; } render(); },
+  expOut: async () => { const p = PROBLEMS[F.id]; try { F.expOut = tableHTML(await runSQL(p.solution + (p.after ? '\n;' + p.after : ''), p.setup, p.db), 30); } catch (e) { F.expOut = '<div class="bad small">' + esc(e.message) + '</div>'; } render(); },
   openGrade: el => {
     const g = +el.dataset.g; const p = PROBLEMS[F.id]; const ps = S.problems[p.id] || (S.problems[p.id] = { solved: false, tries: 0 });
     ps.tries++; ps.last = today(); if (g === 2) { ps.solved = true; SESSION.stats.solved++; }
@@ -1594,10 +2391,11 @@ const ACT = {
   },
   focus: el => { S.settings.focus = el.dataset.m; save(); toast('Focus set'); render(); },
   setting: el => { S.settings[el.dataset.k] = +el.dataset.v; save(); render(); },
-  labSample: el => { UI.labCode = LAB_SAMPLES[+el.dataset.i][1]; UI.labOut = ''; render(); },
+  labSample: el => { UI.labCode = (UI.labDb === 'project' ? LAB_SAMPLES_PROJECT : LAB_SAMPLES)[+el.dataset.i][1]; UI.labOut = ''; render(); },
+  labDb: el => { UI.labDb = el.dataset.db; UI.labCode = null; UI.labOut = ''; render(); },
   labRun: async () => {
     UI.labCode = document.getElementById('labCode').value; const out = document.getElementById('labOut'); out.innerHTML = '<div class="muted small">Running…</div>';
-    try { UI.labOut = tableHTML(await runSQL(UI.labCode), 100); } catch (e) { UI.labOut = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
+    try { UI.labOut = tableHTML(await runSQL(UI.labCode, null, UI.labDb || 'music'), 100); } catch (e) { UI.labOut = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
     out.innerHTML = UI.labOut;
   },
   exportJSON: () => { download('de-daily-backup-' + today() + '.json', JSON.stringify(S, null, 1), 'application/json'); toast('Backup downloaded'); },
@@ -1625,7 +2423,7 @@ document.addEventListener('change', e => {
 });
 
 /* ============================ INIT ============================ */
-S = loadState();
+S = loadState(); save(); // persist any v1→v2 migration immediately
 try { history.replaceState({ screen: 'home', params: {} }, ''); } catch (e) {}
 render();
 if (/^https?:$/.test(location.protocol)) {
