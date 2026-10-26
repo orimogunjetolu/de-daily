@@ -78,6 +78,12 @@ details summary{cursor:pointer;padding:6px 0;color:var(--pri);font-weight:600}
 .mod.project{border:2px solid var(--pri)}.mod a{color:var(--pri)}
 .srcf{text-transform:none;font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
 
+/* v3: bite-size terms, placement test, pacing */
+.opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}.opt{text-align:left;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:1rem;cursor:pointer;min-height:48px;-webkit-tap-highlight-color:transparent}.opt:active{border-color:var(--pri)}.opt.ok{border-color:var(--ok);background:var(--okbg);color:var(--ok);font-weight:600}.opt.bad{border-color:var(--bad);background:var(--badbg);color:var(--bad)}.opt:disabled{cursor:default}
+.pc{border-bottom:2px dotted var(--pri);padding-bottom:1px}.pc.later{opacity:.55;border-bottom-color:var(--line)}.pc.num::before{content:attr(data-n);display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--pri);color:#fff;font-size:.7rem;font-weight:700;margin-right:4px;vertical-align:2px}
+.pips{display:flex;align-items:center;gap:5px;margin:8px 0 2px;font-size:.8rem;color:var(--muted)}.pips i{width:22px;height:8px;border-radius:99px;background:var(--chip)}.pips i.l1{background:var(--mehbg);box-shadow:inset 0 0 0 1px var(--meh)}.pips i.l2{background:var(--meh)}.pips i.l3{background:var(--pri)}.pips span{margin-left:6px}
+table.mini{border-collapse:collapse;margin:8px 0;font-size:.9rem}table.mini td,table.mini th{border:1px solid var(--line);padding:3px 10px}table.mini .null{color:var(--muted);font-style:italic}
+.pace{background:var(--mehbg);color:var(--meh);border-radius:10px;padding:6px 10px;margin:8px 0}.card.dim{opacity:.55}.card.welcome{border-color:var(--pri)}
 </style>
 </head>
 <body>
@@ -740,7 +746,7 @@ const ETL_LESSONS = [
     q:{ q:'Why is "INSERT the new rows" alone not idempotent, even if the data is correct?', a:'Running it twice inserts the rows twice. The result depends on how many times it ran, not only on the input. Idempotency needs a key-aware write (upsert) or a replace of the partition (delete+insert / overwrite).' }
   },
   terms:[
-    { id:'etl2-t1', term:'Idempotency', def:'A property where running a job [[multiple times]] with the same input produces the [[same result]] as running it once.' },
+    { id:'etl2-t1', term:'Idempotency', def:'An operation is idempotent when [[running it once or many times]] gives the [[same end result]], so a pipeline can be safely retried after a failure without creating [[duplicate data]].' },
     { id:'etl2-t2', term:'Upsert (MERGE)', def:'An operation that [[updates]] a row if its key already exists and [[inserts]] it otherwise.' },
     { id:'etl2-t3', term:'Incremental load', def:'Loading only data that is [[new or changed]] since the last run, instead of a [[full refresh]].' },
     { id:'etl2-t4', term:'Watermark', def:'The [[last processed]] value, such as a timestamp or ID, stored so the next run knows [[where to resume]].' },
@@ -1626,6 +1632,126 @@ Long-term: add retries with back-off for 5xx/429 inside extract, and an alert (e
 }
 ];
 
+/* =====================================================================
+   BITE-SIZE TERM DATA (v3)
+   Long definitions are learned in small pieces. For each term id:
+     bites:   the pieces, each copied word-for-word from the definition.
+              Terms with long definitions that are not listed here are split
+              automatically on commas / clause words (3-4 pieces).
+     aspects: extra "different angle" questions, asked every few days:
+              { q, o:[correct, wrong, wrong, wrong], t:[typed answers], why }
+              o  -> multiple choice (first option is the right one; shuffled)
+              t  -> once answered right with options, later asked without options
+              { q, piece:N, why } -> "which piece explains this?" (options = the pieces)
+   ===================================================================== */
+const TERM_BITES = {
+  'sql1-t1': { bites:['named collection of rows and columns','each row is one record','of the same kind of thing'] },
+  'sql1-t2': { bites:['a column or set of columns','uniquely identifies each row','can never be NULL'],
+    aspects:[{ q:'A users table has an email column. Two users signed up without an email (NULL). Can email be the primary key?', o:['No: a primary key must be unique and can never be NULL','Yes: keys ignore NULL values','Yes, as long as the other emails are unique','No: a primary key must be an integer'], why:'Two rules: unique AND never NULL. Missing emails break the second rule.' }] },
+  'sql1-t4': { bites:['describe what result you want','not how to compute it','query planner chooses the steps'] },
+  'sql2-t1': { bites:['a condition that evaluates','to TRUE, FALSE or UNKNOWN','WHERE keeps only rows where it is TRUE'] },
+  'sql2-t2': { bites:['a marker meaning','a value is missing or unknown','not zero and not an empty string'],
+    aspects:[{ q:'A chart row has streams = NULL. A teammate says "so it had 0 streams". What is wrong with that?', o:['NULL means missing or unknown, not zero','Nothing: NULL is stored as 0','NULL means the row was deleted','NULL means an empty string'], why:'Treating NULL as 0 silently changes averages and totals.' }] },
+  'sql2-t3': { bites:['conditions can be TRUE, FALSE or UNKNOWN','any comparison with NULL yields UNKNOWN','you test for it with IS NULL'],
+    aspects:[{ q:'WHERE genre = NULL returns no rows, even though Tems has a NULL genre. Why?', o:['genre = NULL is UNKNOWN for every row, and WHERE keeps only TRUE rows','NULL rows are hidden by default','= only works on numbers','NULL must be written in quotes'], why:'Any comparison with NULL is UNKNOWN, never TRUE.' },
+      { q:'What do you write instead of "= NULL" to find rows with a missing genre?', o:['IS NULL','== NULL','= \'\'','LIKE NULL'], t:['is null','where genre is null','genre is null'], why:'IS NULL is the only test that returns TRUE for a missing value.' }] },
+  'sql3-t1': { bites:['sorts result rows by one or more expressions','ascending by default or DESC for descending','without it row order is not guaranteed'] },
+  'sql3-t4': { bites:['the order SQL clauses are conceptually evaluated','FROM, WHERE, GROUP BY, HAVING','SELECT, ORDER BY, LIMIT'],
+    aspects:[{ q:'Why can\'t WHERE use a column alias you defined in SELECT?', o:['WHERE is evaluated before SELECT, so the alias does not exist yet','Aliases only work in GROUP BY','WHERE is evaluated after ORDER BY','Aliases must be in double quotes'], why:'Logical order: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT.' }] },
+  'sql4-t2': { bites:['splits rows into groups','that share the same values in the listed columns','computes aggregates per group'] },
+  'sql4-t4': { bites:['the level of detail','what one row represents','one song on one chart day'],
+    aspects:[{ q:'chart_entries has one row per song per chart day. You join it to a table with one row per song per country. What happens?', o:['The grain changes: rows multiply and SUMs inflate','Nothing: joins never change the row count','Rows with NULL disappear','The query becomes declarative'], why:'Always state the grain before and after a join.' }] },
+  'sql5-t1': { bites:['combines rows from two tables','by matching values in related columns','usually a foreign key to a primary key'] },
+  'sql5-t3': { bites:['all rows from the left table','plus matching rows from the right','where there is no match','the right-side columns are NULL'],
+    aspects:[{ q:'artists LEFT JOIN songs. Tems has no songs. What does her row show in s.title?', o:['NULL','Her row is dropped','An empty string','0'], t:['null'], why:'Left rows are kept; missing right-side columns are filled with NULL.' },
+      { q:'Which piece explains why artists with no songs still appear in the result?', piece:0, why:'"All rows from the left table" is the promise a LEFT JOIN makes.' }] },
+  'sql5-t4': { bites:['finds rows with no match','in another table','LEFT JOIN then WHERE the right key IS NULL'] },
+  'sql8-t1': { bites:['computes a value across a set of related rows','while keeping every row in the result','defined with OVER()'],
+    aspects:[{ q:'You need every chart row PLUS its artist\'s total streams on the same row. GROUP BY collapses the rows. What do you use?', o:['A window function: SUM(streams) OVER (PARTITION BY artist)','HAVING SUM(streams)','SELECT DISTINCT','A second GROUP BY'], why:'Window functions compute across related rows without collapsing them.' },
+      { q:'Which piece explains how a window function differs from GROUP BY?', piece:1, why:'GROUP BY returns one row per group; a window keeps every row.' }] },
+  'sql8-t2': { bites:['splits rows into independent groups','for a window function','like GROUP BY but without collapsing the rows'] },
+  'sql8-t3': { bites:['a value from a previous row','in the window\'s order','such as yesterday\'s chart position','NULL when there is no previous row'],
+    aspects:[{ q:'A song is on the chart for the first time today. What does LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) return for it?', o:['NULL','0','Its current position','The position of the song above it'], t:['null'], why:'No previous row in its partition, so LAG returns NULL (that is how you detect new entries).' }] },
+  'sql8-t4': { bites:['ROW_NUMBER gives unique numbers even for ties','RANK gives ties the same number and skips the next','DENSE_RANK gives ties the same number without gaps'],
+    aspects:[{ q:'Scores 90, 90, 80. What does RANK() give the 80?', o:['3','2','1','4'], t:['3'], why:'RANK skips: 1, 1, 3. DENSE_RANK would give 2.' }] },
+  'sql9-t5': { bites:['dividing two integers','discards the remainder','so 7 / 2 = 3','multiply by 1.0 to get decimals'] },
+  'etl1-t4': { bites:['raw data is loaded first','then transformed inside the warehouse','usually with SQL tools like dbt'] },
+  'etl1-t5': { bites:['storage for source data','exactly as received','the pipeline can be replayed','if the transform logic changes'],
+    aspects:[{ q:'You find a bug in transform.py that mis-parsed last month\'s data. The API only serves today\'s chart. What saves you?', o:['The raw layer: re-run the transform on the saved raw responses','A longer request timeout','Dropping the warehouse table','Calling the API again for past dates'], why:'Raw data saved exactly as received can be replayed through fixed logic.' }] },
+  'etl2-t1': { bites:['running it once or many times','gives the same end result','safely retried after a failure','without creating duplicate data'],
+    aspects:[{ q:'A load script INSERTs today\'s rows. It fails halfway, the scheduler re-runs it, and every rerun adds duplicate rows. Is the load idempotent?', o:['No: running it again changes the end result (duplicates)','Yes: it uses the same input each time','Yes, because it eventually succeeds','No, because it is too slow'], t:['no'], why:'Idempotent = once or many times, same end result. Duplicates prove it is not.' },
+      { q:'Which piece names the damage a non-idempotent rerun causes?', piece:3, why:'Without idempotency, retries create duplicate data.' },
+      { q:'Name one load pattern that makes a daily load idempotent.', o:['Delete the run date\'s rows, then insert them (delete-then-insert)','INSERT without any key','Increase the retry count','Run it only once a week'], t:['delete-then-insert','delete then insert','upsert','merge','insert overwrite','overwrite the partition'], why:'Delete-then-insert, upsert/MERGE, or overwriting the partition all give the same end result on rerun.' }] },
+  'etl2-t3': { bites:['loading only data','that is new or changed','since the last run','instead of a full refresh'],
+    aspects:[{ q:'A nightly job reloads 3 years of orders (4 hours), but only yesterday\'s rows ever change. Best fix?', o:['An incremental load that resumes from a watermark','A full refresh twice a day','A bigger server','Stream every order through Kafka'], why:'Load only new or changed rows; the watermark remembers where you stopped.' }] },
+  'etl2-t4': { bites:['the last processed value','such as a timestamp or ID','stored so the next run','knows where to resume'] },
+  'etl2-t5': { bites:['re-running a pipeline for past dates','to fill gaps','or apply new logic to historical data'] },
+  'etl3-t5': { bites:['events that reach the pipeline','after the time window they belong to','has already been processed'] },
+  'etl4-t1': { bites:['an automated assertion about data','such as no NULLs or unique keys','stops or flags the pipeline','when it fails'],
+    aspects:[{ q:'The API returns 3 rows today instead of the usual 100. The pipeline loads them and the dashboard looks empty. Which check would have caught it?', o:['A volume check on the row count','A unit test of the transform function','A freshness check (the data did arrive on time)','A schema drift check'], why:'The data was fresh and well-formed, just far too small: that is a volume problem.' }] },
+  'etl5-t1': { bites:['a subset of a table','split by a column such as date','jobs can overwrite or scan','only the part they need'] },
+  'pj2-t2': { bites:['a requests method that raises an exception','when the HTTP status is an error','so a failed call is never treated as data'] },
+  'pj1-t1': { bites:['a job that processes a bounded chunk of data','on a schedule','one chart snapshot per day'] },
+  'pj1-t3': { bites:['splitting the pipeline','each file has one responsibility','can be tested on its own'] },
+  'pj3-t4': { bites:['a pattern like or "" or .get() with a default','so missing or null fields','don\'t crash the transform'] },
+  'pj4-t3': { bites:['a primary key made of more than one column','here (chart_date, track_id)','a track can appear once per day'] },
+  'pj7-t1': { bites:['five fields','(minute, hour, day of month, month, day of week)','"17 7 * * *" means 07:17 UTC every day'] },
+  'pj7-t2': { bites:['a trigger that lets you run a workflow','manually','from the Actions tab, API or CLI'] },
+  'pj7-t3': { bites:['the automatic token\'s rights','contents: write is needed','for the job to push commits back to the repo'] },
+  'etl2-t2': { bites:['an operation that updates a row','if its key already exists','and inserts it otherwise'] },
+  'pj4-t4': { bites:['an idempotent load','first removes the partition being loaded','then inserts it fresh'],
+    aspects:[{ q:'The pipeline ran at 07:17, failed in transform, and you re-ran it at 09:00. Why are there no duplicate rows for today?', o:['load.py deletes today\'s partition before inserting, so a rerun replaces it','DuckDB ignores duplicate rows automatically','GitHub Actions rolls back failed runs','The API returns different songs each time'], why:'Delete-then-insert on the run date makes the load idempotent.' }] }
+};
+
+/* =====================================================================
+   PLACEMENT TEST BANK
+   Levels 1-5, harder as you go. kind:
+     sql     -> you write a query; graded by running it and the solution on
+                the music sample data and comparing results.
+     predict -> read code, type the output (a = accepted answers).
+     mcq     -> scenario; o[0] is correct, the others are common mistakes.
+   ===================================================================== */
+const PLACE_LEVELS = [
+  { n:0, name:'Start from lesson 1', lessons:[] },
+  { n:1, name:'SQL basics', lessons:['sql1','sql2','sql3'] },
+  { n:2, name:'Aggregation & JOINs', lessons:['sql4','sql5'] },
+  { n:3, name:'Intermediate SQL', lessons:['sql6','sql7','sql8','sql9'] },
+  { n:4, name:'ETL fundamentals', lessons:['etl1','etl2','etl3','etl4','etl5'] },
+  { n:5, name:'Pipeline in practice (Project 1 concepts)', lessons:['pj1','pj2','pj3','pj4','pj5','pj6','pj7','pj8'] }
+];
+const TINY_GENRE = '<table class="mini"><tr><th>name</th><th>genre</th></tr><tr><td>A</td><td>Afrobeats</td></tr><tr><td>B</td><td>Hip-hop</td></tr><tr><td>C</td><td class="null">NULL</td></tr><tr><td>D</td><td>Afrobeats</td></tr></table>';
+const PLACE_BANK = [
+  // ---- Level 1
+  { id:'p1a', lv:1, kind:'sql', q:'List the <b>title</b> of every song longer than 180 seconds, longest first.', sol:"SELECT title FROM songs WHERE duration_sec > 180 ORDER BY duration_sec DESC;", ordered:true },
+  { id:'p1b', lv:1, kind:'predict', q:'Table <code>t</code>:' + TINY_GENRE + 'What number does this return?', code:"SELECT COUNT(*) FROM t WHERE genre <> 'Afrobeats';", a:['1'], why:'Only B. C has a NULL genre, and NULL <> \'Afrobeats\' is UNKNOWN, so WHERE drops it. Many people answer 2.' },
+  { id:'p1c', lv:1, kind:'mcq', q:'A report query has no ORDER BY. The top song has "always" come first so far. Is that order guaranteed?', o:['No: without ORDER BY the row order is not guaranteed','Yes: rows come back in insertion order','Yes, if the table has a primary key','Only when LIMIT is used'], why:'A table is an unordered set. Order only exists when you ask for it.' },
+  { id:'p1d', lv:1, kind:'sql', q:'Return the distinct <b>genre</b> values in <code>artists</code>, leaving out missing (NULL) genres.', sol:"SELECT DISTINCT genre FROM artists WHERE genre IS NOT NULL;" },
+  // ---- Level 2
+  { id:'p2a', lv:2, kind:'sql', q:'For each artist, return the <b>name</b> and <b>how many songs</b> they have in <code>songs</code>. Include artists with 0 songs.', sol:"SELECT a.name, COUNT(s.song_id) FROM artists a LEFT JOIN songs s ON s.artist_id = a.artist_id GROUP BY a.artist_id, a.name;" },
+  { id:'p2b', lv:2, kind:'predict', q:'Column <code>x</code> in table <code>t</code> holds three rows: 1, NULL, 3.', code:'SELECT AVG(x) FROM t;', a:['2','2.0'], why:'AVG ignores NULL: (1 + 3) / 2 = 2. A common mistake is 4 / 3 = 1.33.' },
+  { id:'p2c', lv:2, kind:'mcq', q:'You want only artists whose total streams exceed 200,000. Where does that condition go?', o:['HAVING SUM(streams) > 200000','WHERE SUM(streams) > 200000','WHERE streams > 200000','ORDER BY SUM(streams) > 200000'], why:'WHERE filters rows before grouping and cannot use aggregates; HAVING filters groups.' },
+  { id:'p2d', lv:2, kind:'sql', q:'Return each <b>chart_date</b> with its <b>total streams</b> (one row per date).', sol:"SELECT chart_date, SUM(streams) FROM chart_entries GROUP BY chart_date;" },
+  { id:'p2e', lv:2, kind:'mcq', q:'You join orders (one row per order) to order_items (many rows per order), then SUM(orders.shipping_fee). The total is far too high. Why?', o:['Fan-out: each order row is repeated once per item','SUM skips NULL values','You need SELECT DISTINCT','INNER JOIN drops rows'], why:'A one-to-many join multiplies the "one" side rows.' },
+  // ---- Level 3
+  { id:'p3a', lv:3, kind:'sql', q:'For every row in <code>chart_entries</code>, return <b>chart_date, song_id, position</b> and the song\'s <b>previous position</b> (its position on its previous chart date, NULL if none).', sol:"SELECT chart_date, song_id, position, LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) FROM chart_entries;" },
+  { id:'p3b', lv:3, kind:'sql', q:'Return the <b>title</b> of every song that has <b>never</b> appeared in <code>chart_entries</code>.', sol:"SELECT title FROM songs s WHERE NOT EXISTS (SELECT 1 FROM chart_entries c WHERE c.song_id = s.song_id);" },
+  { id:'p3c', lv:3, kind:'predict', q:'Scores in table <code>t</code>: 90, 90, 80.', code:'SELECT score, RANK() OVER (ORDER BY score DESC) AS r FROM t;\n-- what is r for the 80?', a:['3'], why:'RANK gives ties the same number and skips the next: 1, 1, 3. DENSE_RANK would give 2.' },
+  { id:'p3d', lv:3, kind:'mcq', q:'<code>artists a LEFT JOIN songs s ON …</code> then <code>WHERE s.duration_sec > 150</code>. What happens to artists with no songs?', o:['They disappear: NULL > 150 is UNKNOWN, so the LEFT JOIN acts like an INNER JOIN','They stay, with NULL song columns','They get duration 0 and are kept','The query errors'], why:'Put conditions on the right table inside ON if you want to keep unmatched left rows.' },
+  { id:'p3e', lv:3, kind:'predict', q:'In SQLite (and Postgres):', code:'SELECT 7 / 2;', a:['3'], why:'Integer ÷ integer discards the remainder. Use 7 * 1.0 / 2 for 3.5.' },
+  // ---- Level 4
+  { id:'p4a', lv:4, kind:'mcq', q:'A daily job INSERTs today\'s rows. It crashes after the insert, and the scheduler retries it. What is the result, and the fix?', o:['Duplicate rows; make the load idempotent (delete-then-insert or upsert for the run date)','Nothing: databases ignore duplicates automatically','The retry overwrites the whole table','Missing rows; add a longer timeout'], why:'Retries are normal. Only an idempotent load makes them safe.' },
+  { id:'p4b', lv:4, kind:'sql', q:'Data-quality check: return <b>chart_date</b> and <b>song_id</b> for chart rows where <b>streams is missing</b>.', sol:"SELECT chart_date, song_id FROM chart_entries WHERE streams IS NULL;" },
+  { id:'p4c', lv:4, kind:'mcq', q:'A nightly job reloads 3 years of orders (4 hours), though only yesterday\'s rows change. Best approach?', o:['Incremental load using a watermark (last processed timestamp)','Full refresh twice as often','A bigger database server','Move to stream processing with Kafka'], why:'Load only what is new or changed since the last run.' },
+  { id:'p4d', lv:4, kind:'mcq', q:'Why save untouched API responses (a raw layer) before transforming?', o:['To replay or re-transform later without calling the source again','Raw JSON is faster to query','SQL requires it','It saves storage space'], why:'Sources change or forget history; your raw copy does not.' },
+  { id:'p4e', lv:4, kind:'mcq', q:'The API returned 3 rows today instead of ~100, on time and with the right columns. Which check catches this?', o:['Volume check (row count vs expected)','Freshness check','Schema drift check','A unit test of the transform'], why:'Fresh and well-formed, just too few rows: a volume problem.' },
+  // ---- Level 5
+  { id:'p5a', lv:5, kind:'mcq', q:'chart_movement computes places_gained = prev_position - position, with prev_position from LAG. For a brand-new entry, places_gained is…', o:['NULL, because prev_position is NULL','0','Equal to its position','An error'], why:'Arithmetic with NULL yields NULL; that is how new entries are flagged.' },
+  { id:'p5b', lv:5, kind:'mcq', q:'A GitHub Actions schedule is <code>cron: "17 7 * * *"</code>. When does it run?', o:['07:17 UTC every day','17:07 every day','At 17:00 on the 7th of each month','Every 17 minutes from 07:00'], why:'Fields: minute hour day-of-month month day-of-week, in UTC.' },
+  { id:'p5c', lv:5, kind:'mcq', q:'Why pass the run date as a parameter (<code>?</code>) instead of building the SQL with an f-string?', o:['It avoids SQL injection and quoting bugs','It makes the query run faster','DuckDB requires it','It makes the load idempotent'], why:'Values travel separately from the SQL text.' },
+  { id:'p5d', lv:5, kind:'sql', q:'Drop-outs: return the <b>song_id</b> of songs on the 2026-10-16 chart that are <b>missing</b> from the 2026-10-17 chart.', sol:"SELECT song_id FROM chart_entries WHERE chart_date = '2026-10-16' AND song_id NOT IN (SELECT song_id FROM chart_entries WHERE chart_date = '2026-10-17');" },
+  { id:'p5e', lv:5, kind:'mcq', q:'transform.py asserts that chart positions are unique, and today the assert fails. What should the pipeline do?', o:['Stop (fail fast) before load, so no bad data is written and the run shows red','Log a warning and load anyway','Silently drop the duplicates and continue','Retry the API forever'], why:'A quality gate stops the run before bad data reaches the table.' }
+];
+
 const CURRICULUM = { modules: [
 { id:'sql', num:1, title:'SQL fundamentals → intermediate', icon:'🗄️', status:'ready',
   blurb:'The #1 skill in every data engineering interview. SELECT to window functions.',
@@ -1694,7 +1820,7 @@ function defaultState() {
   return { v: 2, xp: 0, streak: 0, best: 0, lastActive: null, days: {}, items: {}, cards: {}, theory: {}, problems: {},
     settings: { minutes: 25, newPerDay: 8, focus: 'sql' }, created: today() };
 }
-let S, STORAGE_OK = true;
+let S, STORAGE_OK = true; var E = null;
 function loadState() {
   let raw = null;
   try { raw = localStorage.getItem(STORE_KEY); } catch (e) { STORAGE_OK = false; }
@@ -1709,7 +1835,7 @@ function migrate(s) {
   if (!CURRICULUM.modules.some(m => m.id === s.settings.focus && m.status === 'ready')) s.settings.focus = 'sql';
   s.v = 2; return s;
 }
-function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { STORAGE_OK = false; } }
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { STORAGE_OK = false; } if (E) saveExt(); }
 
 /* ---------- XP, streak, levels ---------- */
 function addXP(n) {
@@ -1730,7 +1856,7 @@ function levelInfo() { return { level: Math.floor(S.xp / XP_PER_LEVEL) + 1, frac
 const RANKS = ['Data Curious', 'Query Writer', 'Join Juggler', 'Pipeline Apprentice', 'Junior Data Engineer', 'Pipeline Builder', 'Data Engineer', 'Senior-in-Training'];
 function rankName(lv) { return RANKS[Math.min(RANKS.length - 1, Math.floor((lv - 1) / 2))]; }
 
-function itemProgress(id) { const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return s.lvl / 5; }
+function itemProgress(id) { const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
 function lessonProgress(l) {
   const ids = l.itemIds; if (!ids || !ids.length) return 0;
   const ip = ids.reduce((a, id) => a + itemProgress(id), 0) / ids.length;
@@ -1846,12 +1972,13 @@ function ivlLabel(c, g) { const n = sm2(c, g); return g === 0 ? 'again today' : 
 function gradeCard(id, g) { S.cards[id] = sm2(S.cards[id], g); addXP(g === 0 ? 1 : 4); save(); }
 
 /* ---------- session builder ---------- */
-const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5 };
+const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5, biteQ: 0.45 };
 function orderedReadyModules() { const f = S.settings.focus; return READY.slice().sort((a, b) => (b.id === f) - (a.id === f)); }
-function lessonStarted(id) { const l = LESSONS[id]; return !!(l && S.theory[id] && l.itemIds.every(x => S.items[x])); }
+function lessonStarted(id) { const l = LESSONS[id]; return !!(l && ((S.theory[id] && l.itemIds.every(x => S.items[x])) || (E && E.placed[id]))); }
 function moduleUnlocked(m) { return !m.requires || m.requires.every(lessonStarted); }
 function nextLesson() {
   for (const m of orderedReadyModules()) if (moduleUnlocked(m)) for (const l of m.lessons) {
+    if (E.placed[l.id]) continue;
     if (!S.theory[l.id] || l.itemIds.some(id => !S.items[id])) return l;
   }
   return null;
@@ -1867,32 +1994,59 @@ function pickProblem(cur) {
 }
 function buildDailySession() {
   const t = today(), budget = S.settings.minutes; const steps = []; let mins = 0;
+  const pace = paceInfo(); const pd = (E.pace.day && E.pace.day.d === t) ? E.pace.day : { pieces: 0, terms: 0 };
+  const allow = { pieces: Math.max(0, pace.pieces - pd.pieces) };
   const cards = Object.keys(S.cards).filter(id => ITEMS[id] && S.cards[id].due <= t).sort((a, b) => S.cards[a].due < S.cards[b].due ? -1 : 1);
   const maxCards = Math.max(12, Math.floor(budget * 0.4 / COST.card));
   const cardIds = cards.slice(0, maxCards); cardIds.forEach(id => steps.push({ type: 'card', id })); mins += cardIds.length * COST.card;
-  const fades = Object.keys(S.items).filter(id => ITEMS[id] && !S.items[id].mastered && S.items[id].due <= t)
+  const fadeCap = Math.max(6, (budget - mins) * 0.6) + cardIds.length * COST.card;
+  // bite-size terms first (oldest due first), then the classic fade ladder for code, Q&A and short terms
+  const bites = activeBites().filter(id => E.bites[id].due <= t).sort((a, b) => E.bites[a].due < E.bites[b].due ? -1 : E.bites[a].due > E.bites[b].due ? 1 : biteFrac(a) - biteFrac(b));
+  let biteN = 0, biteQ = 0; const inSession = new Set();
+  for (const id of bites) { const qs = planBite(id, allow); if (!qs.length) continue; const c = qs.length * COST.biteQ; if (biteN && mins + c > fadeCap) break; qs.forEach(q => steps.push({ type: 'bite', id, q })); mins += c; biteN++; biteQ += qs.length; inSession.add(id); }
+  let extra = 0;
+  if (pace.mode === 'slow') {
+    const weak = activeBites().filter(id => !inSession.has(id) && E.bites[id].c.l + E.bites[id].p.length > 0 && ((E.bites[id].miss && E.bites[id].miss >= addDays(t, -7)) || (E.bites[id].lapses || 0) >= 2))
+      .sort((a, b) => (E.bites[b].lapses || 0) - (E.bites[a].lapses || 0)).slice(0, 3);
+    weak.forEach(id => { const q = weakQuestion(id); if (q) { steps.push({ type: 'bite', id, q, extra: true }); mins += COST.biteQ; extra++; } });
+  }
+  const fades = Object.keys(S.items).filter(id => ITEMS[id] && !isBite(id) && !S.items[id].mastered && S.items[id].due <= t)
     .sort((a, b) => (S.items[a].due < S.items[b].due ? -1 : S.items[a].due > S.items[b].due ? 1 : S.items[a].lvl - S.items[b].lvl));
-  const fadeCap = Math.max(6, (budget - mins) * 0.6); let fadeN = 0;
-  for (const id of fades) { const c = S.items[id].lvl >= 3 ? COST.fadeHi : COST.fade; if (fadeN && mins + c > fadeCap + cardIds.length * COST.card) break; steps.push({ type: 'fade', id }); mins += c; fadeN++; }
-  const inProgress = Object.keys(S.items).filter(id => !S.items[id].mastered).length;
-  let lesson = null, newN = 0, theory = false;
+  let fadeN = 0;
+  for (const id of fades) { const c = S.items[id].lvl >= 3 ? COST.fadeHi : COST.fade; if ((fadeN || biteN) && mins + c > fadeCap) break; steps.push({ type: 'fade', id }); mins += c; fadeN++; }
+  const inProgress = Object.keys(S.items).filter(id => !S.items[id].mastered && !isBite(id)).length;
+  let lesson = null, newN = 0, theory = false, newTerms = 0;
   if (inProgress <= 30 && budget - mins - COST.problem >= 4) {
     lesson = nextLesson();
     if (lesson) {
       let rem = budget - mins - COST.problem;
       if (!S.theory[lesson.id]) { steps.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
       const newIds = lesson.itemIds.filter(id => !S.items[id]);
-      const k = Math.min(newIds.length, S.settings.newPerDay, Math.max(3, Math.floor(rem / COST.newItem)));
-      newIds.slice(0, k).forEach(id => steps.push({ type: 'fade', id, isNew: true })); mins += k * COST.newItem; newN = k;
+      const k = Math.min(newIds.length, Math.max(1, Math.round(S.settings.newPerDay * pace.newFactor)), 12, Math.max(3, Math.floor(rem / COST.newItem)));
+      let termRoom = Math.max(0, pace.terms - pd.terms); if (activeBites().length >= pace.cap) termRoom = 0;
+      if (!activeBites().length && !pd.terms) termRoom = Math.max(1, termRoom);
+      for (const id of newIds) {
+        if (newN >= k) break;
+        if (isBite(id)) { if (termRoom <= 0) continue; termRoom--; newTerms++; steps.push({ type: 'bite', id, q: { k: 'intro' }, isNew: true }); steps.push({ type: 'bite', id, q: { k: 'piece', p: 0 }, isNew: true }); mins += COST.newItem; }
+        else { steps.push({ type: 'fade', id, isNew: true }); mins += COST.newItem; }
+        newN++;
+      }
     }
   }
   const prob = pickProblem(lesson);
   if (prob) { steps.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
-  return { steps, mins: Math.max(1, Math.round(mins)), counts: { cards: cardIds.length, fades: fadeN, newN, theory, lesson, problem: prob }, mode: 'daily' };
+  return { steps, mins: Math.max(1, Math.round(mins)), counts: { cards: cardIds.length, fades: fadeN, bites: biteN, biteQ, extra, newN, newTerms, theory, lesson, problem: prob }, pace, mode: 'daily' };
 }
 function buildLessonSession(lid) {
   const l = LESSONS[lid]; const steps = [{ type: 'theory', lesson: lid }];
-  l.itemIds.forEach(id => { if (S.items[id] && S.items[id].mastered) steps.push({ type: 'card', id }); else steps.push({ type: 'fade', id, isNew: !S.items[id] }); });
+  l.itemIds.forEach(id => {
+    if (S.items[id] && S.items[id].mastered) { if (S.cards[id]) steps.push({ type: 'card', id }); return; }
+    if (isBite(id)) {
+      if (!S.items[id] && !E.bites[id]) { steps.push({ type: 'bite', id, q: { k: 'intro' }, isNew: true }); steps.push({ type: 'bite', id, q: { k: 'piece', p: 0 }, isNew: true }); return; }
+      ensureBite(id); planBite(id, { pieces: 1 }).forEach(q => steps.push({ type: 'bite', id, q })); return;
+    }
+    steps.push({ type: 'fade', id, isNew: !S.items[id] });
+  });
   l.problems.forEach(p => steps.push({ type: 'problem', id: p.id }));
   return { steps, mins: Math.round(COST.theory + l.itemIds.length * 1.3 + l.problems.length * COST.problem), mode: 'lesson', lesson: l };
 }
@@ -1964,7 +2118,7 @@ function bar(frac, cls) { return '<div class="bar ' + (cls || '') + '"><i style=
 function lvBadge(frac) { return '<span class="lv">Lv ' + Math.floor(Math.min(1, frac) * 5) + '/5</span>'; }
 
 function render() {
-  const v = { home: viewHome, session: viewSession, summary: viewSummary, roadmap: viewRoadmap, lesson: viewLesson, cards: viewCards, lab: viewLab, settings: viewSettings }[UI.screen] || viewHome;
+  const v = { home: viewHome, session: viewSession, summary: viewSummary, roadmap: viewRoadmap, lesson: viewLesson, cards: viewCards, lab: viewLab, settings: viewSettings, placement: viewPlacement }[UI.screen] || viewHome;
   app().innerHTML = v();
   const af = app().querySelector('[data-autofocus]'); if (af && UI.screen === 'session') { try { af.focus({ preventScroll: true }); } catch (e) {} }
 }
@@ -1975,6 +2129,8 @@ function viewHome() {
   const lv = levelInfo(), st = currentStreak(), t = today(); const done = S.days[t] && S.days[t].session;
   const c = plan.counts; const li = [];
   if (c.cards) li.push('<li>🃏 <b>' + c.cards + '</b> flashcard review' + (c.cards > 1 ? 's' : '') + '</li>');
+  if (c.bites) li.push('<li>🧩 <b>' + c.bites + '</b> term' + (c.bites > 1 ? 's' : '') + ' in bite-size pieces (' + c.biteQ + ' short questions)</li>');
+  if (c.extra) li.push('<li>💪 <b>' + c.extra + '</b> extra review' + (c.extra > 1 ? 's' : '') + ' of weak terms</li>');
   if (c.fades) li.push('<li>🔁 <b>' + c.fades + '</b> fade-recall review' + (c.fades > 1 ? 's' : '') + '</li>');
   if (c.lesson) li.push('<li>📘 ' + (c.theory ? 'New lesson: ' : 'Continue: ') + '<b>' + esc(c.lesson.title) + '</b>' + (c.newN ? ' · ' + c.newN + ' new items' : '') + '</li>');
   if (c.problem) li.push('<li>🧩 Problem: <b>' + esc(c.problem.title) + '</b></li>');
@@ -1989,9 +2145,12 @@ function viewHome() {
       '<div class="stat"><b>⭐ ' + S.xp + '</b><span>XP</span></div>' +
       '<div class="stat"><b>Lv ' + lv.level + '</b><span>' + esc(rankName(lv.level)) + '</span></div>' +
     '</section>' + bar(lv.frac, 'xp') + '<div class="muted small right">' + lv.toNext + ' XP to level ' + (lv.level + 1) + '</div>' +
-    '<section class="card today">' +
+    (isFreshUser() && !E.onboarded ? '<section class="card welcome"><h2>Welcome 👋</h2><p>Where should we start? The placement test checks what you can actually do (real SQL, outputs, pipeline scenarios) in about 10–15 minutes and skips what you already know.</p>' +
+      '<div class="actions two"><button class="btn primary" data-act="goPlacement">🧭 Take placement test</button><button class="btn" data-act="startFresh">📘 Start from lesson 1</button></div></section>' : '') +
+    '<section class="card today' + (isFreshUser() && !E.onboarded ? ' dim' : '') + '">' +
       '<div class="row"><h2>' + (done ? 'Bonus round' : "Today's session") + '</h2><span class="pill">⏱ ~' + plan.mins + ' min</span></div>' +
       (done ? '<p class="ok small">✅ You already finished today\'s session. Another round adds more XP.</p>' : '') +
+      (plan.pace && plan.pace.note ? '<div class="pace small">' + esc(plan.pace.note) + '</div>' : '') +
       '<ul class="plan">' + li.join('') + '</ul>' +
       '<button class="btn primary big" data-act="startDaily" id="startBtn"' + (plan.steps.length ? '' : ' disabled') + '>▶ Start today\'s session</button>' +
       '<div class="muted small center">Reviews first, then new material, then one problem.</div>' +
@@ -2031,6 +2190,7 @@ function viewSession() {
   let body = '';
   if (step.type === 'theory') body = viewTheory(step);
   else if (step.type === 'fade') body = viewFade(step);
+  else if (step.type === 'bite') body = viewBite(step);
   else if (step.type === 'card') body = viewCard(step);
   else if (step.type === 'problem') body = viewProblem(step);
   return head + '<main class="step">' + body + '</main>';
@@ -2193,7 +2353,7 @@ function viewSummary() {
   const st = s.stats; const tot = st.right + st.wrong; const acc = tot ? Math.round(st.right / tot * 100) : null;
   const mins = Math.max(1, Math.round((Date.now() - s.start) / 60000));
   const tomorrow = addDays(today(), 1);
-  const dueT = Object.values(S.cards).filter(c => c.due <= tomorrow).length + Object.values(S.items).filter(i => !i.mastered && i.due <= tomorrow).length;
+  const dueT = Object.values(S.cards).filter(c => c.due <= tomorrow).length + Object.keys(S.items).filter(id => !isBite(id) && !S.items[id].mastered && S.items[id].due <= tomorrow).length + activeBites().filter(id => E.bites[id].due <= tomorrow).length;
   return '<main class="summary"><div class="big-emoji">🎉</div><h1>Session complete</h1>' +
     '<section class="stats"><div class="stat"><b>+' + s.xp + '</b><span>XP earned</span></div><div class="stat"><b>🔥 ' + currentStreak() + '</b><span>day streak</span></div><div class="stat"><b>' + mins + ' min</b><span>time</span></div></section>' +
     '<ul class="plan">' + (acc !== null ? '<li>🎯 Recall accuracy: <b>' + acc + '%</b> (' + st.right + '/' + tot + ')</li>' : '') +
@@ -2216,7 +2376,7 @@ function viewRoadmap() {
       (m.repo ? '<div class="small">Repo: <a href="' + m.repo + '" target="_blank" rel="noopener">' + esc(m.repo.replace('https://', '')) + '</a></div>' : '');
     if (ready) {
       h += bar(p) + (S.settings.focus === m.id ? '<div class="small ok">★ Current focus: new lessons come from here first</div>' : '<button class="btn small" data-act="focus" data-m="' + m.id + '">Make this my focus</button>');
-      h += '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>';
+      h += '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + (E.placed[l.id] ? ' <small class="ok">✓ tested out</small>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>';
     } else h += '<ol class="lessons soon">' + m.lessons.map(l => '<li><span>' + esc(l.title) + '</span></li>').join('') + '</ol>';
     return h + '</section>';
   }).join('');
@@ -2224,7 +2384,7 @@ function viewRoadmap() {
 }
 function viewLesson() {
   const l = LESSONS[UI.params.l]; if (!l) return viewRoadmap();
-  const lp = lessonProgress(l); const lvlTxt = id => { const s = S.items[id]; return !s ? '<span class="lvl0">new</span>' : s.mastered ? '<span class="lvlM">🏆 mastered</span>' : '<span class="lvlN">L' + s.lvl + '</span>'; };
+  const lp = lessonProgress(l); const lvlTxt = id => { const s = S.items[id]; if (s && !s.mastered && E.bites[id]) { const b = E.bites[id]; return '<span class="lvlN">🧩 ' + (b.c.l > 0 ? 'combining ' + Math.min(b.c.l, 3) + '/3' : b.p.filter(p => p.l === 3).length + '/' + b.p.length + ' pieces') + '</span>'; } return !s ? (S.cards[id] ? '<span class="lvlM">🃏 card</span>' : '<span class="lvl0">new</span>') : s.mastered ? '<span class="lvlM">🏆 mastered</span>' : '<span class="lvlN">L' + s.lvl + '</span>'; };
   return '<header class="top"><button class="back" data-act="go" data-to="roadmap">‹ Roadmap</button><h1>' + esc(l.title) + '</h1></header><main>' +
     '<section class="card">' + lvBadge(lp) + bar(lp) +
     '<button class="btn primary big" data-act="startLesson" data-l="' + l.id + '">▶ Practise this lesson</button>' +
@@ -2283,18 +2443,21 @@ function viewSettings() {
   return '<header class="top"><h1>More</h1></header><main>' +
     '<section class="card"><h3>Daily session length</h3>' + seg('minutes', [20, 25, 30], S.settings.minutes, v => v + ' min') +
     '<h3>New items per day (max)</h3>' + seg('newPerDay', [5, 8, 12], S.settings.newPerDay) + '</section>' +
+    '<section class="card"><h3>🧭 Placement test</h3><p class="small muted">' + (E.placement ? 'Last result: level ' + E.placement.last + '/5 (' + esc(E.placement.date) + '). ' : '') + 'About 10–15 minutes of real SQL, output prediction and pipeline scenarios. It can only unlock lessons; it never resets or lowers your streak, XP, levels or cards.</p><button class="btn" data-act="goPlacement">Take the placement test</button></section>' +
     '<section class="card"><h3>Backup</h3><p class="small muted">Progress is saved on this device (localStorage). Export a backup regularly, or to move to another phone.</p>' +
     '<div class="actions two"><button class="btn" data-act="exportJSON">⬇ Export progress (.json)</button><label class="btn filebtn">⬆ Import backup<input type="file" accept=".json,application/json" id="importFile" hidden></label></div>' +
     '<details><summary class="small">Import by pasting text instead</summary><textarea id="importText" rows="4" class="mono" placeholder="Paste backup JSON here"></textarea><button class="btn small" data-act="importPaste">Import pasted backup</button></details></section>' +
     '<section class="card"><h3>AnkiDroid</h3><div class="actions two"><button class="btn" data-act="anki" data-all="0">Export my deck</button><button class="btn" data-act="anki" data-all="1">Export all items</button></div></section>' +
     '<section class="card"><h3>How this app teaches</h3><ul class="small plan">' +
       '<li><b>3 layers per lesson:</b> first-principles theory and fluent terms → writing code → realistic problems.</li>' +
-      '<li><b>Fade-recall ladder:</b> L1 choose keywords → L2 type a few words → L3 type whole phrases or lines → L4 full recall. A correct answer moves an item up a level, a miss moves it down one.</li>' +
+      '<li><b>Bite-size terms:</b> long definitions are split into 3–4 pieces. One new piece at a time: choose it from options → type it. A step levels up only after a correct answer on two different days; a miss drops it back one step. Then 2 pieces together → 3 pieces → the whole definition, plus scenario questions from different angles.</li>' +
+      '<li><b>Auto pacing:</b> if you miss a lot lately, fewer new pieces and extra review of weak terms; if you\'re accurate, a few more new pieces.</li>' +
+      '<li><b>Fade-recall ladder</b> (code, interview answers, short terms): L1 choose keywords → L2 type a few words → L3 type whole phrases or lines → L4 full recall.</li>' +
       '<li><b>Flashcards:</b> after you pass L4 the item joins an SM-2 spaced-repetition deck (Again / Hard / Good / Easy).</li>' +
       '<li><b>Daily session:</b> due reviews first, then new material, then one problem.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v1.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v3.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -2319,7 +2482,324 @@ function importData(txt) {
   let o; try { o = JSON.parse(txt); } catch (e) { toast('That file is not valid JSON.'); return; }
   if (!o || typeof o !== 'object' || !('items' in o) || !('xp' in o)) { toast('This does not look like a DE Daily backup.'); return; }
   if (!confirm('Replace your current progress with this backup?')) return;
-  const d = defaultState(); S = Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }); save(); toast('Backup imported ✓'); go('home');
+  const ext = o._ext; delete o._ext;
+  const d = defaultState(); S = migrate(Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }));
+  E = Object.assign(defaultExt(), ext && typeof ext === 'object' ? ext : {}); ['bites', 'placed'].forEach(k => { if (!E[k] || typeof E[k] !== 'object') E[k] = {}; }); if (!E.pace || !Array.isArray(E.pace.log)) E.pace = { log: [], day: null };
+  migrateExt(); save(); toast('Backup imported ✓'); go('home');
+}
+
+/* ============================ v3 EXTENSION STATE ============================
+   Everything new (bite ladders, placement, pacing) lives under its own
+   localStorage key, so the original progress object (deLearn.v1) is never
+   rewritten by a migration. */
+const EXT_KEY = 'deLearn.ext';
+function defaultExt() { return { v: 1, bites: {}, placed: {}, placement: null, onboarded: null, pace: { log: [], day: null } }; }
+function loadExt() {
+  const d = defaultExt(); let raw = null;
+  try { raw = localStorage.getItem(EXT_KEY); } catch (e) {}
+  if (!raw) return d;
+  try { const o = JSON.parse(raw); const r = Object.assign(d, o); ['bites', 'placed'].forEach(k => { if (!r[k] || typeof r[k] !== 'object') r[k] = {}; }); if (!r.pace || !Array.isArray(r.pace.log)) r.pace = { log: [], day: null }; return r; }
+  catch (e) { return d; }
+}
+function saveExt() { try { localStorage.setItem(EXT_KEY, JSON.stringify(E)); } catch (e) {} }
+
+/* ---------- pieces for long definitions ---------- */
+const BITE_MIN_WORDS = 15;
+function autoPieces(text) {
+  const words = text.trim().split(/\s+/); const n = words.length; const k = n >= 22 ? 4 : 3; const MIN = 3;
+  const STRONG = new Set('so while where which when such without because instead usually e.g. otherwise stopping avoiding catching turning'.split(' '));
+  const WEAK = new Set('and or that with for after before as to'.split(' '));
+  const isList = b => words.slice(b, b + 3).some(w => /,$/.test(w)) || /^(and|or)$/i.test(words[b]) && /,$/.test(words[b - 2] || '');
+  const cands = [];
+  for (let b = MIN; b <= n - MIN; b++) {
+    const w = words[b].toLowerCase(); let sc = 0;
+    if (/[;:]$/.test(words[b - 1])) sc = 4; else if (/,$/.test(words[b - 1]) && !isList(b) && !/\(/.test(words.slice(Math.max(0, b - 4), b).join(' ').replace(/\([^)]*\)/g, ''))) sc = 3;
+    else if (STRONG.has(w)) sc = 2; else if (WEAK.has(w) && !isList(b)) sc = 1;
+    if (sc) cands.push({ b, s: sc });
+  }
+  const bounds = []; let last = 0;
+  for (let i = 1; i < k; i++) {
+    const ideal = Math.round(last + (n - last) / (k - i + 1)); let best = null;
+    cands.forEach(c => { if (c.b - last < MIN || n - c.b < MIN * (k - i)) return; const d = Math.abs(c.b - ideal); if (d > 4) return; const sc = d - 1.5 * c.s; if (!best || sc < best.sc) best = { b: c.b, sc }; });
+    const b = best ? best.b : Math.max(last + MIN, Math.min(ideal, n - MIN * (k - i))); bounds.push(b); last = b;
+  }
+  const out = []; let st = 0; bounds.concat([n]).forEach(b => { out.push(words.slice(st, b).join(' ').replace(/[,;:.]+$/, '')); st = b; });
+  return out;
+}
+function buildBite(it) {
+  const auth = TERM_BITES[it.id] || {}; const text = plain(it.text);
+  const wc = text.trim().split(/\s+/).length;
+  if (!auth.bites && wc < BITE_MIN_WORDS) return null;
+  let pieces = auth.bites || autoPieces(text);
+  const low = text.toLowerCase(); const segs = []; let cur = 0; const ok = [];
+  pieces.forEach(p => { const i = low.indexOf(p.toLowerCase(), cur); if (i < 0) return; if (i > cur) segs.push({ s: text.slice(cur, i) }); segs.push({ s: text.slice(i, i + p.length), p: ok.length }); ok.push(text.slice(i, i + p.length)); cur = i + p.length; });
+  if (cur < text.length) segs.push({ s: text.slice(cur) });
+  if (ok.length < 2) return null;
+  const keys = keySegments(it.text).filter(x => x.blank).map(x => x.s);
+  return { pieces: ok, segs, keys: ok.map(p => keys.filter(k => p.toLowerCase().includes(k.toLowerCase()))), aspects: auth.aspects || [] };
+}
+Object.values(ITEMS).forEach(it => { if (it.kind === 'term') { const b = buildBite(it); if (b) it.bite = b; } });
+const isBite = id => !!(ITEMS[id] && ITEMS[id].bite);
+
+/* ---------- bite state ----------
+   piece level p.l: 0 not introduced, 1 choose from options, 2 type it, 3 known
+   combo level c.l: 0 still on pieces, 1 two pieces together, 2 three pieces, 3 full definition, 4 mastered
+   A level goes up only after a correct answer on two different days (p.ok holds the first day). */
+function newBite(id) { return { p: ITEMS[id].bite.pieces.map(() => ({ l: 0, ok: null })), c: { l: 0, ok: null }, due: today(), intro: today(), introDay: null, last: null, miss: null, lapses: 0, asp: {}, aspDay: null, aspN: 0, done: null }; }
+/* Map an old fade-ladder item onto the new ladder without losing what was already learned. */
+function biteFromOld(id, old) {
+  const b = newBite(id); const n = b.p.length; const L = old.lvl || 1;
+  if (L <= 1) b.p[0].l = 1;
+  else if (L === 2) { b.p[0].l = 2; b.p[1].l = 1; }
+  else if (L === 3) b.p.forEach(p => p.l = 2);
+  else { b.p.forEach(p => p.l = 3); b.c.l = 1; }
+  b.due = old.due && old.due < today() ? old.due : today(); b.intro = old.intro || today(); b.migrated = L; return b;
+}
+function migrateExt() {
+  Object.keys(S.items).forEach(id => { const st = S.items[id]; if (isBite(id) && !st.mastered && !E.bites[id]) E.bites[id] = biteFromOld(id, st); });
+}
+function ensureBite(id) { if (!E.bites[id]) E.bites[id] = S.items[id] ? biteFromOld(id, S.items[id]) : newBite(id); return E.bites[id]; }
+function biteFrac(id) { const b = E.bites[id]; if (!b) return 0; if (b.done) return 1; if (b.c.l > 0) return 0.6 + 0.4 * (b.c.l - 1) / 3; return 0.6 * b.p.reduce((a, p) => a + p.l, 0) / (3 * b.p.length); }
+function activeBites() { return Object.keys(E.bites).filter(id => ITEMS[id] && !E.bites[id].done); }
+
+/* ---------- pacing ---------- */
+function paceLog(ok) { const l = E.pace.log; l.push({ d: today(), ok: ok ? 1 : 0 }); if (l.length > 40) l.splice(0, l.length - 40); }
+function paceDay() { const t = today(); if (!E.pace.day || E.pace.day.d !== t) E.pace.day = { d: t, pieces: 0, terms: 0 }; return E.pace.day; }
+function paceInfo() {
+  const log = E.pace.log.slice(-20); const n = log.length; const miss = n ? log.filter(x => !x.ok).length / n : 0;
+  if (n >= 8 && miss > 0.35) return { mode: 'slow', miss, pieces: 1, terms: 1, newFactor: 0.5, cap: 8, note: '🐢 Slowing down today to strengthen weak terms (' + Math.round(miss * 100) + '% missed recently).' };
+  if (n >= 12 && miss < 0.12) return { mode: 'fast', miss, pieces: 6, terms: 4, newFactor: 1.25, cap: 15, note: '🚀 You\'re accurate lately, so a few extra new pieces today.' };
+  return { mode: 'normal', miss, pieces: 4, terms: 3, newFactor: 1, cap: 12, note: '' };
+}
+
+/* ---------- planning questions for one term ---------- */
+function planBite(id, allow) {
+  const b = E.bites[id], it = ITEMS[id], t = today(); const qs = [];
+  if (b.c.l > 0) qs.push({ k: 'combo' });
+  else {
+    b.p.forEach((p, i) => { if (p.l === 1 || p.l === 2) qs.push({ k: 'piece', p: i }); });
+    const nxt = b.p.findIndex(p => p.l === 0); const ready = b.p.every(p => p.l === 0 || p.l >= 2);
+    if (nxt >= 0 && ready && b.introDay !== t && (allow.pieces > 0 || !qs.length)) { qs.push({ k: 'piece', p: nxt, intro: true }); allow.pieces--; }
+    const known = b.p.map((p, i) => p.l === 3 ? i : -1).filter(i => i >= 0);
+    if (known.length) qs.push({ k: 'piece', p: known[Math.floor(Math.random() * known.length)], review: true });
+  }
+  const asp = it.bite.aspects;
+  if (asp.length && (b.c.l > 0 || b.p.filter(p => p.l >= 2).length >= 2) && (!b.aspDay || b.aspDay <= addDays(t, -2))) qs.push({ k: 'aspect', a: (b.aspN || 0) % asp.length });
+  return qs;
+}
+function weakQuestion(id) {
+  const b = E.bites[id]; if (b.c.l > 0) return { k: 'combo' };
+  let best = -1; b.p.forEach((p, i) => { if (p.l > 0 && (best < 0 || p.l < b.p[best].l)) best = i; });
+  return best >= 0 ? { k: 'piece', p: best, review: true } : null;
+}
+
+/* ---------- answering ---------- */
+function stepLevel(o, correct, max) {
+  const t = today();
+  if (correct) {
+    if (o.l >= max) return 'keep';
+    if (o.ok && o.ok !== t) { o.l++; o.ok = null; return 'up'; }
+    if (!o.ok) o.ok = t; return 'half';
+  }
+  o.ok = null; const before = o.l; o.l = Math.max(1, o.l - 1); return o.l < before ? 'down' : 'stay';
+}
+function answerBite(id, q, correct) {
+  const b = ensureBite(id), t = today(); let ev = null, lvl = 0;
+  if (q.k === 'piece') { ev = stepLevel(b.p[q.p], correct, 3); lvl = b.p[q.p].l; if (b.c.l === 0 && b.p.every(p => p.l === 3)) { b.c.l = 1; b.c.ok = null; ev = 'combo'; } }
+  else if (q.k === 'combo') {
+    ev = stepLevel(b.c, correct, 4); lvl = b.c.l;
+    if (b.c.l >= 4 && !b.done) { b.done = t; const st = itemState(id); st.mastered = true; addCard(id); ev = 'mastered'; }
+  } else if (q.k === 'aspect') {
+    const r = b.asp[q.a] || (b.asp[q.a] = { r: 0, w: 0 }); if (correct) { r.r++; b.aspN = (b.aspN || 0) + 1; } else r.w++; b.aspDay = t; ev = correct ? 'aspect' : 'stay';
+  }
+  if (!correct) { b.miss = t; b.lapses = (b.lapses || 0) + 1; }
+  b.last = t; b.due = correct ? addDays(t, 1) : t;
+  paceLog(correct); addXP(correct ? 3 + Math.max(1, lvl) : 1); save();
+  return { event: ev, lvl, correct };
+}
+function checkPiece(input, piece, keys) {
+  const r = checkBlank(input, [piece], true); if (r) return r;
+  const have = tokens(input); if (!have.length) return false; const hs = new Set(have);
+  const found = t => hs.has(t) || (t.length >= 5 && have.some(h => Math.abs(h.length - t.length) <= 1 && lev(h, t) <= 1));
+  let want = tokens(piece).filter(t => t.length >= 3 && !STOP.has(t)); if (!want.length) want = tokens(piece);
+  const kt = []; (keys || []).forEach(k => tokens(k).forEach(x => kt.push(x)));
+  return want.filter(found).length / want.length >= 0.75 && kt.every(found) ? 'close' : false;
+}
+function pieceDistractors(id, p, n) {
+  const it = ITEMS[id]; const target = it.bite.pieces[p]; const wc = target.split(/\s+/).length; const own = new Set(it.bite.pieces.map(x => norm(x)));
+  const pool = []; Object.values(ITEMS).forEach(o => { if (o.bite && o.id !== id) o.bite.pieces.forEach(x => { if (!own.has(norm(x))) pool.push({ x, same: o.module === it.module, d: Math.abs(x.split(/\s+/).length - wc) }); }); });
+  const seen = new Set(); const sorted = shuffle(pool).sort((a, b) => (b.same - a.same) || (a.d - b.d));
+  const out = []; for (const c of sorted) { const k = norm(c.x); if (seen.has(k)) continue; seen.add(k); out.push(c.x); if (out.length >= n) break; }
+  return out;
+}
+
+/* ---------- bite step view ---------- */
+function initBite(step) {
+  const id = step.id, it = ITEMS[id]; const q = step.q;
+  const f = { bite: true, id, q, checked: false, vals: [], res: [] };
+  if (q.k === 'intro') { f.mode = 'intro'; return f; }
+  const b = ensureBite(id);
+  if (q.k === 'piece' && b.p[q.p].l === 0) { b.p[q.p].l = 1; b.introDay = today(); const pd = paceDay(); pd.pieces++; save(); f.isNewPiece = true; }
+  f.snap = JSON.stringify({ b, it: S.items[id] || null, c: S.cards[id] || null, xp: S.xp });
+  if (q.k === 'piece') { const l = b.p[q.p].l; f.blanks = [q.p]; f.mode = l <= 1 ? 'mcq' : 'type'; f.lvlName = l <= 1 ? 'Choose the missing piece' : 'Type the missing piece'; }
+  else if (q.k === 'combo') {
+    const n = it.bite.pieces.length; const c = Math.min(b.c.l, 3);
+    if (c >= 3) { f.mode = 'full'; f.lvlName = 'Whole definition from memory'; }
+    else { const w = Math.min(n, c + 1); const s = Math.floor(Math.random() * (n - w + 1)); f.blanks = []; for (let i = s; i < s + w; i++) f.blanks.push(i); f.mode = 'type'; f.lvlName = 'Type ' + w + ' pieces together'; }
+  } else if (q.k === 'aspect') {
+    const a = it.bite.aspects[q.a]; f.asp = a; const r = b.asp[q.a] || { r: 0 };
+    if (a.t && r.r >= 1) { f.mode = 'atype'; f.lvlName = 'Different angle · no options'; }
+    else { f.mode = 'amcq'; f.lvlName = 'Different angle'; const opts = a.piece != null ? it.bite.pieces.slice() : a.o.slice(); f.answer = a.piece != null ? it.bite.pieces[a.piece] : a.o[0]; f.options = shuffle(opts); }
+  }
+  if (f.mode === 'mcq') { const tgt = it.bite.pieces[q.p]; f.answer = tgt; f.options = shuffle([tgt].concat(pieceDistractors(id, q.p, 3))); }
+  return f;
+}
+function biteDefHTML(f, it, b) {
+  return it.bite.segs.map(sg => {
+    if (sg.p == null) return esc(sg.s);
+    const k = f.blanks ? f.blanks.indexOf(sg.p) : -1;
+    if (k < 0) return '<span class="pc' + (b && b.p[sg.p].l === 0 ? ' later' : '') + '">' + esc(sg.s) + '</span>';
+    if (f.mode === 'mcq') { const cls = f.checked ? (f.res[0] ? 'ok' : 'bad') : f.pick != null ? 'filled' : ''; return '<span class="slot ' + cls + '">' + (f.checked ? esc(sg.s) : f.pick != null ? esc(f.options[f.pick]) : '\u00a0'.repeat(10)) + '</span>'; }
+    return '<span class="gap ' + (f.checked ? (f.res[k] ? 'ok' : 'bad') : '') + '">' + (f.checked ? esc(sg.s) : '(' + (k + 1) + ') ' + sg.s.split(/\s+/).length + ' words') + '</span>';
+  }).join('');
+}
+function bitePips(b) {
+  if (!b) return '';
+  return '<div class="pips">' + b.p.map((p, i) => '<i class="l' + p.l + '" title="piece ' + (i + 1) + '"></i>').join('') + '<span>' + (b.c.l > 0 ? 'All pieces known · combining: step ' + Math.min(b.c.l, 3) + '/3' : b.p.filter(p => p.l === 3).length + '/' + b.p.length + ' pieces known') + '</span></div>';
+}
+function viewBite(step) {
+  if (!F || F.stepIndex !== SESSION.i) { F = initBite(step); F.stepIndex = SESSION.i; }
+  const f = F, it = ITEMS[step.id], L = LESSONS[it.lesson]; const b = E.bites[step.id];
+  let h = '<div class="kicker">🧩 Bite-size term · ' + esc(L.title) + (f.isNewPiece || f.mode === 'intro' ? ' · <b class="new">NEW</b>' : '') + (step.extra ? ' · <b class="new">EXTRA REVIEW</b>' : '') + '</div>';
+  if (f.mode === 'intro') {
+    const n = it.bite.pieces.length;
+    return h + '<h2>' + esc(it.front) + '</h2><p class="def">' + it.bite.segs.map(sg => sg.p == null ? esc(sg.s) : '<span class="pc num" data-n="' + (sg.p + 1) + '">' + esc(sg.s) + '</span>').join('') + '</p>' +
+      '<p class="muted small">Read it once, slowly. This definition has <b>' + n + ' pieces</b>. You\'ll learn <b>one piece at a time</b>, first with options, then typing it. A step levels up only after you get it right on <b>two different days</b>. Then pieces are combined, until you can say the whole thing.</p>' +
+      '<div class="actions"><button class="btn primary big" data-act="biteIntro" data-autofocus>Start with piece 1</button></div>';
+  }
+  h += bitePips(b) + '<div class="muted small">' + esc(f.lvlName) + '</div>';
+  if (f.mode === 'amcq' || f.mode === 'atype') {
+    h += '<h2>' + esc(it.front) + '</h2><p class="def model">' + esc(f.asp.q) + '</p>';
+    if (f.mode === 'amcq') h += '<div class="opts">' + f.options.map((o, i) => '<button class="opt' + (f.checked ? (o === f.answer ? ' ok' : i === f.pick ? ' bad' : '') : '') + '" data-act="bitePick" data-i="' + i + '"' + (f.checked ? ' disabled' : '') + '>' + esc(o) + '</button>').join('') + '</div>';
+    else h += '<div class="inputs"><label class="inp ' + (f.checked ? (f.res[0] ? 'ok' : 'bad') : '') + '"><span>?</span><input type="text" data-i="0" value="' + esc(f.vals[0] || '') + '" autocomplete="off" autocapitalize="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + ' data-autofocus placeholder="type your answer"></label></div>';
+  } else if (f.mode === 'full') {
+    h += '<h2>Define from memory: ' + esc(it.front) + '</h2><p class="muted">Write the whole definition. Same meaning counts.</p>' +
+      '<textarea class="recall" rows="4" data-i="0" autocomplete="off" autocapitalize="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + ' data-autofocus>' + esc(f.vals[0] || '') + '</textarea>';
+  } else {
+    h += '<h2>' + esc(it.front) + '</h2><p class="def">' + biteDefHTML(f, it, b) + '</p>';
+    if (f.mode === 'mcq') h += '<div class="opts">' + f.options.map((o, i) => '<button class="opt' + (f.checked ? (o === f.answer ? ' ok' : i === f.pick ? ' bad' : '') : '') + '" data-act="bitePick" data-i="' + i + '"' + (f.checked ? ' disabled' : '') + '>' + esc(o) + '</button>').join('') + '</div>';
+    else h += '<div class="inputs">' + f.blanks.map((p, i) => '<label class="inp ' + (f.checked ? (f.res[i] ? 'ok' : 'bad') : '') + '"><span>' + (i + 1) + '</span><input type="text" data-i="' + i + '" value="' + esc(f.vals[i] || '') + '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + (i === 0 ? ' data-autofocus' : '') + ' placeholder="' + it.bite.pieces[p].split(/\s+/).length + ' words"></label>').join('') + '</div>';
+  }
+  if (!f.checked) {
+    if (f.mode === 'mcq' || f.mode === 'amcq') h += '<div class="actions"><button class="btn ghost" data-act="biteDontKnow">I don\'t know: show me</button></div>';
+    else h += '<div class="actions"><button class="btn primary big" data-act="checkBite">' + (f.mode === 'full' ? 'Check my answer' : 'Check') + '</button><button class="btn ghost" data-act="biteDontKnow">I don\'t know: show me</button></div>';
+  } else if (f.mode === 'full' && !f.graded) {
+    const pct = Math.round(f.score.score * 100);
+    h += '<div class="feedback ' + (pct >= 75 ? 'good' : 'meh') + '"><b>Keyword match: ' + pct + '%</b>' + (f.score.missingKeys.length ? '<br>Missing key terms: ' + f.score.missingKeys.map(k => '<code>' + esc(k) + '</code>').join(' ') : '') + '</div>' +
+      '<div class="label">Model answer</div><p class="def model">' + esc(plain(it.text)) + '</p><div class="muted small">Same meaning counts. You decide:</div>' +
+      '<div class="actions two"><button class="btn bad" data-act="biteSelf" data-ok="0">✗ I was wrong</button><button class="btn good' + (pct >= 75 ? ' primary' : '') + '" data-act="biteSelf" data-ok="1">✓ I was right</button></div>';
+  } else {
+    const o = f.outcome; let msg;
+    if (o.correct) msg = o.event === 'mastered' ? '🏆 Mastered! It joins your flashcard deck.' : o.event === 'combo' ? '🎉 Every piece is known. Next: combining pieces.' : o.event === 'up' ? '⬆️ Level up! Second good day in a row for this step.' : o.event === 'half' ? '✅ Correct! Get it right again on another day to level up.' : '✅ Correct!';
+    else msg = o.event === 'down' ? '↩️ Not quite. This step drops back one level. You\'ll see it again soon.' : '↩️ Not quite. You\'ll see it again soon.';
+    h += '<div class="feedback ' + (o.correct ? 'good' : 'badfb') + '">' + msg + (f.close ? ' <span class="muted">(close enough)</span>' : '') + '</div>';
+    if (f.asp && f.asp.why) h += '<div class="hintbox">💡 ' + esc(f.asp.why) + (f.mode === 'atype' && !o.correct ? '<br>Answer: <b>' + esc(f.asp.o ? f.asp.o[0] : f.asp.t[0]) + '</b>' : '') + '</div>';
+    if (!o.correct && !f.asp) h += '<div class="label">Full definition</div><p class="def model">' + esc(plain(it.text)) + '</p>';
+    h += '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button>' + (!o.correct && (f.mode === 'type' || f.mode === 'atype') && !f.overridden ? '<button class="btn ghost" data-act="biteOverride">I was actually right (typo or synonym)</button>' : '') + '</div>';
+  }
+  return h;
+}
+function finishBite(correct) {
+  const step = SESSION.steps[SESSION.i]; const o = answerBite(step.id, step.q, correct);
+  F.checked = true; F.outcome = o;
+  if (correct) { SESSION.stats.right++; if (o.event === 'mastered') SESSION.stats.mastered++; else if (o.event === 'up' || o.event === 'combo') SESSION.stats.ups++; }
+  else SESSION.stats.wrong++;
+  const key = 'b' + step.id + JSON.stringify(step.q);
+  if (!correct && !SESSION.requeued[key]) { SESSION.requeued[key] = true; insertBeforeProblems({ type: 'bite', id: step.id, q: Object.assign({}, step.q, { intro: false }), retry: true }); F.requeuedNow = key; }
+}
+
+/* ---------- placement test ---------- */
+function isFreshUser() { return !S.lastActive && !S.xp && !Object.keys(S.items).length && !Object.keys(S.cards).length && !Object.keys(S.theory).length; }
+function placedLevelOf(lid) { const lv = PLACE_LEVELS.find(x => x.lessons.includes(lid)); return lv ? lv.n : 99; }
+function ptNew() { return { phase: 'intro', lv: 1, stats: {}, used: {}, cur: null, log: [] }; }
+function ptNext() {
+  const P = UI.pt; const st = P.stats[P.lv] || (P.stats[P.lv] = { r: 0, w: 0, n: 0 });
+  const pool = PLACE_BANK.filter(q => q.lv === P.lv && !P.used[q.id]);
+  const hands = shuffle(pool.filter(q => q.kind !== 'mcq')), mcq = shuffle(pool.filter(q => q.kind === 'mcq'));
+  const q = st.n === 0 ? (hands[0] || mcq[0]) : st.n === 1 ? (mcq[0] || hands[0]) : (hands[0] || mcq[0]);
+  if (!q) return ptFinish();
+  P.used[q.id] = true; st.n++;
+  P.cur = { q, val: '', out: '', checked: false, ok: null, pick: null, opts: q.kind === 'mcq' ? shuffle(q.o) : null };
+  P.phase = 'q';
+}
+function ptAnswer(ok) {
+  const P = UI.pt; const c = P.cur; c.checked = true; c.ok = ok; const st = P.stats[P.lv];
+  if (ok) st.r++; else st.w++; P.log.push({ id: c.q.id, lv: P.lv, ok });
+  if (ok) addXP(2);
+}
+function ptContinue() {
+  const P = UI.pt; const st = P.stats[P.lv];
+  if (st.r >= 2) { st.pass = true; st.shaky = st.w > 0; if (P.lv >= 5) return ptFinish(); P.lv++; return ptNext(); }
+  if (st.w >= 2) return ptFinish();
+  ptNext();
+}
+function ptFinish() {
+  const P = UI.pt; let top = 0; for (let l = 1; l <= 5; l++) { if (P.stats[l] && P.stats[l].pass) top = l; else break; }
+  let level = top; if (top > 0 && P.stats[top].shaky) level = top - 1; // unsure -> place lower
+  P.result = { top, level, unlocked: applyPlacement(level) }; P.phase = 'result';
+}
+function applyPlacement(level) {
+  const t = today(); let unlocked = 0, cards = 0, k = 0;
+  const lessons = []; PLACE_LEVELS.filter(x => x.n >= 1 && x.n <= level).forEach(x => x.lessons.forEach(l => lessons.push(l)));
+  lessons.forEach(lid => {
+    const l = LESSONS[lid]; if (!l) return;
+    if (!E.placed[lid] && !lessonStarted(lid)) { E.placed[lid] = t; unlocked++; }
+    l.itemIds.forEach(id => { if (!S.items[id] && !S.cards[id]) { S.cards[id] = { ease: 2.5, ivl: 0, reps: 0, lapses: 0, due: addDays(t, 2 + (k++ % 20)), added: t, placed: true }; cards++; } });
+  });
+  const prev = E.placement || {}; E.placement = { best: Math.max(prev.best || 0, level), last: level, date: t, n: (prev.n || 0) + 1 };
+  E.onboarded = E.onboarded || t; save();
+  return { lessons: unlocked, cards };
+}
+function viewPlacement() {
+  const P = UI.pt || (UI.pt = ptNew());
+  const head = '<header class="sess"><button class="x" data-act="ptQuit" aria-label="Quit">✕</button>' + bar(P.phase === 'result' ? 1 : (P.lv - 1) / 5, 'sessbar') + '<span class="muted small">' + (P.phase === 'q' ? 'Level ' + P.lv + '/5' : 'Placement') + '</span></header>';
+  let h = '';
+  if (P.phase === 'intro') {
+    h = '<h2>Placement test</h2><p>About <b>10–15 minutes</b>. You\'ll write real SQL (the app runs and grades it), predict outputs, and answer short pipeline scenarios. It gets harder as you go and stops when it finds your level.</p>' +
+      '<ul class="plan small"><li>✍️ No self-rating: only answers count.</li><li>🤷 Use <b>I don\'t know</b> instead of guessing. It just counts as a miss.</li><li>🔒 ' + (isFreshUser() ? 'You can still open any lesson later.' : 'Your current progress, streak, XP and cards are never lowered or reset. The test can only unlock more.') + '</li><li>🔁 Lessons you test out of still come back as flashcard reviews.</li></ul>' +
+      '<div class="actions"><button class="btn primary big" data-act="ptStart" data-autofocus>Start the test</button></div>';
+  } else if (P.phase === 'q') {
+    const c = P.cur, q = c.q;
+    h = '<div class="kicker">' + (q.kind === 'sql' ? '💻 Write the SQL' : q.kind === 'predict' ? '🔮 Predict the output' : '🧠 Scenario') + ' · ' + esc(PLACE_LEVELS[P.lv].name) + '</div><div class="scenario">' + q.q + (q.code ? '<pre>' + esc(q.code) + '</pre>' : '') + '</div>';
+    if (q.kind === 'sql') {
+      h += '<details class="schema"><summary>Tables available</summary>' + DATASET_SCHEMA.map(s => '<div><code>' + s[0] + '</code>: ' + esc(s[1]) + '</div>').join('') + '</details>' +
+        '<textarea class="mono editor" id="ptCode" rows="6" placeholder="Write your SQL here…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + (c.checked ? ' disabled' : '') + '>' + esc(c.val) + '</textarea>' +
+        (c.checked ? '' : '<div class="actions three"><button class="btn" data-act="ptRun">▶ Run</button><button class="btn primary" data-act="ptSubmit">✓ Submit</button><button class="btn ghost" data-act="ptIdk">I don\'t know</button></div>') +
+        '<div class="out">' + c.out + '</div>';
+    } else if (q.kind === 'predict') {
+      h += '<div class="inputs"><label class="inp ' + (c.checked ? (c.ok ? 'ok' : 'bad') : '') + '"><span>=</span><input type="text" id="ptVal" value="' + esc(c.val) + '" autocomplete="off" autocapitalize="off" spellcheck="false"' + (c.checked ? ' disabled' : '') + ' data-autofocus placeholder="type the output"></label></div>' +
+        (c.checked ? '' : '<div class="actions two"><button class="btn primary" data-act="ptSubmit">✓ Submit</button><button class="btn ghost" data-act="ptIdk">I don\'t know</button></div>');
+    } else {
+      h += '<div class="opts">' + c.opts.map((o, i) => '<button class="opt' + (c.checked ? (o === q.o[0] ? ' ok' : i === c.pick ? ' bad' : '') : '') + '" data-act="ptPick" data-i="' + i + '"' + (c.checked ? ' disabled' : '') + '>' + esc(o) + '</button>').join('') + '</div>' +
+        (c.checked ? '' : '<div class="actions"><button class="btn ghost" data-act="ptIdk">I don\'t know</button></div>');
+    }
+    if (c.checked) {
+      h += '<div class="feedback ' + (c.ok ? 'good' : 'badfb') + '">' + (c.ok ? '✅ Correct' : '✗ Not this time') + (c.msg ? ': ' + esc(c.msg) : '') + '</div>';
+      if (q.kind === 'sql') h += '<div class="label">One correct solution</div><pre class="code">' + esc(q.sol) + '</pre>';
+      else if (q.kind === 'predict') h += '<div class="hintbox">Answer: <b>' + esc(q.a[0]) + '</b>. ' + esc(q.why || '') + '</div>';
+      else if (q.why) h += '<div class="hintbox">💡 ' + esc(q.why) + '</div>';
+      h += '<div class="actions"><button class="btn primary big" data-act="ptContinue" data-autofocus>Continue</button></div>';
+    }
+  } else {
+    const r = P.result; const lv = PLACE_LEVELS[r.level];
+    const names = PLACE_LEVELS.filter(x => x.n >= 1 && x.n <= r.level).map(x => x.name);
+    h = '<div class="big-emoji center">🧭</div><h2 class="center">Your level: ' + r.level + '/5</h2><p class="center"><b>' + esc(lv.name) + '</b></p>' +
+      (r.top > r.level ? '<p class="small muted">You passed level ' + r.top + ' with a miss, so you\'re placed one level lower to be safe. Those lessons are quick wins.</p>' : '') +
+      '<ul class="plan small">' + (names.length ? '<li>🔓 Tested out of: ' + esc(names.join(', ')) + ' (' + r.unlocked.lessons + ' lesson' + (r.unlocked.lessons === 1 ? '' : 's') + ')</li><li>🔁 ' + r.unlocked.cards + ' items from those lessons were added to your flashcards, spread over the next 3 weeks, so nothing is skipped forever.</li>' : '<li>📘 You\'ll start with lesson 1. That\'s the fastest path to solid foundations.</li>') +
+      '<li>▶ Daily sessions now start from the first lesson you haven\'t tested out of.</li></ul>' +
+      '<div class="actions"><button class="btn primary big" data-act="ptDone" data-autofocus>Go to today\'s session</button></div>';
+  }
+  return head + '<main class="step">' + h + '</main>';
 }
 
 /* ============================ ACTIONS ============================ */
@@ -2398,10 +2878,46 @@ const ACT = {
     try { UI.labOut = tableHTML(await runSQL(UI.labCode, null, UI.labDb || 'music'), 100); } catch (e) { UI.labOut = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
     out.innerHTML = UI.labOut;
   },
-  exportJSON: () => { download('de-daily-backup-' + today() + '.json', JSON.stringify(S, null, 1), 'application/json'); toast('Backup downloaded'); },
+  exportJSON: () => { download('de-daily-backup-' + today() + '.json', JSON.stringify(Object.assign({}, S, { _ext: E }), null, 1), 'application/json'); toast('Backup downloaded'); },
   importPaste: () => importData(document.getElementById('importText').value),
   anki: el => { const r = buildAnki(el.dataset.all === '1'); if (!r.n) { toast('Your deck is empty. Try "Export all items".'); return; } download('de-daily-anki-' + today() + '.txt', r.text, 'text/plain'); toast(r.n + ' cards exported'); },
-  reset: () => { if (confirm('Delete ALL progress (XP, streak, levels, cards)? Export a backup first if unsure.')) { S = defaultState(); save(); toast('Progress reset'); go('home'); } }
+  biteIntro: () => { const id = F.id; if (!S.items[id]) itemState(id); ensureBite(id); const pd = paceDay(); pd.terms++; addXP(2); save(); nextStep(); },
+  bitePick: el => { if (F.checked) return; F.pick = +el.dataset.i; const ok = F.options[F.pick] === F.answer; F.res = [ok]; finishBite(ok); render(); },
+  checkBite: () => {
+    const it = ITEMS[F.id]; collectInputs();
+    if (F.mode === 'full') { F.score = recallScore(F.vals[0] || '', it); F.checked = true; render(); return; }
+    if (F.mode === 'atype') { const r = F.asp.t.map(a => checkBlank(F.vals[0] || '', [a], false)).find(Boolean); if (r === 'close') F.close = true; F.res = [!!r]; finishBite(!!r); render(); return; }
+    F.res = F.blanks.map((p, i) => { const r = checkPiece(F.vals[i] || '', it.bite.pieces[p], it.bite.keys[p]); if (r === 'close') F.close = true; return !!r; });
+    finishBite(F.res.every(Boolean)); render();
+  },
+  biteDontKnow: () => { collectInputs(); F.res = (F.blanks || [0]).map(() => false); if (F.mode === 'full') { F.score = recallScore('', ITEMS[F.id]); F.graded = true; } finishBite(false); render(); },
+  biteSelf: el => { F.graded = true; finishBite(el.dataset.ok === '1'); render(); },
+  biteOverride: () => {
+    const step = SESSION.steps[SESSION.i]; const sn = JSON.parse(F.snap);
+    E.bites[step.id] = sn.b; if (sn.it) S.items[step.id] = sn.it; if (sn.c) S.cards[step.id] = sn.c; else delete S.cards[step.id];
+    E.pace.log.pop(); SESSION.stats.wrong--;
+    if (F.requeuedNow) { const k = SESSION.steps.findIndex((s, j) => j > SESSION.i && s.id === step.id && s.retry && s.type === 'bite'); if (k > 0) SESSION.steps.splice(k, 1); SESSION.requeued[F.requeuedNow] = false; }
+    F.overridden = true; F.res = F.res.map(() => true); finishBite(true); render();
+  },
+  goPlacement: () => { UI.pt = ptNew(); go('placement'); },
+  startFresh: () => { E.onboarded = today(); save(); render(); },
+  ptStart: () => { ptNext(); render(); window.scrollTo(0, 0); },
+  ptQuit: () => { if (UI.pt.phase !== 'q' || confirm('Leave the placement test? Nothing has changed yet.')) { UI.pt = null; go('home'); } },
+  ptRun: async () => { const c = UI.pt.cur; c.val = document.getElementById('ptCode').value; try { c.out = tableHTML(await runSQL(c.val, null, 'music'), 30); } catch (e) { c.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; } render(); },
+  ptSubmit: async () => {
+    const c = UI.pt.cur, q = c.q; if (c.checked) return;
+    if (q.kind === 'sql') {
+      c.val = document.getElementById('ptCode').value; if (!c.val.trim()) { toast('Write a query first (or tap I don\'t know)'); return; }
+      try { const [u, e] = [await runSQL(c.val, null, 'music'), await runSQL(q.sol, null, 'music')]; c.out = tableHTML(u, 30); const r = compareResults(u, e, !!q.ordered); c.msg = r.ok ? '' : r.msg; ptAnswer(r.ok); }
+      catch (err) { c.out = '<div class="bad small">SQL error: ' + esc(err.message) + '</div>'; c.msg = 'the query has an error'; ptAnswer(false); }
+    } else { const el = document.getElementById('ptVal'); c.val = el ? el.value : ''; if (!c.val.trim()) { toast('Type your answer (or tap I don\'t know)'); return; } ptAnswer(q.a.some(a => norm(a) === norm(c.val))); }
+    render();
+  },
+  ptPick: el => { const c = UI.pt.cur; if (c.checked) return; c.pick = +el.dataset.i; ptAnswer(c.opts[c.pick] === c.q.o[0]); render(); },
+  ptIdk: () => { const c = UI.pt.cur; if (c.checked) return; const el = document.getElementById('ptCode') || document.getElementById('ptVal'); if (el) c.val = el.value; c.msg = 'counted as a miss, no other penalty'; ptAnswer(false); render(); },
+  ptContinue: () => { ptContinue(); render(); window.scrollTo(0, 0); },
+  ptDone: () => { UI.pt = null; go('home'); },
+  reset: () => { if (confirm('Delete ALL progress (XP, streak, levels, cards)? Export a backup first if unsure.')) { S = defaultState(); E = defaultExt(); save(); toast('Progress reset'); go('home'); } }
 };
 function collectInputs() { app().querySelectorAll('[data-i]').forEach(el => { if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') F.vals[+el.dataset.i] = el.value; }); }
 
@@ -2411,11 +2927,12 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => { if (F && e.target.dataset && e.target.dataset.i != null && UI.screen === 'session') F.vals[+e.target.dataset.i] = e.target.value; });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && UI.screen === 'placement' && e.target.id === 'ptVal') { e.preventDefault(); ACT.ptSubmit(); return; }
   if (e.key !== 'Enter' || UI.screen !== 'session' || !F) return;
   if (e.target.tagName === 'INPUT') {
     e.preventDefault();
     const ins = [...app().querySelectorAll('.inputs input')]; const k = ins.indexOf(e.target);
-    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked) ACT.checkFade();
+    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked) (F.bite ? ACT.checkBite() : ACT.checkFade());
   }
 });
 document.addEventListener('change', e => {
@@ -2423,7 +2940,7 @@ document.addEventListener('change', e => {
 });
 
 /* ============================ INIT ============================ */
-S = loadState(); save(); // persist any v1→v2 migration immediately
+S = loadState(); E = loadExt(); migrateExt(); save(); // new v3 state lives in deLearn.ext; deLearn.v1 records are kept as they are
 try { history.replaceState({ screen: 'home', params: {} }, ''); } catch (e) {}
 render();
 if (/^https?:$/.test(location.protocol)) {
