@@ -1466,6 +1466,296 @@ const PLACE_BANK = [
   { id:'p5e', lv:5, kind:'mcq', q:'transform.py asserts that chart positions are unique, and today the assert fails. What should the pipeline do?', o:['Stop (fail fast) before load, so no bad data is written and the run shows red','Log a warning and load anyway','Silently drop the duplicates and continue','Retry the API forever'], why:'A quality gate stops the run before bad data reaches the table.' }
 ];
 
+/* =====================================================================
+   v4 TERMINOLOGY DATA  (see source/LEARNING_RULES.md for the full rules)
+   GROUND      building-block words, learned once and reused by many terms.
+               { name, tip, teach (html), qs: [Question, Question] }
+   TERM_BLOCKS term id -> building blocks that must be grounded before the
+               term's first phrase starts.
+   TERMS4      hand-written tiers for key terms:
+               t1: { def: 'text with {phrase one} and {phrase two}.',
+                     ph: [ { a: [extra accepted wordings, max 2 more],
+                             d: [[near-miss distractor, why it is wrong]],
+                             spot: Question, ord: true if word order matters } ] }
+               t3: 'advanced definition with {phrases}' (optional)
+               Tier 2 is always the app's existing definition (auto-split).
+               Terms without an entry get tier 1 = existing definition.
+   Question    { q, show?: html, o: [correct, wrong...], why }
+               or { q, show?, tap: [[html, 1 correct | 0 wrong | null plain]], inline?: true, why }
+   ===================================================================== */
+const _h = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const MT = (cols, rows) => '<table class="mini"><tr>' + cols.map(c => '<th>' + _h(c) + '</th>').join('') + '</tr>' + rows.map(r => '<tr>' + r.map(v => v === null ? '<td class="null">NULL</td>' : '<td>' + _h(v) + '</td>').join('') + '</tr>').join('') + '</table>';
+const QY = s => '<pre class="qy">' + _h(s) + '</pre>';
+const LAB = (l, h) => '<div class="lab">' + l + '</div>' + h;
+const SC_SONGS = MT(['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700]]);
+const SC_Q = "SELECT title, streams * 2 AS doubled\nFROM songs\nWHERE streams > 800\nORDER BY streams DESC;";
+const SC_RES = MT(['title', 'doubled'], [['Calm Down', 2400], ['Rush', 1800]]);
+const SC_ART = MT(['artist_id', 'name', 'genre'], [[1, 'Burna Boy', 'Afrobeats'], [2, 'Tems', null], [3, 'Rema', 'Afrobeats']]);
+const SC_SNG = MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Calm Down', 3], [12, 'Charm', 3]]);
+const SC_CHART = MT(['chart_date', 'artist', 'title', 'streams'], [['10-16', 'Rema', 'Calm Down', 1200], ['10-17', 'Rema', 'Calm Down', 1100], ['10-17', 'Tems', 'Free Mind', 800]]);
+const SCENE = '<div class="scene">' + LAB('Table <code>songs</code>', SC_SONGS) + LAB('Query', QY(SC_Q)) + LAB('Output (the result)', SC_RES) + '</div>';
+
+const GROUND = {
+  row: { name: 'row', tip: 'one line of a table: one record',
+    teach: 'A <b>row</b> is one line across a table. It holds one record, here one song with its title, artist and streams.' + SCENE,
+    qs: [{ q: 'Tap <b>one row</b> of the songs table.', show: SC_SONGS, tap: [['title: Rush · Calm Down · Essence', 0], ['Rush · Ayra Starr · 900', 1], ['streams: 900 · 1200 · 700', 0]], why: 'A row runs across: one song with all its values. A list down one field is a column.' },
+      { q: 'How many rows does the songs table have?', show: SC_SONGS, o: ['3', '4', '2', '9'], why: 'The top line holds the column names (the header), so it is not a row. The 3 lines below are rows.' }] },
+  column: { name: 'column', tip: 'one named field, read downwards',
+    teach: 'A <b>column</b> is one named field that every row has, such as <code>streams</code>. You read it downwards.' + SCENE,
+    qs: [{ q: 'Tap the <b>column</b> <code>artist</code>.', show: SC_SONGS, tap: [['Ayra Starr · Rema · Wizkid', 1], ['Calm Down · Rema · 1200', 0], ['the whole songs table', 0]], why: 'A column is one field read downwards: all the artists.' },
+      { q: 'songs has how many columns?', show: SC_SONGS, o: ['3', '4', '1', '9'], why: 'title, artist and streams: 3 named fields.' }] },
+  value: { name: 'value', tip: 'one cell: one piece of data',
+    teach: 'A <b>value</b> is one cell: where one row meets one column, e.g. Rush\u2019s streams = 900.' + SCENE,
+    qs: [{ q: 'Tap <b>a single value</b>.', show: SC_SONGS, tap: [['900', 1], ['Rush · Ayra Starr · 900', 0], ['streams: 900 · 1200 · 700', 0]], why: 'A value is one cell. A row or a column holds several values.' },
+      { q: 'What is the value of streams for Calm Down?', show: SC_SONGS, o: ['1200', 'Rema', 'streams', '3'], why: 'Find the row (Calm Down), then the column (streams): 1200.' }] },
+  table: { name: 'table', tip: 'stored rows and columns with a name',
+    teach: 'A <b>table</b> is stored data with a name (<code>songs</code>): rows and columns that stay in the database after the query finishes.' + SCENE,
+    qs: [{ q: 'Tap the <b>stored table</b> the query reads from.', tap: [[QY(SC_Q), 0], [SC_SONGS, 1], ['the word doubled', 0]], why: 'The query is the instruction. songs is the stored table it reads.' },
+      { q: 'In <code>FROM songs</code>, what is songs?', o: ['a table', 'a column', 'a row', 'a value'], why: 'FROM names the table the rows come from.' }] },
+  query: { name: 'query', tip: 'an instruction that asks the database for data',
+    teach: 'A <b>query</b> is an instruction you send to the database, usually starting with SELECT. It asks for data; it does not store any.' + SCENE,
+    qs: [{ q: 'Which of these is a <b>query</b>?', o: ['SELECT title FROM songs;', 'songs', 'streams > 800', 'Calm Down'], why: 'A query is a full instruction (SELECT … FROM …). The others are a table name, a condition and a value.' },
+      { q: 'Tap the <b>query</b>.', tap: [[SC_SONGS, 0], [QY(SC_Q), 1], [SC_RES, 0]], why: 'The query is the text instruction; the tables are data.' }] },
+  result: { name: 'result rows', tip: 'the rows a query returns, not the stored table',
+    teach: 'The <b>result</b> (the <b>result rows</b>) is what a query returns. It is new output. The stored table is not changed: songs still has 3 rows after this query.' + SCENE,
+    qs: [{ q: 'Tap the <b>result rows</b>.', tap: [[LAB('Table songs', SC_SONGS), 0], [QY(SC_Q), 0], [LAB('Output', SC_RES), 1]], why: 'The result is the output the query produced. The songs table is the input.' },
+      { q: 'Why do we say ORDER BY sorts the <b>result rows</b>, not the table rows?', o: ['The query returns new rows; the stored table is never reordered', 'Because tables have no rows', 'Because ORDER BY deletes the table rows', 'Because the table is sorted first and then copied'], why: 'Queries read tables and return results. Sorting, filtering and limiting all shape the result only.' }] },
+  expression: { name: 'expression', tip: 'anything that produces a value for each row',
+    teach: 'An <b>expression</b> is anything that produces a value for each row: a column (<code>streams</code>), a calculation (<code>streams * 2</code>) or a function call (<code>UPPER(title)</code>). A table name is not an expression.' + SCENE,
+    qs: [{ q: 'Tap the expression that <b>calculates</b> a new value.', inline: true, tap: [['SELECT ', null], ['title', 0], [', ', null], ['streams * 2', 1], [' AS doubled FROM ', null], ['songs', 0], [';', null]], why: 'streams * 2 computes a value for each row. title is a plain column; songs is a table.' },
+      { q: 'Which of these can be <b>expressions</b>: price, price * qty, the table name orders?', o: ['price and price * qty', 'only price * qty', 'price, price * qty and orders', 'only orders'], why: 'A column is the simplest expression (it gives a value per row). A table name gives no value, so it is not one.' }] },
+  condition: { name: 'condition', tip: 'a test that is TRUE or FALSE for each row',
+    teach: 'A <b>condition</b> is a test such as <code>streams &gt; 800</code>. It is checked for each row and gives TRUE or FALSE (or UNKNOWN with NULL).' + SCENE,
+    qs: [{ q: 'Tap the <b>condition</b>.', inline: true, tap: [['SELECT ', null], ['title', 0], [' FROM ', null], ['songs', 0], [' WHERE ', null], ['streams > 800', 1], [' ORDER BY ', null], ['streams DESC', 0]], why: 'streams > 800 is the test; WHERE uses it to keep rows.' },
+      { q: 'For the row Essence (700 streams), what is <code>streams &gt; 800</code>?', show: SC_SONGS, o: ['FALSE', 'TRUE', 'UNKNOWN', '700'], why: '700 is not greater than 800, so the test is FALSE for that row and WHERE drops it.' }] },
+  clause: { name: 'clause', tip: 'one part of a query that starts with a keyword',
+    teach: 'A <b>clause</b> is one part of a query that starts with a keyword: <code>SELECT …</code>, <code>FROM …</code>, <code>WHERE …</code>, <code>ORDER BY …</code>.' + SCENE,
+    qs: [{ q: 'Tap the <b>WHERE clause</b>.', inline: true, tap: [['SELECT title', 0], [' ', null], ['FROM songs', 0], [' ', null], ['WHERE streams > 800', 1], [' ', null], ['ORDER BY streams DESC', 0]], why: 'A clause is the keyword plus its part: WHERE streams > 800.' },
+      { q: 'Which of these is a whole <b>clause</b>?', o: ['ORDER BY streams DESC', 'DESC', 'streams', '>'], why: 'A clause starts with its keyword and includes its part. DESC, streams and > are only pieces of clauses.' }] },
+  key: { name: 'key', tip: 'a column whose values identify rows',
+    teach: '<b>Key</b> columns identify rows. <code>artists.artist_id</code> gives every artist a unique number; <code>songs.artist_id</code> uses that number to point at an artist.' + '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>',
+    qs: [{ q: 'Which column identifies each artist?', show: '<div class="scene">' + LAB('artists', SC_ART) + '</div>', o: ['artist_id', 'name (names can repeat)', 'genre', 'the first row'], why: 'artist_id is unique per artist and never missing. Names and genres can repeat.' },
+      { q: 'In songs, which column points to an artist?', show: '<div class="scene">' + LAB('songs', SC_SNG) + '</div>', o: ['artist_id', 'song_id', 'title', 'none'], why: 'songs.artist_id holds artists\u2019 key values, linking each song to one artist.' }] },
+  datatype: { name: 'data type', tip: 'what kind of value a column holds',
+    teach: 'A <b>data type</b> says what kind of value a column holds: INTEGER (whole numbers), TEXT, DATE, BOOLEAN …',
+    qs: [{ q: 'streams holds 900, 1200, 700. Its data type is…', show: SC_SONGS, o: ['INTEGER (whole numbers)', 'TEXT', 'DATE', 'BOOLEAN'], why: 'Whole numbers are INTEGER.' },
+      { q: 'Which value is TEXT?', o: ["'Rush'", '900', 'TRUE', '2.5'], why: 'Text values are written in quotes in SQL.' }] },
+  schema: { name: 'schema', tip: 'the structure, not the data',
+    teach: 'The <b>schema</b> is the structure: which tables exist, their columns and data types. The rows are the data that fill that structure.',
+    qs: [{ q: 'Which of these is part of the <b>schema</b>, not the data?', o: ['streams is an INTEGER column of songs', 'Rush has 900 streams', 'there are 3 songs today', 'Rema is an artist'], why: 'Column names and types are structure. The others are facts stored as data.' },
+      { q: 'Someone renames the column streams to plays. What changed?', o: ['the schema', 'only the data', 'nothing', 'only the query result'], why: 'Names and types of columns are the schema.' }] },
+  func: { name: 'function', tip: 'takes input values and returns a value',
+    teach: 'A <b>function</b> takes input values and returns a value: <code>UPPER(title)</code>, <code>ROUND(x, 1)</code>, in Python <code>len(rows)</code>.',
+    qs: [{ q: 'Tap the <b>function name</b>.', inline: true, tap: [['SELECT ', null], ['UPPER', 1], ['(', null], ['title', 0], [') FROM ', null], ['songs', 0], [';', null]], why: 'UPPER is the function; title is its input; songs is the table.' },
+      { q: 'What does <code>UPPER(\'rush\')</code> return?', o: ["'RUSH'", "'rush'", 'a table', 'TRUE'], why: 'The function takes one input value and returns one value.' }] },
+  pipeline: { name: 'pipeline', tip: 'automated steps that move data from source to target',
+    teach: 'A <b>pipeline</b> is a set of automated steps that moves data from a source to a target: API → extract → transform → load → table.',
+    qs: [{ q: 'Which is a <b>pipeline</b>?', o: ['a script that pulls the chart API, cleans it and loads a table every morning', 'a single SELECT you run once by hand', 'a CSV file', 'a dashboard'], why: 'A pipeline is repeatable, automated steps from source to target.' },
+      { q: 'In API → extract → transform → load → table, what is the pipeline?', o: ['the whole chain of steps', 'only the API', 'only the table', 'only the load step'], why: 'The pipeline is all the steps together.' }] },
+  run: { name: 'run', tip: 'one execution of a job',
+    teach: 'A <b>run</b> is one execution of a job. The same code can run many times: every morning, or again by hand after a failure.',
+    qs: [{ q: 'The pipeline is scheduled 07:17 daily. On Tuesday it fails at 07:17 and you re-run it at 09:00. How many runs on Tuesday?', o: ['2', '1', '0', '3'], why: 'Each execution is a run, failed or not.' },
+      { q: 'A <b>run</b> is…', o: ['one execution of a job', 'the code file', 'the schedule', 'the table it writes'], why: 'Code is written once; it runs many times.' }] },
+  batch: { name: 'batch', tip: 'a bounded chunk of data processed together',
+    teach: 'A <b>batch</b> is a bounded chunk of data (it has a start and an end, e.g. one day of chart data) processed together.',
+    qs: [{ q: 'Which is a <b>batch</b>?', o: ['all of yesterday\u2019s orders processed together at 01:00', 'each click processed the moment it happens', 'the database server', 'a column'], why: 'A batch is a bounded set handled together. Handling events one by one as they come is streaming.' },
+      { q: 'A batch is <b>bounded</b>. That means…', o: ['it has a known start and end, such as one day of data', 'it never ends', 'it is always small', 'it is in memory'], why: 'Bounded = finite, with a clear start and end.' }] },
+  partition: { name: 'partition', tip: 'the rows that share one value of a split column',
+    teach: 'A table split by a column (e.g. <code>chart_date</code>) has one <b>partition</b> per value: all rows of 10-16, all rows of 10-17 …' + SC_CHART,
+    qs: [{ q: 'The table is split by chart_date. Which rows form one partition?', show: SC_CHART, o: ['all rows with chart_date 10-17', 'the first row', 'the streams column', 'every row in the table'], why: 'One partition = all rows that share one value of the split column.' },
+      { q: 'Reloading only today\u2019s partition means…', o: ['only today\u2019s rows are replaced; other days are untouched', 'the whole table is replaced', 'a new column is added', 'today\u2019s rows are duplicated'], why: 'Partitions let a job touch only the part it needs.' }] },
+  event: { name: 'event', tip: 'a small record that something happened, with a time',
+    teach: 'An <b>event</b> is a small record that something happened at a time: "user 42 played Rush at 07:03:12".',
+    qs: [{ q: 'Which is an <b>event</b>?', o: ['"user 42 played Rush at 07:03:12"', 'the songs table', 'a SELECT query', 'a CSV header'], why: 'An event records one thing that happened, with its time.' },
+      { q: 'Events arrive…', o: ['continuously, one after another', 'once a year in one file', 'only when you run a query', 'never: they are stored rules'], why: 'Events keep coming; stream processing handles them as they arrive.' }] },
+  api: { name: 'API', tip: 'a URL your code calls to get data',
+    teach: 'An <b>API</b> is a URL your code calls to get data, here <code>requests.get(chart_url)</code> returning JSON.',
+    qs: [{ q: 'The Deezer chart <b>API</b> is…', o: ['a URL your code calls that returns data (JSON)', 'a database table', 'a Python file', 'a scheduler'], why: 'Your code sends a request; the API answers with data.' },
+      { q: 'An API call can fail. Which is a failed call?', o: ['HTTP status 500', 'HTTP status 200 with JSON', 'a list of 100 songs', 'a page of results'], why: '4xx and 5xx statuses are errors; 200 is success.' }] },
+  test: { name: 'test', tip: 'code that checks other code with known input',
+    teach: 'A <b>test</b> is code that runs your code with known input and checks the output, e.g. <code>assert transform(raw) == expected</code>.',
+    qs: [{ q: 'Which is a <b>test</b>?', o: ['a function that runs transform() on sample JSON and asserts the rows', 'transform() itself', 'a log line', 'the API'], why: 'A test checks other code against an expected result.' },
+      { q: 'A test fails. What does that tell you?', o: ['the code did not give the expected result for that input', 'the network is down', 'the table is empty', 'nothing'], why: 'Failing = actual output differs from expected.' }] }
+};
+
+const TERM_BLOCKS = {
+  'sql1-t1': ['row', 'column'], 'sql1-t2': ['column', 'row', 'value'], 'sql1-t3': ['column', 'key', 'table'], 'sql1-t4': ['query', 'result'], 'sql1-t5': ['table', 'column', 'datatype'],
+  'sql2-t1': ['condition', 'row', 'clause'], 'sql2-t2': ['value', 'column'], 'sql2-t3': ['condition', 'value'], 'sql2-t4': ['value', 'condition', 'query'], 'sql2-t5': ['value', 'condition'],
+  'sql3-t1': ['result', 'expression'], 'sql3-t2': ['result', 'row'], 'sql3-t3': ['result', 'row', 'column'], 'sql3-t4': ['clause', 'query'], 'sql3-t5': ['table', 'row'],
+  'sql4-t1': ['func', 'row', 'value'], 'sql4-t2': ['row', 'column', 'func'], 'sql4-t3': ['condition', 'row', 'clause'], 'sql4-t4': ['row', 'table', 'result'], 'sql4-t5': ['func', 'row', 'value'],
+  'sql5-t1': ['row', 'table', 'column', 'key'], 'sql5-t2': ['row', 'table'], 'sql5-t3': ['row', 'table', 'value'], 'sql5-t4': ['row', 'table'], 'sql5-t5': ['row', 'table', 'key'],
+  'sql6-t1': ['query', 'result'], 'sql6-t2': ['query', 'result', 'value'], 'sql6-t3': ['query', 'row', 'column'], 'sql6-t4': ['query', 'row', 'condition'], 'sql6-t5': ['query', 'clause', 'table'],
+  'sql7-t1': ['query', 'result'], 'sql7-t2': ['query'], 'sql7-t3': ['query', 'row'], 'sql7-t4': ['row', 'result'],
+  'sql8-t1': ['func', 'row', 'result'], 'sql8-t2': ['row', 'func'], 'sql8-t3': ['row', 'value', 'func'], 'sql8-t4': ['func', 'row', 'value'], 'sql8-t5': ['row', 'func'],
+  'sql9-t1': ['expression', 'condition', 'value'], 'sql9-t2': ['func', 'value'], 'sql9-t3': ['value', 'datatype'], 'sql9-t4': ['func', 'value'], 'sql9-t5': ['value', 'datatype', 'expression'],
+  'pj1-t1': ['pipeline', 'batch', 'run'], 'pj1-t2': ['run', 'table'], 'pj1-t3': ['pipeline', 'func'], 'pj1-t4': ['row', 'key'],
+  'pj2-t1': ['api', 'result'], 'pj2-t2': ['api', 'func'], 'pj2-t3': ['api', 'run'], 'pj2-t4': ['api', 'run'],
+  'pj3-t1': ['row', 'column', 'value'], 'pj3-t2': ['func', 'value'], 'pj3-t3': ['run', 'condition'], 'pj3-t4': ['value', 'func'],
+  'pj4-t1': ['table', 'schema'], 'pj4-t2': ['table', 'run'], 'pj4-t3': ['key', 'column', 'row'], 'pj4-t4': ['partition', 'run', 'row'], 'pj4-t5': ['table', 'query'], 'pj4-t6': ['query', 'value'],
+  'pj5-t1': ['query', 'result', 'table'], 'pj5-t2': ['query', 'run'], 'pj5-t3': ['func', 'row'], 'pj5-t4': ['expression', 'value'], 'pj5-t5': ['row', 'func'],
+  'pj6-t1': ['test', 'func'], 'pj6-t2': ['test'], 'pj6-t3': ['test'], 'pj6-t4': ['test'], 'pj6-t5': ['test'],
+  'pj7-t1': ['run'], 'pj7-t2': ['run', 'pipeline'], 'pj7-t3': ['run'], 'pj7-t4': ['test', 'run', 'pipeline'],
+  'pj8-t1': ['pipeline', 'run'], 'pj8-t2': ['run', 'pipeline'], 'pj8-t3': ['func'], 'pj8-t4': ['run'],
+  'pj9-t1': ['row', 'value'], 'pj9-t2': ['row', 'value'], 'pj9-t3': ['row', 'table'], 'pj9-t4': ['result', 'row'],
+  'etl1-t1': ['pipeline', 'api'], 'etl1-t2': ['pipeline', 'row'], 'etl1-t3': ['pipeline', 'table'], 'etl1-t4': ['pipeline', 'table'], 'etl1-t5': ['pipeline', 'run'],
+  'etl2-t1': ['run', 'pipeline', 'row'], 'etl2-t2': ['row', 'key'], 'etl2-t3': ['run', 'row'], 'etl2-t4': ['run', 'value'], 'etl2-t5': ['run', 'pipeline'],
+  'etl3-t1': ['batch', 'run'], 'etl3-t2': ['event'], 'etl3-t3': ['event', 'pipeline'], 'etl3-t4': ['event'], 'etl3-t5': ['event', 'batch'],
+  'etl4-t1': ['condition', 'pipeline'], 'etl4-t2': ['pipeline', 'run'], 'etl4-t3': ['schema', 'api'], 'etl4-t4': ['test', 'func'], 'etl4-t5': ['row', 'run'],
+  'etl5-t1': ['partition', 'table'], 'etl5-t2': ['pipeline'], 'etl5-t3': ['pipeline', 'run'], 'etl5-t4': ['run', 'pipeline']
+};
+
+const SC_GENRE = MT(['name', 'genre'], [['Burna Boy', 'Afrobeats'], ['Tems', null], ['Rema', 'Afrobeats']]);
+const TERMS4 = {
+  'sql1-t1': { t1: { def: 'A table is {a named set of rows and columns}; {each row is one record}.', ph: [
+    { a: ['a named collection of rows and columns', 'named rows and columns'], d: [['a named set of rows', 'A table has rows AND columns: columns name the fields, rows hold the records.'], ['a named list of columns', 'Columns alone are only the structure; the rows hold the data.'], ['a named set of files', 'A table lives inside the database; it is not a set of files.']],
+      spot: { q: 'Tap the <b>table</b>.', tap: [[QY('SELECT title FROM songs;'), 0], [SC_SONGS, 1], ['Rush', 0]], why: 'The table is the stored grid of rows and columns. The query only reads it; Rush is one value.' } },
+    { a: ['every row is one record', 'each row holds one record'], d: [['each column is one record', 'A column is one field (like streams). A record runs across a row.'], ['each row is one table', 'A row is one record inside the table.'], ['each row is many records', 'One row = one record, e.g. one song.']],
+      spot: { q: 'In songs, what does <b>one row</b> represent?', show: SC_SONGS, o: ['one song', 'all songs by one artist', 'every song', 'one column of streams'], why: 'Each row is one record: here, one song.' } }] } },
+  'sql1-t2': { t1: { def: 'A primary key is {a column or set of columns} {that uniquely identifies each row}; {it can never be NULL}.', ph: [
+    { a: ['one or more columns', 'a column or a group of columns'], d: [['a single row', 'A key is made of columns; rows are what it identifies.'], ['exactly one column', 'It can be several columns together (a composite key), e.g. (chart_date, track_id).'], ['a separate table', 'The key is columns inside the table itself.']],
+      spot: { q: 'chart_entries has one row per song per day, identified by (chart_date, song_id). What is (chart_date, song_id)?', o: ['a set of columns used as the primary key', 'two separate primary keys', 'one row', 'a foreign key'], why: 'Two columns together can form one primary key (a composite key).' } },
+    { a: ['that identifies each row uniquely', 'whose value is unique for each row'], d: [['that uniquely identifies one row', 'It identifies EACH row: every row gets its own unique value, not just one row.'], ['that uniquely identifies each column', 'A key picks out rows, not columns.'], ['that sorts each row', 'Keys identify rows; sorting is ORDER BY.']],
+      spot: { q: 'Which column could be the primary key of songs?', show: SC_SNG, o: ['song_id', 'artist_id (3 appears twice)', 'title', 'the whole table'], why: 'song_id is different on every row. artist_id repeats, so it cannot identify each row.' } },
+    { a: ['it is never NULL', 'it cannot be NULL'], d: [['it can sometimes be NULL', 'A missing key means a row you cannot identify, so NULL is never allowed.'], ['it can never be zero', '0 is a real value. The rule is about NULL (missing).'], ['it can never repeat in other tables', 'Repeating in other tables is fine (that is a foreign key). The rule here is: never NULL.']] }] } },
+  'sql1-t3': { t1: { def: 'A foreign key is {a column that points to the primary key} {of another table}.', ph: [
+    { a: ['a column that references the primary key', 'a column holding primary key values'], d: [['a column that points to any column', 'It points to the other table\u2019s PRIMARY key, so each value matches exactly one row there.'], ['a row that points to the primary key', 'A foreign key is a column, filled in on every row.'], ['a column that replaces the primary key', 'It replaces nothing; it refers to a key elsewhere.']],
+      spot: { q: 'Which column is the <b>foreign key</b>?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['songs.artist_id', 'songs.song_id', 'artists.artist_id', 'songs.title'], why: 'songs.artist_id holds values of artists\u2019 primary key. artists.artist_id is the primary key it points to.' } },
+    { a: ['in another table', 'of a different table'], d: [['of the same column', 'It links to a key in another table.'], ['of every table', 'It points to one specific table.'], ['of another database', 'Usually another table in the same database.']],
+      spot: { q: 'A song has artist_id = 3. Where do you look to find who that is?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['the artists row whose artist_id is 3', 'the songs row whose song_id is 3', 'the 3rd row of songs', 'nowhere: 3 is just a number'], why: 'The foreign key value is looked up in the other table\u2019s primary key: artist 3 is Rema.' } }] } },
+  'sql1-t5': { t1: { def: 'A schema is {the structure of a database}: {its tables, columns and data types}.', ph: [
+    { a: ['the design of a database', 'the layout of a database'], d: [['the data in a database', 'The schema is the shape (tables, columns, types), not the rows of data.'], ['the speed of a database', 'Speed is performance, not structure.'], ['a copy of a database', 'A copy is a backup.']],
+      spot: { q: 'Which of these is part of the <b>schema</b>?', o: ['the songs table has an INTEGER column streams', 'Rush has 900 streams', 'there are 3 songs', 'Rema sang Calm Down'], why: 'Tables, columns and types are structure; the rest are data.' } },
+    { a: ['tables, columns and data types', 'its tables, columns and types'], d: [['its rows and values', 'Rows and values are the data; the schema describes their structure.'], ['its tables only', 'Columns and data types are part of the structure too.'], ['its queries and results', 'Queries read data; they are not the structure.']],
+      spot: { q: 'Someone changes streams from TEXT to INTEGER. What changed?', o: ['the schema (a data type)', 'only the data', 'nothing', 'a query result'], why: 'Data types are part of the schema.' } }] } },
+  'sql2-t1': { t1: { def: 'A predicate is {a condition that is TRUE, FALSE or UNKNOWN} {for each row}; {WHERE keeps only the rows where it is TRUE}.', ph: [
+    { a: ['a condition that evaluates to TRUE, FALSE or UNKNOWN', 'a test that is TRUE, FALSE or UNKNOWN'], d: [['a condition that is TRUE or FALSE', 'SQL has a third result, UNKNOWN, when NULL is involved.'], ['a value that is TRUE, FALSE or UNKNOWN', 'A predicate is a test like streams > 800, not a stored value.'], ['a column that is TRUE, FALSE or UNKNOWN', 'The predicate is the test, not a column.']],
+      spot: { q: 'Tap the <b>predicate</b>.', inline: true, tap: [['SELECT ', null], ['title', 0], [' FROM ', null], ['songs', 0], [' WHERE ', null], ['streams > 800', 1], [';', null]], why: 'streams > 800 is the condition WHERE checks.' } },
+    { a: ['for every row', 'checked on each row'], d: [['for one row', 'WHERE checks each row; "one row" would mean only a single row is checked.'], ['for each column', 'The condition is checked row by row, not column by column.'], ['for the whole table at once', 'It gives one answer per row, not one answer for the table.']],
+      spot: { q: '<code>WHERE streams &gt; 800</code> on songs. How many times is the condition checked?', show: SC_SONGS, o: ['3, once per row', '1, once for the table', '2, once per kept row', '9, once per value'], why: 'The predicate is evaluated for each row; rows where it is TRUE are kept.' } },
+    { a: ['WHERE keeps the rows where it is TRUE', 'WHERE returns only rows where it is TRUE'], d: [['WHERE keeps the rows where it is not FALSE', 'UNKNOWN rows are dropped too: only TRUE survives.'], ['WHERE keeps all rows and marks the TRUE ones', 'WHERE removes rows; it does not mark them.'], ['WHERE keeps only the rows where it is FALSE', 'Kept rows are the TRUE ones.']],
+      spot: { q: "<code>WHERE genre = 'Afrobeats'</code>. Which rows are kept?", show: SC_GENRE, o: ['Burna Boy and Rema', 'Burna Boy, Tems and Rema', 'only Tems', 'none'], why: 'Tems has NULL, so the test is UNKNOWN, and only TRUE rows are kept.' } }] } },
+  'sql2-t2': { t1: { def: 'NULL is {a marker for a missing or unknown value}; {it is not zero and not an empty string}.', ph: [
+    { a: ['a marker meaning a value is missing or unknown', 'a marker for a missing value'], d: [['a value of zero', 'NULL is not 0. Zero is a real, known number.'], ['a marker for a deleted row', 'A NULL is one missing value in a row, not a deleted row.'], ['a marker for a wrong value', 'Wrong data is still a value; NULL means there is no value.']],
+      spot: { q: 'Which cell is <b>NULL</b>?', show: SC_GENRE, o: ['Tems\u2019 genre', 'Burna Boy\u2019s genre', 'the genre column', 'Rema\u2019s name'], why: 'Tems\u2019 genre is missing (unknown), shown as NULL.' } },
+    { a: ['not zero and not an empty string', 'it is neither 0 nor an empty string'], d: [['it is zero or an empty string', 'The classic mistake: NULL is neither.'], ['it is not zero but it is an empty string', "An empty string '' is a known (empty) value; NULL is unknown."], ['it is not missing and not unknown', 'Missing or unknown is exactly what NULL means.']] }] } },
+  'sql2-t3': { t1: { def: 'In three-valued logic {conditions can be TRUE, FALSE or UNKNOWN}; {any comparison with NULL gives UNKNOWN}, {so you test for NULL with IS NULL}.', ph: [
+    { a: ['a condition can be TRUE, FALSE or UNKNOWN', 'conditions are TRUE, FALSE or UNKNOWN'], d: [['conditions can be TRUE or FALSE', 'The third value, UNKNOWN, is the whole point.'], ['conditions can be TRUE, FALSE or NULL', 'The logic value is called UNKNOWN; NULL is the missing data that causes it.'], ['values can be TRUE, FALSE or UNKNOWN', 'It is about conditions (tests), not stored values.']],
+      spot: { q: "For Tems (genre NULL), what is <code>genre = 'Afrobeats'</code>?", show: SC_GENRE, o: ['UNKNOWN', 'FALSE', 'TRUE', 'an error'], why: 'Comparing with a missing value cannot be decided: UNKNOWN.' } },
+    { a: ['any comparison with NULL yields UNKNOWN', 'comparing anything with NULL gives UNKNOWN'], d: [['any comparison with NULL gives FALSE', 'It is UNKNOWN, not FALSE. NOT FALSE is TRUE, but NOT UNKNOWN stays UNKNOWN.'], ['some comparisons with NULL give UNKNOWN', 'ANY comparison: =, <>, >, even NULL = NULL.'], ['any comparison with zero gives UNKNOWN', 'Zero is a normal value; the trouble is NULL.']],
+      spot: { q: 'What does <code>NULL = NULL</code> return?', o: ['UNKNOWN', 'TRUE', 'FALSE', 'an error'], why: 'Two unknowns cannot be known to be equal: UNKNOWN.' } },
+    { a: ['you test for NULL with IS NULL', 'so you check for NULL using IS NULL'], d: [['so you test for NULL with = NULL', '= NULL is a comparison, so it is always UNKNOWN and matches nothing.'], ['so you test for NULL with = 0', 'NULL is not 0; IS NULL is the test.'], ['so you test for NULL with LIKE NULL', 'LIKE is a comparison too, so UNKNOWN.']] }] } },
+  'sql3-t1': { t1: { def: 'ORDER BY {sorts the result rows} {by one or more expressions}.', ph: [
+    { a: ['sorts the rows of the result', 'orders the result rows'], d: [['sorts the table rows', 'ORDER BY never changes the stored table; it orders the rows the query returns.'], ['filters the result rows', 'It keeps every row; filtering is WHERE.'], ['groups the result rows', 'Grouping is GROUP BY; ORDER BY only changes the order.']],
+      spot: { q: 'This query has ORDER BY streams DESC. Tap what it sorts.', tap: [[LAB('Table songs', SC_SONGS), 0], [QY(SC_Q), 0], [LAB('Output', SC_RES), 1]], why: 'It sorts the result rows (the output). The songs table keeps its rows as they are.' } },
+    { a: ['by one or more columns or expressions', 'by one or more columns'], d: [['by one expression', '"One or more": ORDER BY artist, streams DESC sorts by two.'], ['on one or more expressions', '"on" belongs to JOIN … ON. ORDER BY sorts BY something.'], ['by one or more tables', 'You sort by values (columns or expressions), not by tables.']],
+      spot: { q: 'How many sort expressions are in this ORDER BY?', show: QY('SELECT title FROM songs\nORDER BY artist, streams * 2 DESC;'), o: ['2: artist, then streams * 2', '1: artist', '3', '0'], why: 'Two expressions, separated by a comma. The second only breaks ties of the first.' } }] },
+    t3: 'ORDER BY {sorts the final result rows by one or more expressions}, {each ascending by default or DESC}, {with NULLs placed first or last depending on the database}; {without it no row order is guaranteed}.' },
+  'sql3-t2': { t1: { def: 'LIMIT {returns only the first N rows} {of the result}.', ph: [
+    { a: ['keeps only the first N rows', 'returns just the first N rows'], d: [['returns only the last N rows', 'LIMIT keeps the first N. For the "last" ones, reverse the ORDER BY.'], ['returns N random rows', 'Without ORDER BY the first N are arbitrary, but LIMIT still means "the first N".'], ['returns all rows except N', 'It keeps N; it does not remove N.']],
+      spot: { q: 'What does this return?', show: SC_SONGS + QY('SELECT title FROM songs\nORDER BY streams DESC\nLIMIT 1;'), o: ['Calm Down', 'Rush', 'Essence', 'all three titles'], why: 'Sorted by streams, the first row is Calm Down (1200).' } },
+    { a: ['of the query result', 'of the result rows'], d: [['of the table', 'LIMIT trims the result after sorting; the table is untouched.'], ['of each group', 'LIMIT applies once to the whole result.'], ['of each column', 'LIMIT counts rows.']],
+      spot: { q: 'After <code>SELECT * FROM songs LIMIT 2</code>, how many rows does the songs table have?', o: ['still 3', '2', '1', '0'], why: 'LIMIT only trims the result. The stored table keeps its 3 rows.' } }] } },
+  'sql3-t3': { t1: { def: 'DISTINCT {removes duplicate rows} {from the result}.', ph: [
+    { a: ['drops duplicate rows', 'removes repeated rows'], d: [['removes duplicate columns', 'It compares whole rows of the result, not columns.'], ['removes NULL rows', 'It targets duplicates; one copy of each row stays, NULLs included.'], ['counts duplicate rows', 'Counting is COUNT; DISTINCT removes.']],
+      spot: { q: '<code>SELECT DISTINCT artist FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: 'Rema, Rema, Tems → duplicates removed → Rema, Tems.' } },
+    { a: ['from the query result', 'from the result rows'], d: [['from the table', 'Only the result is de-duplicated; the table keeps all rows.'], ['from each column separately', 'It removes rows where ALL selected columns repeat together.'], ['from the database', 'Nothing is deleted from storage.']],
+      spot: { q: '<code>SELECT DISTINCT artist, title FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: '(Rema, Calm Down) appears twice → one copy; plus (Tems, Free Mind).' } }] } },
+  'sql3-t4': { t1: { def: 'Logical query order is {the order the database evaluates clauses}: {FROM, WHERE, GROUP BY, HAVING}, {then SELECT, ORDER BY, LIMIT}.', ph: [
+    { a: ['the order SQL clauses are evaluated', 'the order in which clauses are evaluated'], d: [['the order you write the clauses', 'You write SELECT first, but it is evaluated after FROM, WHERE, GROUP BY and HAVING.'], ['the order of rows in the result', 'That is ORDER BY.'], ['the order tables are created', 'That is DDL.']] },
+    { ord: true, a: [], d: [['WHERE, FROM, GROUP BY, HAVING', 'FROM comes first: rows must be read before they can be filtered.'], ['FROM, GROUP BY, WHERE, HAVING', 'WHERE filters rows before grouping; HAVING filters groups after.'], ['FROM, HAVING, GROUP BY, WHERE', 'HAVING needs groups, so it comes after GROUP BY.']],
+      spot: { q: 'Why can WHERE not use SUM(streams)?', o: ['WHERE runs before GROUP BY, so no groups or sums exist yet', 'SUM only works in ORDER BY', 'WHERE runs after SELECT', 'SUM needs a JOIN'], why: 'FROM → WHERE → GROUP BY: aggregates appear only after grouping. Filter them with HAVING.' } },
+    { ord: true, a: ['then SELECT, then ORDER BY, then LIMIT'], d: [['then ORDER BY, SELECT, LIMIT', 'SELECT comes before ORDER BY; that is why ORDER BY can use a SELECT alias.'], ['then LIMIT, SELECT, ORDER BY', 'LIMIT is last: it keeps the first N rows after sorting.'], ['then SELECT, LIMIT, ORDER BY', 'Sorting must happen before you can take the first N.']],
+      spot: { q: 'Why can ORDER BY use the alias <code>doubled</code> from SELECT, but WHERE cannot?', show: QY(SC_Q), o: ['ORDER BY is evaluated after SELECT; WHERE is evaluated before it', 'ORDER BY ignores aliases', 'WHERE runs last', 'aliases only work in LIMIT'], why: '… WHERE … → SELECT (alias created) → ORDER BY (alias exists).' } }] } },
+  'sql4-t1': { t1: { def: 'An aggregate function {takes many rows} {and returns one value}, {like COUNT, SUM or AVG}.', ph: [
+    { a: ['reads many rows', 'works over many rows'], d: [['takes one row', 'Aggregates combine many rows. A normal function like UPPER works on one row at a time.'], ['takes many tables', 'It combines rows, usually from one result.'], ['takes many columns', 'It combines the values of many ROWS (one column usually).']],
+      spot: { q: 'Which is an <b>aggregate</b> function call?', o: ['SUM(streams)', 'UPPER(title)', 'streams * 2', 'ROUND(streams, 0)'], why: 'SUM reads many rows. UPPER and ROUND work on one value per row.' } },
+    { a: ['and returns a single value', 'and gives back one value'], d: [['and returns one value per row', 'That is a normal (scalar) function. An aggregate collapses many rows into one value.'], ['and returns many values', 'Many rows in, one value out.'], ['and returns the first value', 'It summarises all of them (count, sum, average…).']],
+      spot: { q: '<code>SELECT SUM(streams) FROM songs;</code> returns…', show: SC_SONGS, o: ['one row: 2800', 'three rows', '2800 on each of three rows', '900'], why: '900 + 1200 + 700 = 2800, one value.' } },
+    { a: ['such as COUNT, SUM and AVG', 'like COUNT, SUM, AVG, MIN or MAX'], d: [['like UPPER, LOWER or LENGTH', 'Those work on one value per row (scalar functions).'], ['like WHERE, HAVING or GROUP BY', 'Those are clauses, not functions.'], ['like JOIN, UNION or CASE', 'None of these is an aggregate.']] }] } },
+  'sql4-t2': { t1: { def: 'GROUP BY {puts rows that share the same values into groups}, {then aggregates are computed per group}.', ph: [
+    { a: ['groups rows that have the same values', 'splits rows into groups with the same values'], d: [['puts columns that share the same values into groups', 'Rows are grouped, using the values in the listed columns.'], ['sorts rows that share the same values', 'Sorting is ORDER BY; GROUP BY collapses each group to one row.'], ['puts rows with different values into one group', 'Each group holds rows with the SAME values.']],
+      spot: { q: '<code>GROUP BY artist</code> makes how many groups?', show: SC_CHART, o: ['2', '3', '1', '0'], why: 'Rema (2 rows) and Tems (1 row).' } },
+    { a: ['then aggregates are calculated for each group', 'then each group gets its own aggregate'], d: [['then aggregates are computed for the whole table', 'With GROUP BY, COUNT/SUM run once per group, not once overall.'], ['then aggregates are computed per row', 'Per row would mean no grouping at all.'], ['then rows are deleted per group', 'Nothing is deleted; each group becomes one result row.']],
+      spot: { q: '<code>SELECT artist, COUNT(*) FROM chart GROUP BY artist;</code>', show: SC_CHART, o: ['Rema 2, Tems 1', 'Rema 1, Tems 1', 'one row: 3', 'Rema 2'], why: 'COUNT(*) is computed per group.' } }] } },
+  'sql4-t3': { t1: { def: 'HAVING {filters groups after aggregation}, {while WHERE filters rows before grouping}.', ph: [
+    { a: ['filters groups after grouping', 'keeps only some groups after aggregation'], d: [['filters rows after aggregation', 'HAVING works on groups (and their totals), not single rows.'], ['filters groups before aggregation', 'Before aggregation there are no totals to test; HAVING comes after.'], ['sorts groups after aggregation', 'Sorting is ORDER BY.']],
+      spot: { q: 'Keep only artists with more than 1 chart row. Which clause?', show: SC_CHART, o: ['HAVING COUNT(*) > 1', 'WHERE COUNT(*) > 1', 'ORDER BY COUNT(*) > 1', 'LIMIT 1'], why: 'The test uses an aggregate, so it must run after grouping: HAVING.' } },
+    { a: ['WHERE filters rows before grouping', 'whereas WHERE filters rows before grouping'], d: [['while WHERE filters rows after grouping', 'WHERE runs first, on single rows, before any group exists.'], ['while WHERE filters groups before grouping', 'WHERE sees individual rows, not groups.'], ['while WHERE sorts rows before grouping', 'WHERE filters; ORDER BY sorts.']],
+      spot: { q: 'Count only chart rows from 10-17. Which clause does the filtering?', show: SC_CHART, o: ["WHERE chart_date = '10-17'", "HAVING chart_date = '10-17'", "ORDER BY chart_date = '10-17'", 'GROUP BY chart_date'], why: 'Filtering single rows before counting is WHERE\u2019s job.' } }] } },
+  'sql4-t4': { t1: { def: 'Grain is {what one row represents} {in a table or result}, {for example one song on one chart day}.', ph: [
+    { a: ['what a single row represents', 'what each row stands for'], d: [['what one column represents', 'Grain is about rows: the level of detail of each row.'], ['how many rows there are', 'Grain is the meaning of a row, not the row count.'], ['what the whole table represents', 'It is the unit of ONE row.']] },
+    { a: ['of a table or result', 'in a table or query result'], d: [['in a database', 'Grain belongs to one table or result; different tables have different grains.'], ['in a column', 'Rows have grain; columns have data types.']],
+      spot: { q: '<code>SELECT artist, SUM(streams) FROM chart GROUP BY artist;</code> What is the grain of the result?', show: SC_CHART, o: ['one row per artist', 'one row per song per day', 'one row per song', 'one row in total'], why: 'GROUP BY artist changes the grain to one row per artist.' } },
+    { a: ['e.g. one song on one chart day', 'such as one song on one day'], d: [['for example all songs on one chart day', 'One row is ONE song on one day, not all songs.'], ['for example one song on every chart day', 'That would be one row per song, a different grain.']],
+      spot: { q: 'What is the grain of this table?', show: SC_CHART, o: ['one song on one chart day', 'one artist', 'one chart day', 'one song'], why: 'Calm Down appears once per day: one row = one song on one day.' } }] },
+    t3: 'Grain is {the level of detail a table or result is stored at}, {defined by the set of columns that uniquely identifies a row}; {joins and aggregations change it, so you state it before and after each step}.' },
+  'sql4-t5': { t1: { def: '{COUNT(*) counts all rows}; {COUNT(column) counts only rows where that column is not NULL}.', ph: [
+    { a: ['COUNT(*) counts every row'], d: [['COUNT(*) counts all non-NULL rows', 'COUNT(*) counts rows, even rows full of NULLs.'], ['COUNT(*) counts all columns', 'It counts rows.'], ['COUNT(*) counts distinct rows', 'Duplicates are counted too.']],
+      spot: { q: '<code>SELECT COUNT(*) FROM artists;</code>', show: SC_GENRE, o: ['3', '2', '1', '0'], why: 'Every row counts, including Tems with a NULL genre.' } },
+    { a: ['COUNT(column) counts only the non-NULL values', 'COUNT(column) skips rows where it is NULL'], d: [['COUNT(column) counts all rows', 'It skips NULLs in that column.'], ['COUNT(column) counts only rows where that column is NULL', 'The opposite: it counts the NON-NULL ones.'], ['COUNT(column) counts only distinct values', 'That is COUNT(DISTINCT column).']],
+      spot: { q: '<code>SELECT COUNT(genre) FROM artists;</code>', show: SC_GENRE, o: ['2', '3', '1', '0'], why: 'Tems\u2019 genre is NULL, so COUNT(genre) skips it.' } }] } },
+  'sql5-t1': { t1: { def: 'A JOIN {combines rows from two tables} {by matching values in related columns}.', ph: [
+    { a: ['puts together rows from two tables', 'combines rows of two tables'], d: [['combines columns from one table', 'A JOIN brings two tables together side by side.'], ['stacks rows from two tables', 'Stacking rows is UNION; JOIN puts matching rows side by side.'], ['combines two databases', 'It works on tables (or results).']],
+      spot: { q: 'songs JOIN artists: each result row contains…', o: ['columns from one songs row and its matching artists row', 'either a song or an artist', 'only songs columns', 'every song paired with every artist'], why: 'A join row is the matched pair, side by side.' } },
+    { a: ['by matching values in shared columns', 'by matching related column values'], d: [['by matching row numbers', 'Rows are matched by values (e.g. artist_id), not by position.'], ['by matching column names', 'It matches VALUES (artist_id = 3), not just column names.'], ['by matching values in every column', 'Only the related columns (keys) need to match.']],
+      spot: { q: 'Join on <code>songs.artist_id = artists.artist_id</code>. "Charm" has artist_id 3. Which artist does it join to?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['Rema (artist_id 3)', 'the 3rd row of songs', 'every artist', 'none'], why: 'Rows are matched by equal values in the related columns.' } }] } },
+  'sql5-t2': { t1: { def: 'An INNER JOIN {returns only rows that have a match} {in both tables}.', ph: [
+    { a: ['keeps only rows that have a match', 'returns only matching rows'], d: [['returns all rows', 'Returning all rows of one side is LEFT JOIN; INNER keeps only matches.'], ['returns only rows that have no match', 'That is an anti-join.'], ['returns only the first match', 'It returns every matching pair.']],
+      spot: { q: 'artists INNER JOIN songs. Tems has no songs. Is Tems in the result?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['No', 'Yes, with a NULL title', 'Yes, twice', 'Only with ORDER BY'], why: 'No match, so INNER JOIN drops her.' } },
+    { a: ['on both sides', 'in both of the tables'], d: [['in either table', 'A match must exist on BOTH sides.'], ['in the left table', 'Both, not just the left.']] }] } },
+  'sql5-t3': { t1: { def: 'A LEFT JOIN {keeps all rows from the left table}, {adds matching rows from the right}, {and fills NULL where there is no match}.', ph: [
+    { a: ['returns all rows from the left table', 'keeps every row from the left table'], d: [['keeps only matching rows from the left table', 'Keeping only matches is INNER JOIN; LEFT keeps ALL left rows.'], ['keeps all rows from the right table', 'LEFT means the left (first) table is kept in full.'], ['keeps all rows from both tables', 'That is a FULL OUTER JOIN.']] },
+    { a: ['plus matching rows from the right table', 'adds the matching rows from the right table'], d: [['adds all rows from the right', 'Only the right rows that match are added.'], ['adds matching rows from the left', 'The left is already fully kept; matches come from the right.']],
+      spot: { q: 'artists LEFT JOIN songs. Rema has 2 songs. How many result rows for Rema?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['2', '1', '0', '3'], why: 'One row per matching song.' } },
+    { a: ['with NULL where there is no match', 'and the right-side columns are NULL where there is no match'], d: [['and fills 0 where there is no match', 'Missing values are NULL, not 0.'], ['and drops rows where there is no match', 'Dropping unmatched rows is what INNER JOIN does.'], ['and fills NULL where there is a match', 'Matched rows get real values; NULL only fills the gaps.']] }] },
+    t3: 'A LEFT JOIN {preserves every row of the left input}, {attaches each matching right row (possibly several, which multiplies left rows)}, {and pads unmatched rows with NULLs}, {so filters on right columns belong in ON, not WHERE, if you want to keep them}.' },
+  'sql8-t1': { t1: { def: 'A window function {computes a value across related rows} {while keeping every row in the result}.', ph: [
+    { a: ['calculates a value across a set of related rows', 'computes a value over related rows'], d: [['computes a value from one row only', 'A window looks across a set of related rows, e.g. all rows of the same song.'], ['computes a value across unrelated tables', 'It works over rows of the same result.'], ['deletes values across related rows', 'It computes; it never deletes.']],
+      spot: { q: 'Which expression is a <b>window function</b>?', o: ['SUM(streams) OVER (PARTITION BY artist)', 'SUM(streams)', 'UPPER(title)', 'streams * 2'], why: 'OVER(…) makes it a window function: the sum runs across the related rows.' } },
+    { a: ['keeping every row in the result', 'without collapsing the rows'], d: [['while keeping one row per group', 'One row per group is GROUP BY; a window keeps every row.'], ['while keeping only the first row', 'All rows stay.'], ['while removing duplicate rows', 'No rows are removed.']] }] },
+    t3: 'A window function {is evaluated over a window of rows defined by OVER(PARTITION BY … ORDER BY … frame)}, {returns one value per input row}, {and runs after WHERE, GROUP BY and HAVING}.' },
+  'sql8-t2': { t1: { def: 'PARTITION BY {splits rows into separate groups for a window function} {without collapsing the rows}.', ph: [
+    { a: ['divides rows into groups for a window function', 'splits rows into independent groups for a window function'], d: [['splits columns into groups for a window function', 'It groups rows.'], ['sorts rows for a window function', 'Sorting inside the window is ORDER BY in OVER().'], ['splits tables for a window function', 'It splits the rows of one result.']],
+      spot: { q: 'In <code>LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date)</code>, LAG looks back only within…', o: ['the same song\u2019s rows', 'the whole table', 'the previous column', 'another table'], why: 'Each song is its own partition.' } },
+    { a: ['while keeping every row', 'without merging the rows'], d: [['by collapsing the rows', 'Collapsing is GROUP BY. PARTITION BY keeps every row.'], ['without keeping the rows', 'All rows are kept.']] }] } },
+  'etl1-t1': { t1: { def: 'Extract is {reading data out of a source system}, {such as an API, database or file}.', ph: [
+    { a: ['pulling data from a source system', 'reading data from a source'], d: [['writing data into a source system', 'Writing into the target is Load; Extract reads from the source.'], ['cleaning data in a source system', 'Cleaning is Transform.'], ['deleting data from a source system', 'Extract should not change the source at all.']],
+      spot: { q: '<code>requests.get(chart_url)</code> in extract.py is which step?', o: ['Extract', 'Transform', 'Load', 'a test'], why: 'It reads data out of the source (the API).' } },
+    { a: ['like an API, a database or a file'], d: [['such as a dashboard or report', 'Those consume data at the end; they are not sources.'], ['such as the warehouse table', 'The warehouse is the target.']] }] } },
+  'etl1-t2': { t1: { def: 'Transform is {cleaning and reshaping data} {so it fits the target model}.', ph: [
+    { a: ['cleaning, reshaping and validating data', 'cleaning and restructuring data'], d: [['copying data unchanged', 'Copying unchanged is what the raw layer does; Transform changes the shape.'], ['reading data from the API', 'That is Extract.'], ['writing data to the warehouse', 'That is Load.']],
+      spot: { q: 'Turning nested JSON into flat rows with one value per column is…', o: ['Transform', 'Extract', 'Load', 'Backfill'], why: 'Reshaping data to fit the target is Transform.' } },
+    { a: ['so it fits the target table', 'so it matches the target model'], d: [['so it fits the source system', 'It is shaped for the target, where it will be used.'], ['so it downloads faster', 'The goal is fitting the target model.']] }] } },
+  'etl1-t3': { t1: { def: 'Load is {writing the prepared data} {into the target system}, {such as a warehouse table}.', ph: [
+    { a: ['writing the transformed data', 'saving the prepared data'], d: [['reading the prepared data', 'Load writes.'], ['writing the raw data', 'In ETL, Load writes the prepared (transformed) data.']] },
+    { a: ['to the target system', 'into the destination system'], d: [['into the source system', 'The source is where data came from; Load writes to the target.']],
+      spot: { q: 'load.py inserts rows into chart_entries in DuckDB. chart_entries is…', o: ['the target', 'the source', 'the raw layer', 'the API'], why: 'Data is loaded into the target.' } },
+    { a: ['like a data warehouse table', 'such as a table in a warehouse'], d: [['such as an API', 'An API is usually a source.']] }] } },
+  'etl2-t1': { t1: { def: 'An operation is idempotent when {running it once or many times} {gives the same end result}.', ph: [
+    { a: ['running it one time or many times', 'running it once or several times'], d: [['running it once', 'The point is reruns: once OR many times.'], ['running it many times faster', 'Speed is not the point.'], ['running it once a day', 'The schedule is unrelated.']],
+      spot: { q: 'Monday\u2019s load runs at 07:17 and again by hand at 09:00. If the load is idempotent, how many copies of Monday\u2019s rows exist?', o: ['one copy', 'two copies', 'none', 'it depends on luck'], why: 'Once or many times, same end result: one copy.' } },
+    { a: ['leaves the same end result', 'produces the same final result'], d: [['gives the same output at each step', 'It is about the END result (the final table), not every intermediate step.'], ['gives a different end result', 'A different result on rerun means NOT idempotent.'], ['gives the same speed', 'Not about speed.']] }] },
+    t3: 'Idempotency {means repeated execution with the same input converges to the same state}; {pipelines get it from deterministic keys and overwrite, upsert or delete-then-insert loads}, {which makes retries and backfills safe}.' },
+  'etl2-t2': { t1: { def: 'An upsert {updates a row if its key already exists} {and inserts it otherwise}.', ph: [
+    { a: ['updates the row when its key exists', 'updates a row if the key is already there'], d: [['inserts a row if its key already exists', 'Inserting an existing key would duplicate it; upsert UPDATES then.'], ['deletes a row if its key already exists', 'Upsert never deletes.'], ['updates a row if its value already exists', 'It matches on the KEY, not any value.']],
+      spot: { q: 'The table has song_id 7 with streams 500. Upsert (7, 650). Result?', o: ['one row for 7 with 650', 'two rows for 7', 'one row with 500', 'an error'], why: 'The key exists, so the row is updated.' } },
+    { a: ['and inserts it if the key is new', 'otherwise it inserts a new row'], d: [['and ignores it otherwise', 'New keys are inserted, not ignored.'], ['and updates it otherwise', '"Otherwise" means the key is new, so it inserts.']],
+      spot: { q: 'Upsert (9, 300). Key 9 does not exist yet. Result?', o: ['a new row (9, 300) is inserted', 'nothing happens', 'row 7 is updated', 'an error'], why: 'No existing key, so insert.' } }] } },
+  'etl2-t3': { t1: { def: 'An incremental load is {loading only new or changed data} {since the last run}.', ph: [
+    { a: ['loading just the new or changed data', 'loading only data that is new or changed'], d: [['loading all data', 'Reloading everything is a full refresh.'], ['loading only new data', 'Changed rows matter too: new OR changed.'], ['loading only deleted data', 'Not about deletions.']] },
+    { a: ['since the previous run', 'after the last run'], d: [['since the first run', 'That would reload everything ever loaded.'], ['since the last error', 'It is relative to the last successful run.']] }] } },
+  'etl2-t4': { t1: { def: 'A watermark is {the last processed value}, {such as a timestamp}, {stored so the next run knows where to resume}.', ph: [
+    { a: ['the last value processed', 'the most recent processed value'], d: [['the first processed value', 'It is the LAST value processed, so you continue after it.'], ['the last failed value', 'It records progress, not errors.']] },
+    { a: ['like a timestamp or an ID', 'such as a timestamp or ID'], d: [['such as a file name', 'Usually a timestamp or ID that increases.']] },
+    { a: ['saved so the next run knows where to resume', 'stored so the next run can continue from there'], d: [['stored so the next run starts from the beginning', 'The whole point is NOT starting over.'], ['stored so the previous run knows where to resume', 'It is for the NEXT run.']],
+      spot: { q: 'Watermark = 2026-10-16 23:59. Which orders does the next incremental run load?', o: ['orders after 2026-10-16 23:59', 'all orders', 'orders before 2026-10-16', 'only the watermark row'], why: 'Resume after the last processed value.' } }] } },
+  'etl5-t1': { t1: { def: 'A partition is {a slice of a table} {split by a column such as date}.', ph: [
+    { a: ['a subset of a table', 'a part of a table'], d: [['a copy of a table', 'A partition is part of the same table, not a copy.'], ['a column of a table', 'A partition is a set of rows.'], ['a whole table', 'It is only part of it.']] },
+    { a: ['divided by a column such as date', 'split by a column like date'], d: [['split by row count', 'Partitions are split by a column\u2019s value (e.g. chart_date).'], ['split on a column such as date', '"by" names the column that decides the split, as in PARTITION BY chart_date.']],
+      spot: { q: 'The chart table is partitioned by chart_date. How many partitions?', show: SC_CHART, o: ['2 (10-16 and 10-17)', '3', '1', '4'], why: 'One partition per date value.' } }] },
+    t3: 'A partition is {a physically separate slice of a table keyed by a column such as date}, {which lets jobs overwrite or scan only that slice (partition pruning)} {and makes reruns of one day cheap and idempotent}.' }
+};
+
 const CURRICULUM = { modules: [
 { id:'sql', num:1, title:'SQL fundamentals → intermediate', icon:'🗄️', status:'ready',
   blurb:'The #1 skill in every data engineering interview. SELECT to window functions.',
@@ -1534,7 +1824,7 @@ function defaultState() {
   return { v: 2, xp: 0, streak: 0, best: 0, lastActive: null, days: {}, items: {}, cards: {}, theory: {}, problems: {},
     settings: { minutes: 25, newPerDay: 8, focus: 'sql' }, created: today() };
 }
-let S, STORAGE_OK = true; var E = null;
+let S, STORAGE_OK = true; var E = null; var T = null; // S = deLearn.v1, E = deLearn.ext (v3), T = deLearn.terms (v4)
 function loadState() {
   let raw = null;
   try { raw = localStorage.getItem(STORE_KEY); } catch (e) { STORAGE_OK = false; }
@@ -1549,7 +1839,7 @@ function migrate(s) {
   if (!CURRICULUM.modules.some(m => m.id === s.settings.focus && m.status === 'ready')) s.settings.focus = 'sql';
   s.v = 2; return s;
 }
-function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { STORAGE_OK = false; } if (E) saveExt(); }
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { STORAGE_OK = false; } if (E) saveExt(); if (T) saveTerms(); }
 
 /* ---------- XP, streak, levels ---------- */
 function addXP(n) {
@@ -1570,7 +1860,8 @@ function levelInfo() { return { level: Math.floor(S.xp / XP_PER_LEVEL) + 1, frac
 const RANKS = ['Data Curious', 'Query Writer', 'Join Juggler', 'Pipeline Apprentice', 'Junior Data Engineer', 'Pipeline Builder', 'Data Engineer', 'Senior-in-Training'];
 function rankName(lv) { return RANKS[Math.min(RANKS.length - 1, Math.floor((lv - 1) / 2))]; }
 
-function itemProgress(id) { const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
+// Terms: never lower than before v4 (see termShown). Other items: fade level / 5.
+function itemProgress(id) { if (ITEMS[id] && ITEMS[id].kind === 'term' && T) return S.items[id] && S.items[id].mastered ? 1 : termShown(id); const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
 function lessonProgress(l) {
   const ids = l.itemIds; if (!ids || !ids.length) return 0;
   const ip = ids.reduce((a, id) => a + itemProgress(id), 0) / ids.length;
@@ -1688,12 +1979,14 @@ function gradeCard(id, g) { S.cards[id] = sm2(S.cards[id], g); addXP(g === 0 ? 1
 /* ---------- session builder ---------- */
 const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5, biteQ: 0.45 };
 function orderedReadyModules() { const f = S.settings.focus; return READY.slice().sort((a, b) => (b.id === f) - (a.id === f)); }
-function lessonStarted(id) { const l = LESSONS[id]; return !!(l && ((S.theory[id] && l.itemIds.every(x => S.items[x])) || (E && E.placed[id]))); }
+const codeIds = l => l.itemIds.filter(x => ITEMS[x].kind !== 'term');
+// v4: a lesson counts as started from its code/Q&A items only, so slow terms never hold lessons back
+function lessonStarted(id) { const l = LESSONS[id]; return !!(l && ((S.theory[id] && codeIds(l).every(x => S.items[x])) || (E && E.placed[id]))); }
 function moduleUnlocked(m) { return !m.requires || m.requires.every(lessonStarted); }
 function nextLesson() {
   for (const m of orderedReadyModules()) if (moduleUnlocked(m)) for (const l of m.lessons) {
     if (E.placed[l.id]) continue;
-    if (!S.theory[l.id] || l.itemIds.some(id => !S.items[id])) return l;
+    if (!S.theory[l.id] || codeIds(l).some(id => !S.items[id])) return l;
   }
   return null;
 }
@@ -1706,63 +1999,63 @@ function pickProblem(cur) {
   const seen = all.filter(p => S.problems[p.id]).sort((a, b) => (S.problems[a.id].last || '') < (S.problems[b.id].last || '') ? -1 : 1);
   return seen[0] || (cur ? PROBLEMS[cur.problems[0] && cur.problems[0].id] : null) || null;
 }
+/* ---------- v4 session builders ----------
+   Daily order: [help once] → opening term block → code flashcards → code/Q&A fade reviews
+   → theory → new code/Q&A items → problem → closing term review.
+   Code and problems are planned first and never shrink for terms; terms then get
+   about half as many items as everything else (= about 1/3 of the session). */
 function buildDailySession() {
-  const t = today(), budget = S.settings.minutes; const steps = []; let mins = 0;
-  const pace = paceInfo(); const pd = (E.pace.day && E.pace.day.d === t) ? E.pace.day : { pieces: 0, terms: 0 };
-  const allow = { pieces: Math.max(0, pace.pieces - pd.pieces) };
-  const cards = Object.keys(S.cards).filter(id => ITEMS[id] && S.cards[id].due <= t).sort((a, b) => S.cards[a].due < S.cards[b].due ? -1 : 1);
-  const maxCards = Math.max(12, Math.floor(budget * 0.4 / COST.card));
-  const cardIds = cards.slice(0, maxCards); cardIds.forEach(id => steps.push({ type: 'card', id })); mins += cardIds.length * COST.card;
+  const t = today(), budget = S.settings.minutes * 0.8; const other = []; let mins = 0;
+  const notTerm = id => ITEMS[id] && ITEMS[id].kind !== 'term';
+  const cards = Object.keys(S.cards).filter(id => notTerm(id) && S.cards[id].due <= t).sort((a, b) => S.cards[a].due < S.cards[b].due ? -1 : 1);
+  const maxCards = Math.max(10, Math.floor(budget * 0.35 / COST.card));
+  const cardIds = cards.slice(0, maxCards); cardIds.forEach(id => other.push({ type: 'card', id })); mins += cardIds.length * COST.card;
   const fadeCap = Math.max(6, (budget - mins) * 0.6) + cardIds.length * COST.card;
-  // bite-size terms first (oldest due first), then the classic fade ladder for code, Q&A and short terms
-  const bites = activeBites().filter(id => E.bites[id].due <= t).sort((a, b) => E.bites[a].due < E.bites[b].due ? -1 : E.bites[a].due > E.bites[b].due ? 1 : biteFrac(a) - biteFrac(b));
-  let biteN = 0, biteQ = 0; const inSession = new Set();
-  for (const id of bites) { const qs = planBite(id, allow); if (!qs.length) continue; const c = qs.length * COST.biteQ; if (biteN && mins + c > fadeCap) break; qs.forEach(q => steps.push({ type: 'bite', id, q })); mins += c; biteN++; biteQ += qs.length; inSession.add(id); }
-  let extra = 0;
-  if (pace.mode === 'slow') {
-    const weak = activeBites().filter(id => !inSession.has(id) && E.bites[id].c.l + E.bites[id].p.length > 0 && ((E.bites[id].miss && E.bites[id].miss >= addDays(t, -7)) || (E.bites[id].lapses || 0) >= 2))
-      .sort((a, b) => (E.bites[b].lapses || 0) - (E.bites[a].lapses || 0)).slice(0, 3);
-    weak.forEach(id => { const q = weakQuestion(id); if (q) { steps.push({ type: 'bite', id, q, extra: true }); mins += COST.biteQ; extra++; } });
-  }
-  const fades = Object.keys(S.items).filter(id => ITEMS[id] && !isBite(id) && !S.items[id].mastered && S.items[id].due <= t)
+  const fades = Object.keys(S.items).filter(id => notTerm(id) && !S.items[id].mastered && S.items[id].due <= t)
     .sort((a, b) => (S.items[a].due < S.items[b].due ? -1 : S.items[a].due > S.items[b].due ? 1 : S.items[a].lvl - S.items[b].lvl));
   let fadeN = 0;
-  for (const id of fades) { const c = S.items[id].lvl >= 3 ? COST.fadeHi : COST.fade; if ((fadeN || biteN) && mins + c > fadeCap) break; steps.push({ type: 'fade', id }); mins += c; fadeN++; }
-  const inProgress = Object.keys(S.items).filter(id => !S.items[id].mastered && !isBite(id)).length;
-  let lesson = null, newN = 0, theory = false, newTerms = 0;
-  if (inProgress <= 30 && budget - mins - COST.problem >= 4) {
+  for (const id of fades) { const c = S.items[id].lvl >= 3 ? COST.fadeHi : COST.fade; if (fadeN && mins + c > fadeCap) break; other.push({ type: 'fade', id }); mins += c; fadeN++; }
+  const inProgress = Object.keys(S.items).filter(id => notTerm(id) && !S.items[id].mastered).length;
+  let lesson = null, newN = 0, theory = false;
+  if (inProgress <= 30 && budget - mins - COST.problem >= 3) {
     lesson = nextLesson();
     if (lesson) {
       let rem = budget - mins - COST.problem;
-      if (!S.theory[lesson.id]) { steps.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
-      const newIds = lesson.itemIds.filter(id => !S.items[id]);
-      const k = Math.min(newIds.length, Math.max(1, Math.round(S.settings.newPerDay * pace.newFactor)), 12, Math.max(3, Math.floor(rem / COST.newItem)));
-      let termRoom = Math.max(0, pace.terms - pd.terms); if (activeBites().length >= pace.cap) termRoom = 0;
-      if (!activeBites().length && !pd.terms) termRoom = Math.max(1, termRoom);
-      for (const id of newIds) {
-        if (newN >= k) break;
-        if (isBite(id)) { if (termRoom <= 0) continue; termRoom--; newTerms++; steps.push({ type: 'bite', id, q: { k: 'intro' }, isNew: true }); steps.push({ type: 'bite', id, q: { k: 'piece', p: 0 }, isNew: true }); mins += COST.newItem; }
-        else { steps.push({ type: 'fade', id, isNew: true }); mins += COST.newItem; }
-        newN++;
-      }
+      if (!S.theory[lesson.id]) { other.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
+      const newIds = lesson.itemIds.filter(id => !S.items[id] && notTerm(id));
+      const k = Math.min(newIds.length, S.settings.newPerDay, 12, Math.max(3, Math.floor(rem / COST.newItem)));
+      newIds.slice(0, k).forEach(id => { other.push({ type: 'fade', id, isNew: true }); mins += COST.newItem; newN++; });
     }
   }
   const prob = pickProblem(lesson);
-  if (prob) { steps.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
-  return { steps, mins: Math.max(1, Math.round(mins)), counts: { cards: cardIds.length, fades: fadeN, bites: biteN, biteQ, extra, newN, newTerms, theory, lesson, problem: prob }, pace, mode: 'daily' };
+  if (prob) { other.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
+  const tp = planTerms(other.length, theory && lesson ? lesson.id : null);
+  const steps = (T.helpSeen ? [] : [{ type: 'help' }]).concat(tp.open, other, tp.close);
+  mins += (tp.open.length + tp.close.length) * 0.6;
+  const names = [...new Set(tp.open.map(s => s.id))].map(id => ITEMS[id].front);
+  return { steps, mins: Math.max(1, Math.round(mins)), terms: tp, pace: tp.pace, mode: 'daily',
+    counts: { cards: cardIds.length, fades: fadeN, newN, theory, lesson, problem: prob, tOpen: tp.open.length, tClose: tp.close.length, ground: tp.open.filter(s => s.k === 'ground').length, names, other: other.length, waiting: tp.waiting } };
+}
+function lessonTermStep(id) {
+  const ts = T.terms[id], t = today();
+  if (!ts || ts.st === 'done' || ts.st === 'wait') return null;
+  const bl = blocksLeft(id); if (bl.length) return { type: 'term', k: 'ground', id, g: bl[0] };
+  if (ts.st === 'paused') return ts.ph.some(p => p.s >= 1) ? { type: 'term', k: 'maint', id } : null;
+  const pi = activePhrase(ts);
+  if (pi < 0) return ts.whole !== t && ts.lastUp !== t ? { type: 'term', k: 'whole', id } : null;
+  if (ts.lastUp !== t && ts.ph[pi].miss !== t) return { type: 'term', k: 'adv', id };
+  return { type: 'term', k: 'practice', id };
 }
 function buildLessonSession(lid) {
-  const l = LESSONS[lid]; const steps = [{ type: 'theory', lesson: lid }];
+  const l = LESSONS[lid]; const steps = [{ type: 'theory', lesson: lid }]; const termSteps = [];
   l.itemIds.forEach(id => {
+    if (ITEMS[id].kind === 'term') { const s = lessonTermStep(id); if (s) termSteps.push(s); else if (S.cards[id]) termSteps.push({ type: 'card', id }); return; }
     if (S.items[id] && S.items[id].mastered) { if (S.cards[id]) steps.push({ type: 'card', id }); return; }
-    if (isBite(id)) {
-      if (!S.items[id] && !E.bites[id]) { steps.push({ type: 'bite', id, q: { k: 'intro' }, isNew: true }); steps.push({ type: 'bite', id, q: { k: 'piece', p: 0 }, isNew: true }); return; }
-      ensureBite(id); planBite(id, { pieces: 1 }).forEach(q => steps.push({ type: 'bite', id, q })); return;
-    }
     steps.push({ type: 'fade', id, isNew: !S.items[id] });
   });
-  l.problems.forEach(p => steps.push({ type: 'problem', id: p.id }));
-  return { steps, mins: Math.round(COST.theory + l.itemIds.length * 1.3 + l.problems.length * COST.problem), mode: 'lesson', lesson: l };
+  const cap = Math.max(2, Math.round((steps.length - 1 + l.problems.length) / 2));
+  const all = steps.concat(termSteps.slice(0, cap)); l.problems.forEach(p => all.push({ type: 'problem', id: p.id }));
+  return { steps: all, mins: Math.round(COST.theory + l.itemIds.length * 1.3 + l.problems.length * COST.problem), mode: 'lesson', lesson: l };
 }
 function buildCardSession() {
   const t = today(); const ids = Object.keys(S.cards).filter(id => ITEMS[id] && S.cards[id].due <= t);
@@ -1832,7 +2125,7 @@ function bar(frac, cls) { return '<div class="bar ' + (cls || '') + '"><i style=
 function lvBadge(frac) { return '<span class="lv">Lv ' + Math.floor(Math.min(1, frac) * 5) + '/5</span>'; }
 
 function render() {
-  const v = { home: viewHome, session: viewSession, summary: viewSummary, roadmap: viewRoadmap, lesson: viewLesson, cards: viewCards, lab: viewLab, settings: viewSettings, placement: viewPlacement }[UI.screen] || viewHome;
+  const v = { home: viewHome, session: viewSession, summary: viewSummary, roadmap: viewRoadmap, lesson: viewLesson, cards: viewCards, lab: viewLab, settings: viewSettings, placement: viewPlacement, learn: viewLearn }[UI.screen] || viewHome;
   app().innerHTML = v();
   const af = app().querySelector('[data-autofocus]'); if (af && UI.screen === 'session') { try { af.focus({ preventScroll: true }); } catch (e) {} }
 }
@@ -1842,12 +2135,13 @@ function viewHome() {
   const plan = buildDailySession(); UI.plan = plan;
   const lv = levelInfo(), st = currentStreak(), t = today(); const done = S.days[t] && S.days[t].session;
   const c = plan.counts; const li = [];
-  if (c.cards) li.push('<li>🃏 <b>' + c.cards + '</b> flashcard review' + (c.cards > 1 ? 's' : '') + '</li>');
-  if (c.bites) li.push('<li>🧩 <b>' + c.bites + '</b> term' + (c.bites > 1 ? 's' : '') + ' in bite-size pieces (' + c.biteQ + ' short questions)</li>');
-  if (c.extra) li.push('<li>💪 <b>' + c.extra + '</b> extra review' + (c.extra > 1 ? 's' : '') + ' of weak terms</li>');
-  if (c.fades) li.push('<li>🔁 <b>' + c.fades + '</b> fade-recall review' + (c.fades > 1 ? 's' : '') + '</li>');
+  if (c.tOpen) li.push('<li>🧩 <b>' + c.tOpen + '</b> term question' + (c.tOpen > 1 ? 's' : '') + ' first' + (c.ground ? ' (' + c.ground + ' building block' + (c.ground > 1 ? 's' : '') + ')' : '') + (c.names.length ? ': ' + c.names.map(esc).join(', ') : '') + '</li>');
+  if (c.cards) li.push('<li>🃏 <b>' + c.cards + '</b> code flashcard' + (c.cards > 1 ? 's' : '') + '</li>');
+  if (c.fades) li.push('<li>🔁 <b>' + c.fades + '</b> code / interview review' + (c.fades > 1 ? 's' : '') + '</li>');
   if (c.lesson) li.push('<li>📘 ' + (c.theory ? 'New lesson: ' : 'Continue: ') + '<b>' + esc(c.lesson.title) + '</b>' + (c.newN ? ' · ' + c.newN + ' new items' : '') + '</li>');
   if (c.problem) li.push('<li>🧩 Problem: <b>' + esc(c.problem.title) + '</b></li>');
+  if (c.tClose) li.push('<li>🔂 <b>' + c.tClose + '</b> quick term review' + (c.tClose > 1 ? 's' : '') + ' at the end</li>');
+  if (c.tOpen + c.tClose) li.push('<li class="split">⚖️ Split: <b>' + (c.tOpen + c.tClose) + '</b> term · <b>' + c.other + '</b> code &amp; problem items (about 1/3 : 2/3)</li>');
   if (!li.length) li.push('<li>🎉 Everything is up to date. Use Roadmap to drill any lesson.</li>');
   let week = '';
   for (let i = 6; i >= 0; i--) { const d = addDays(t, -i); const on = S.days[d] && S.days[d].xp > 0; week += '<div class="day ' + (on ? 'on' : '') + (i === 0 ? ' today' : '') + '"><i></i><span>' + 'SMTWTFS'[new Date(d + 'T12:00:00').getDay()] + '</span></div>'; }
@@ -1867,7 +2161,7 @@ function viewHome() {
       (plan.pace && plan.pace.note ? '<div class="pace small">' + esc(plan.pace.note) + '</div>' : '') +
       '<ul class="plan">' + li.join('') + '</ul>' +
       '<button class="btn primary big" data-act="startDaily" id="startBtn"' + (plan.steps.length ? '' : ' disabled') + '>▶ Start today\'s session</button>' +
-      '<div class="muted small center">Reviews first, then new material, then one problem.</div>' +
+      '<div class="muted small center">A short term block, then code and a problem, then a quick term review. <a href="#" data-act="go" data-to="learn">How learning works</a></div>' +
     '</section>' +
     '<section class="week">' + week + '</section>' +
     '<section class="card"><h3>Progress</h3>' + mods + '</section>' +
@@ -1886,8 +2180,19 @@ function insertBeforeProblems(step) {
   while (k > SESSION.i + 1 && SESSION.steps[k - 1].type === 'problem') k--;
   SESSION.steps.splice(Math.max(k, SESSION.i + 1), 0, step);
 }
+// A term step can become moot during the session (e.g. its tier finished earlier today): skip it.
+function termStepValid(st) {
+  if (st.type !== 'term') return true; if (st.k === 'ground') return !!GROUND[st.g];
+  const ts = T.terms[st.id]; if (!ts) return false;
+  if (st.k === 'adv' || st.k === 'practice') return ts.st === 'active' && activePhrase(ts) >= 0 && !blocksLeft(st.id).length;
+  if (st.k === 'whole') return ts.st === 'active' && activePhrase(ts) < 0;
+  if (st.k === 'review') return !!ts.ph[st.p] && ts.st === 'active';
+  if (st.k === 'maint') return ts.ph.some(p => p.s >= 1);
+  return true;
+}
 function nextStep() {
   SESSION.i++; F = null;
+  while (SESSION.i < SESSION.steps.length && !termStepValid(SESSION.steps[SESSION.i])) SESSION.i++;
   if (SESSION.i >= SESSION.steps.length) return endSession();
   render(); window.scrollTo(0, 0);
 }
@@ -1907,6 +2212,8 @@ function viewSession() {
   else if (step.type === 'bite') body = viewBite(step);
   else if (step.type === 'card') body = viewCard(step);
   else if (step.type === 'problem') body = viewProblem(step);
+  else if (step.type === 'term') body = viewTerm(step);
+  else if (step.type === 'help') body = viewHelpStep();
   return head + '<main class="step">' + body + '</main>';
 }
 
@@ -2067,7 +2374,7 @@ function viewSummary() {
   const st = s.stats; const tot = st.right + st.wrong; const acc = tot ? Math.round(st.right / tot * 100) : null;
   const mins = Math.max(1, Math.round((Date.now() - s.start) / 60000));
   const tomorrow = addDays(today(), 1);
-  const dueT = Object.values(S.cards).filter(c => c.due <= tomorrow).length + Object.keys(S.items).filter(id => !isBite(id) && !S.items[id].mastered && S.items[id].due <= tomorrow).length + activeBites().filter(id => E.bites[id].due <= tomorrow).length;
+  const dueT = Object.values(S.cards).filter(c => c.due <= tomorrow).length + Object.keys(S.items).filter(id => ITEMS[id] && ITEMS[id].kind !== 'term' && !S.items[id].mastered && S.items[id].due <= tomorrow).length + Object.values(T.terms).filter(ts => ts.st === 'active').length + Object.values(T.terms).reduce((a, ts) => a + ts.ph.filter(p => p.s === 3 && p.due && p.due <= tomorrow).length, 0);
   return '<main class="summary"><div class="big-emoji">🎉</div><h1>Session complete</h1>' +
     '<section class="stats"><div class="stat"><b>+' + s.xp + '</b><span>XP earned</span></div><div class="stat"><b>🔥 ' + currentStreak() + '</b><span>day streak</span></div><div class="stat"><b>' + mins + ' min</b><span>time</span></div></section>' +
     '<ul class="plan">' + (acc !== null ? '<li>🎯 Recall accuracy: <b>' + acc + '%</b> (' + st.right + '/' + tot + ')</li>' : '') +
@@ -2098,11 +2405,16 @@ function viewRoadmap() {
 }
 function viewLesson() {
   const l = LESSONS[UI.params.l]; if (!l) return viewRoadmap();
-  const lp = lessonProgress(l); const lvlTxt = id => { const s = S.items[id]; if (s && !s.mastered && E.bites[id]) { const b = E.bites[id]; return '<span class="lvlN">🧩 ' + (b.c.l > 0 ? 'combining ' + Math.min(b.c.l, 3) + '/3' : b.p.filter(p => p.l === 3).length + '/' + b.p.length + ' pieces') + '</span>'; } return !s ? (S.cards[id] ? '<span class="lvlM">🃏 card</span>' : '<span class="lvl0">new</span>') : s.mastered ? '<span class="lvlM">🏆 mastered</span>' : '<span class="lvlN">L' + s.lvl + '</span>'; };
+  const lp = lessonProgress(l); const lvlTxt = id => { const s = S.items[id]; const ts = T.terms[id]; if (ts && T4[id]) { const n = ts.ph.length, k = ts.ph.filter(p => p.s >= 3).length, pi = activePhrase(ts);
+    if (ts.st === 'done') return '<span class="lvlM">🏆 all tiers</span>'; if (ts.st === 'wait') return '<span class="lvlM">🏆 tier ' + ts.tier + ' · next ' + esc(ts.wait) + '</span>';
+    if (blocksLeft(id).length && ts.st === 'active') return '<span class="lvlN">🧱 building blocks</span>';
+    return '<span class="lvlN">' + (ts.st === 'paused' ? '⏸ ' : '🧩 ') + 'T' + (ts.tier + 1) + ' ' + k + '/' + n + (pi >= 0 && ts.st === 'active' ? ' · ' + FORMS[ts.ph[pi].s] : '') + '</span>'; }
+    if (ITEMS[id].kind === 'term' && !s && !S.cards[id]) return '<span class="lvl0">queued</span>';
+    if (s && !s.mastered && E.bites[id]) { const b = E.bites[id]; return '<span class="lvlN">🧩 ' + (b.c.l > 0 ? 'combining ' + Math.min(b.c.l, 3) + '/3' : b.p.filter(p => p.l === 3).length + '/' + b.p.length + ' pieces') + '</span>'; } return !s ? (S.cards[id] ? '<span class="lvlM">🃏 card</span>' : '<span class="lvl0">new</span>') : s.mastered ? '<span class="lvlM">🏆 mastered</span>' : '<span class="lvlN">L' + s.lvl + '</span>'; };
   return '<header class="top"><button class="back" data-act="go" data-to="roadmap">‹ Roadmap</button><h1>' + esc(l.title) + '</h1></header><main>' +
     '<section class="card">' + lvBadge(lp) + bar(lp) +
     '<button class="btn primary big" data-act="startLesson" data-l="' + l.id + '">▶ Practise this lesson</button>' +
-    '<div class="muted small center">Theory, every item at its current level, then the problems.</div></section>' +
+    '<div class="muted small center">Theory, every item at its current level, a few term steps, then the problems.</div></section>' +
     '<section class="card"><details><summary><b>📘 Read the theory</b></summary>' + theoryHTML(l) + '</details></section>' +
     '<section class="card">' + (l.terms.length ? '<h3>Terms</h3><ul class="items">' + l.terms.map(t => '<li><span>' + esc(t.term) + '</span>' + lvlTxt(t.id) + '</li>').join('') + '</ul>' : '') +
     (l.code.length ? '<h3>Code</h3><ul class="items">' + l.code.map(c => '<li><span>' + esc(c.task) + '</span>' + lvlTxt(c.id) + '</li>').join('') + '</ul>' : '') +
@@ -2162,16 +2474,11 @@ function viewSettings() {
     '<div class="actions two"><button class="btn" data-act="exportJSON">⬇ Export progress (.json)</button><label class="btn filebtn">⬆ Import backup<input type="file" accept=".json,application/json" id="importFile" hidden></label></div>' +
     '<details><summary class="small">Import by pasting text instead</summary><textarea id="importText" rows="4" class="mono" placeholder="Paste backup JSON here"></textarea><button class="btn small" data-act="importPaste">Import pasted backup</button></details></section>' +
     '<section class="card"><h3>AnkiDroid</h3><div class="actions two"><button class="btn" data-act="anki" data-all="0">Export my deck</button><button class="btn" data-act="anki" data-all="1">Export all items</button></div></section>' +
-    '<section class="card"><h3>How this app teaches</h3><ul class="small plan">' +
-      '<li><b>3 layers per lesson:</b> first-principles theory and fluent terms → writing code → realistic problems.</li>' +
-      '<li><b>Bite-size terms:</b> long definitions are split into 3–4 pieces. One new piece at a time: choose it from options → type it. A step levels up only after a correct answer on two different days; a miss drops it back one step. Then 2 pieces together → 3 pieces → the whole definition, plus scenario questions from different angles.</li>' +
-      '<li><b>Auto pacing:</b> if you miss a lot lately, fewer new pieces and extra review of weak terms; if you\'re accurate, a few more new pieces.</li>' +
-      '<li><b>Fade-recall ladder</b> (code, interview answers, short terms): L1 choose keywords → L2 type a few words → L3 type whole phrases or lines → L4 full recall.</li>' +
-      '<li><b>Flashcards:</b> after you pass L4 the item joins an SM-2 spaced-repetition deck (Again / Hard / Good / Easy).</li>' +
-      '<li><b>Daily session:</b> due reviews first, then new material, then one problem.</li>' +
-      '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems.</li></ul></section>' +
+    '<section class="card"><h3>How learning works</h3><p class="small muted">Building blocks first, one phrase at a time, pick → type → spot on different days, exact small words, tiers, 2–3 terms at once, about 1/3 terms and 2/3 code per session.</p><button class="btn" data-act="go" data-to="learn">📖 How learning works</button>' +
+      '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
+      '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v3.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v4.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -2196,10 +2503,11 @@ function importData(txt) {
   let o; try { o = JSON.parse(txt); } catch (e) { toast('That file is not valid JSON.'); return; }
   if (!o || typeof o !== 'object' || !('items' in o) || !('xp' in o)) { toast('This does not look like a DE Daily backup.'); return; }
   if (!confirm('Replace your current progress with this backup?')) return;
-  const ext = o._ext; delete o._ext;
+  const ext = o._ext; delete o._ext; const terms = o._terms; delete o._terms;
   const d = defaultState(); S = migrate(Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }));
   E = Object.assign(defaultExt(), ext && typeof ext === 'object' ? ext : {}); ['bites', 'placed'].forEach(k => { if (!E[k] || typeof E[k] !== 'object') E[k] = {}; }); if (!E.pace || !Array.isArray(E.pace.log)) E.pace = { log: [], day: null };
-  migrateExt(); save(); toast('Backup imported ✓'); go('home');
+  T = Object.assign(defaultTerms(), terms && typeof terms === 'object' ? terms : {}); ['ground', 'terms'].forEach(k => { if (!T[k] || typeof T[k] !== 'object') T[k] = {}; }); if (!Array.isArray(T.log)) T.log = [];
+  migrateExt(); migrateTerms(); save(); toast('Backup imported ✓'); go('home');
 }
 
 /* ============================ v3 EXTENSION STATE ============================
@@ -2219,8 +2527,8 @@ function saveExt() { try { localStorage.setItem(EXT_KEY, JSON.stringify(E)); } c
 
 /* ---------- pieces for long definitions ---------- */
 const BITE_MIN_WORDS = 15;
-function autoPieces(text) {
-  const words = text.trim().split(/\s+/); const n = words.length; const k = n >= 22 ? 4 : 3; const MIN = 3;
+function autoPieces(text, kk) {
+  const words = text.trim().split(/\s+/); const n = words.length; const k = kk || (n >= 22 ? 4 : 3); const MIN = 3;
   const STRONG = new Set('so while where which when such without because instead usually e.g. otherwise stopping avoiding catching turning'.split(' '));
   const WEAK = new Set('and or that with for after before as to'.split(' '));
   const isList = b => words.slice(b, b + 3).some(w => /,$/.test(w)) || /^(and|or)$/i.test(words[b]) && /,$/.test(words[b - 2] || '');
@@ -2516,10 +2824,446 @@ function viewPlacement() {
   return head + '<main class="step">' + h + '</main>';
 }
 
+
+/* ============================ v4 TERM ENGINE ============================
+   Full rules: source/LEARNING_RULES.md. Summary:
+   - Building blocks (GROUND) are grounded first: correct on 2 different days.
+   - A term's tier is a definition split into phrases. ONE phrase at a time.
+   - Each phrase climbs PICK (options) -> TYPE (no options) -> SPOT (use it in
+     a real table/query/scenario). Each step needs a correct answer on a
+     different calendar day; a term moves at most one step per day; a miss
+     drops one step. After all phrases: whole-tier recall on a later day.
+   - Tier 1 mastered -> flashcard (SM-2) + tier 2 unlocks 7 days later.
+   - 2 terms active at once (3 when accuracy is high), each at its own pace.
+   - State lives in localStorage 'deLearn.terms' only. deLearn.v1 and
+     deLearn.ext are read for migration and never rewritten by it. */
+const TERMS_KEY = 'deLearn.terms';
+const FORMS = ['pick', 'type', 'spot'];
+const TIER_NAMES = ['beginner', 'intermediate', 'advanced'];
+const TIER_WAIT_DAYS = 7;
+function defaultTerms() { return { v: 1, ground: {}, terms: {}, log: [], day: null, lastFill: null, helpSeen: null, migratedAt: null }; }
+function loadTerms() {
+  const d = defaultTerms(); let raw = null;
+  try { raw = localStorage.getItem(TERMS_KEY); } catch (e) {}
+  if (!raw) return d;
+  try { const o = JSON.parse(raw); const r = Object.assign(d, o); ['ground', 'terms'].forEach(k => { if (!r[k] || typeof r[k] !== 'object') r[k] = {}; }); if (!Array.isArray(r.log)) r.log = []; return r; }
+  catch (e) { return d; }
+}
+function saveTerms() { try { localStorage.setItem(TERMS_KEY, JSON.stringify(T)); } catch (e) {} }
+
+/* ---------- precision words ----------
+   [word, wrong replacement, why the replacement is inaccurate]. Used to
+   (1) build near-miss distractors and (2) make typing strict: a typed phrase
+   must contain every precision word of the accepted wording it matches. */
+const PREC_SWAP = [
+  ['one or more', 'one', '"one or more" allows several; "one" would allow only a single one.'],
+  ['at least one', 'exactly one', '"at least one" means one or more; "exactly one" means one and no more.'],
+  ['exactly one', 'at least one', '"exactly one" means one and no more; "at least one" would allow several.'],
+  ['each', 'one', '"each" means it applies to every single one, one at a time; "one" would mean only a single one.'],
+  ['every', 'one', '"every" covers all of them; "one" would mean only a single one.'],
+  ['all', 'some', '"all" means none are left out; "some" would allow skipping some.'],
+  ['only', 'also', '"only" excludes everything else; "also" would let other things in.'],
+  ['before', 'after', 'Timing is the point here: "before" and "after" are opposites.'],
+  ['after', 'before', 'Timing is the point here: "after" and "before" are opposites.'],
+  ['first', 'last', '"first" and "last" are opposite ends.'],
+  ['last', 'first', '"last" and "first" are opposite ends.'],
+  ['previous', 'next', '"previous" looks back; "next" would look forward.'],
+  ['left', 'right', 'LEFT and RIGHT decide which table keeps all of its rows.'],
+  ['true', 'false', 'TRUE and FALSE are opposites.'],
+  ['never', 'sometimes', '"never" allows no exceptions; "sometimes" would allow some.'],
+  ['not', '', 'Dropping "not" flips the meaning.'],
+  ['by', 'on', '"by" names what decides the result (sort by, group by, split by); "on" changes the meaning.'],
+  ['many', 'one', '"many" and "one" change how many are involved.'],
+  ['new', 'old', '"new" and "old" are opposites.']
+];
+const PREC_GROUPS = [['each', 'every', 'one', 'all'], ['one or more', 'one', 'exactly one', 'at least one'], ['by', 'on', 'from', 'in'], ['before', 'after'], ['first', 'last'], ['true', 'false', 'unknown'], ['left', 'right'], ['previous', 'next'], ['only', 'also'], ['never', 'sometimes', 'always'], ['many', 'one']];
+const PREC_KEYS = [...new Set(PREC_SWAP.map(x => x[0]))].sort((a, b) => b.length - a.length);
+const wordsIn = s => ' ' + String(s).toLowerCase().replace(/[^a-z0-9*%<>=!_]+/g, ' ').replace(/\b(row|column|value|table|group|expression)s\b/g, '$1').replace(/\s+/g, ' ').trim() + ' ';
+function hasWord(s, w) { return wordsIn(s).includes(wordsIn(w)); }
+function precWords(text) {
+  let s = wordsIn(text); const out = [];
+  PREC_KEYS.forEach(w => { const k = wordsIn(w); if (s.includes(k)) { out.push(w); s = s.split(k).join(' | '); } });
+  return out;
+}
+function swapFirst(text, w, r) {
+  const re = new RegExp('\\b' + w.replace(/ /g, '\\s+') + '\\b' + (r === '' ? '\\s*' : ''), 'i'); const m = text.match(re); if (!m) return null;
+  const rep = r && m[0][0] === m[0][0].toUpperCase() && /[a-z]/i.test(m[0][0]) ? (m[0] === m[0].toUpperCase() ? r.toUpperCase() : r[0].toUpperCase() + r.slice(1)) : r;
+  return text.replace(re, rep).replace(/\s+/g, ' ').trim();
+}
+function genSwaps(text) { const out = []; precWords(text).forEach(w => PREC_SWAP.filter(x => x[0] === w).forEach(x => { const v = swapFirst(text, w, x[1]); if (v && norm(v) !== norm(text)) out.push([v, x[2]]); })); return out; }
+
+/* ---------- building the term models (T4) ---------- */
+function bracePieces(text, pieces) {
+  const low = text.toLowerCase(); let cur = 0, out = '', n = 0;
+  pieces.forEach(p => { const i = low.indexOf(p.toLowerCase(), cur); if (i < 0) return; out += text.slice(cur, i) + '{' + text.slice(i, i + p.length) + '}'; cur = i + p.length; n++; });
+  return n ? out + text.slice(cur) : '{' + text.replace(/\.$/, '') + '}.';
+}
+function autoTierDef(it) {
+  const text = plain(it.text); const auth = TERM_BITES[it.id]; const wc = text.split(/\s+/).length;
+  const pieces = auth && auth.bites ? auth.bites : wc >= BITE_MIN_WORDS ? autoPieces(text) : wc >= 8 ? autoPieces(text, 2) : [text.replace(/\.$/, '')];
+  return bracePieces(text, pieces);
+}
+function parseTier(def, phs) {
+  const segs = [], ph = []; const re = /\{(.+?)\}/g; let last = 0, m;
+  while ((m = re.exec(def))) {
+    if (m.index > last) segs.push({ s: def.slice(last, m.index) });
+    const src = (phs && phs[ph.length]) || {}; const t = m[1];
+    const a = [t].concat((src.a || []).filter(x => norm(x) !== norm(t))).slice(0, 3);
+    segs.push({ s: t, p: ph.length }); ph.push({ t, a, d: src.d || [], spot: src.spot || null, ord: !!src.ord });
+    last = re.lastIndex;
+  }
+  if (last < def.length) segs.push({ s: def.slice(last) });
+  return { def: def.replace(/[{}]/g, ''), segs, ph };
+}
+const T4 = {};
+Object.values(ITEMS).forEach(it => {
+  if (it.kind !== 'term') return;
+  const a = TERMS4[it.id]; const tiers = []; const autoT = parseTier(autoTierDef(it));
+  if (a && a.t1) { tiers.push(parseTier(a.t1.def, a.t1.ph)); tiers.push(autoT); if (a.t3) tiers.push(parseTier(/\{/.test(a.t3) ? a.t3 : bracePieces(a.t3, autoPieces(a.t3)))); }
+  else tiers.push(autoT);
+  // v3 scenario questions become SPOT questions where no authored one exists
+  const asp = (TERM_BITES[it.id] && TERM_BITES[it.id].aspects) || [];
+  const tierWithPieces = tiers.find(tr => it.bite && tr.ph.length === it.bite.pieces.length && tr.ph.every((p, i) => norm(p.t) === norm(it.bite.pieces[i])));
+  asp.forEach((x, j) => {
+    if (x.piece != null && tierWithPieces && !tierWithPieces.ph[x.piece].spot) tierWithPieces.ph[x.piece].spot = { q: x.q, which: true, why: x.why, plain: true };
+    else if (x.o) { for (const tr of tiers) { const k = tr.ph.length - 1 - (j % tr.ph.length); if (!tr.ph[k].spot) { tr.ph[k].spot = { q: x.q, o: x.o, why: x.why, plain: true }; break; } } }
+  });
+  T4[it.id] = { id: it.id, blocks: (TERM_BLOCKS[it.id] || []).filter(b => GROUND[b]), tiers, authored: !!(a && a.t1) };
+});
+// How many tiers an item mastered before v4 already covers: the existing definition is tier 2 for authored terms.
+const tiersDoneOld = id => T4[id].authored ? 2 : 1;
+
+/* ---------- term state ---------- */
+function newPh(n) { return Array.from({ length: n }, () => ({ s: 0, up: null, miss: null, due: null, ivl: 0, seen: null, rn: 0 })); }
+function newTermState(id, tier, st) { return { tier: tier || 0, ph: newPh(T4[id].tiers[tier || 0].ph.length), st: st || 'active', start: today(), lastUp: null, whole: null, done: {}, lapses: 0, floor: 0, peak: 0, origin: 'new' }; }
+const activePhrase = ts => ts.ph.findIndex(p => p.s < 3);
+const groundDone = b => !!(T.ground[b] && T.ground[b].done);
+const blocksLeft = id => T4[id].blocks.filter(b => !groundDone(b));
+function oldProgress(id) { const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) && E.bites[id] ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
+function termFrac4(ts) { if (!ts) return 0; if (ts.tier > 0 || ts.st === 'wait' || ts.st === 'done') return 1; return 0.9 * ts.ph.reduce((a, p) => a + p.s, 0) / (3 * ts.ph.length); }
+// Shown progress never decreases: max of the old (v1/v3) progress, the migration floor and the best v4 progress so far.
+function termShown(id) { const ts = T.terms[id]; return Math.max(oldProgress(id), ts ? Math.max(ts.floor || 0, ts.peak || 0, termFrac4(ts)) : 0); }
+
+/* ---------- migration (additive, idempotent) ----------
+   Terms in progress under v1/v3 get a v4 record with credit:
+   v3 piece "known" -> PICK+TYPE credited (only SPOT missing); "typing" -> PICK credited.
+   Old fade ladder: L2 -> phrase 1 PICK credited, L3 -> PICK on all phrases, L4 -> PICK+TYPE on all.
+   Migrated terms start "paused": up to 2 become active by progress; the rest get gentle
+   maintenance reviews (staggered, about 2 per day) until a slot frees up. */
+function migrateTerms() {
+  const t = today(); let k = 0;
+  Object.keys(T4).forEach(id => {
+    if (T.terms[id]) return;
+    const st = S.items[id], b = E.bites[id];
+    if ((st && st.mastered) || (!st && !b)) return;
+    const ts = newTermState(id, 0, 'paused'); const n = ts.ph.length; const ph0 = T4[id].tiers[0].ph;
+    ts.origin = b ? 'v3' : 'v1'; ts.floor = oldProgress(id); ts.peak = ts.floor; ts.start = (st && st.intro) || t;
+    const credit = (i, s) => { if (i < n && ts.ph[i].s < s) { ts.ph[i].s = s; ts.ph[i].credit = ts.origin; ts.ph[i].seen = t; } };
+    if (b) {
+      const same = ITEMS[id].bite && b.p.length === n && ph0.every((p, i) => norm(p.t) === norm(ITEMS[id].bite.pieces[i]));
+      if (b.c.l > 0) for (let i = 0; i < n; i++) credit(i, 2);
+      else if (same) b.p.forEach((p, i) => credit(i, p.l >= 3 ? 2 : p.l === 2 ? 1 : 0));
+      else { const known = b.p.filter(p => p.l >= 3).length, typing = b.p.filter(p => p.l === 2).length; const kc = Math.floor(known / b.p.length * n); for (let i = 0; i < kc; i++) credit(i, 2); if (typing && kc < n) credit(kc, 1); }
+    } else { const L = st.lvl || 1; if (L === 2) credit(0, 1); else if (L === 3) for (let i = 0; i < n; i++) credit(i, 1); else if (L >= 4) for (let i = 0; i < n; i++) credit(i, 2); }
+    ts.mdue = addDays(t, 1 + Math.floor(k++ / 2)); ts.mivl = 3;
+    T.terms[id] = ts;
+  });
+  if (!T.migratedAt) T.migratedAt = t;
+}
+
+/* ---------- pacing (term material only, never code) ---------- */
+function t4Log(ok) { T.log.push({ d: today(), ok: ok ? 1 : 0 }); if (T.log.length > 40) T.log.splice(0, T.log.length - 40); }
+function paceInfo4() {
+  const log = T.log.slice(-20); const n = log.length; const miss = n ? log.filter(x => !x.ok).length / n : 0;
+  if (n >= 8 && miss > 0.35) return { mode: 'slow', miss, maxActive: 2, ground: 1, newStart: false, extra: 2, note: '🐢 Slowing down today to strengthen weak terms (' + Math.round(miss * 100) + '% of recent term answers missed). Code practice is unchanged.' };
+  if (n >= 12 && miss < 0.12) return { mode: 'fast', miss, maxActive: 3, ground: 3, newStart: true, extra: 0, note: '🚀 Your term answers are accurate lately, so a third term can run in parallel.' };
+  return { mode: 'normal', miss, maxActive: 2, ground: 2, newStart: true, extra: 0, note: '' };
+}
+
+/* ---------- daily term plan ----------
+   Terms get about 1/3 of the session by item count: budget = round(other items / 2)
+   (min 2, max 10). Roughly 2/3 of it opens the session (grounding + one advancing
+   question per active term), 1/3 closes it (reviews of mastered phrases, due term
+   flashcards, maintenance of paused terms, extra weak reviews when pacing is slow). */
+function termBudget(other) { return Math.max(2, Math.min(10, Math.round(other / 2))); }
+function newTermQueue(extraLesson) {
+  const out = [];
+  orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (!(S.theory[l.id] || l.id === extraLesson)) return; l.itemIds.forEach(id => { if (T4[id] && !T.terms[id] && !(S.items[id] && S.items[id].mastered) && !S.cards[id]) out.push(id); }); }));
+  return out;
+}
+function tierUpQueue() {
+  const t = today(); const out = Object.keys(T.terms).filter(id => T4[id] && T.terms[id].st === 'wait' && T.terms[id].wait <= t);
+  Object.keys(T4).forEach(id => { if (!T.terms[id] && S.items[id] && S.items[id].mastered && T4[id].tiers.length > tiersDoneOld(id) && S.cards[id] && (S.cards[id].added || '') <= addDays(t, -TIER_WAIT_DAYS)) out.push(id); });
+  return out;
+}
+function planTerms(other, theoryLesson) {
+  const t = today(), pace = paceInfo4(), day = (T.day && T.day.d === t) ? T.day : { d: t, newTerms: 0 };
+  const budget = termBudget(other);
+  const active = Object.keys(T.terms).filter(id => T4[id] && T.terms[id].st === 'active');
+  const activate = [], starts = [];
+  const paused = Object.keys(T.terms).filter(id => T4[id] && T.terms[id].st === 'paused').sort((a, b) => termShown(b) - termShown(a));
+  const tierUps = tierUpQueue(), fresh = newTermQueue(theoryLesson);
+  let slots = pace.maxActive - active.length;
+  while (slots > 0 && paused.length) { activate.push(paused.shift()); slots--; }
+  let newLeft = (day.newTerms || 0) < 1 && (pace.newStart || active.length + activate.length === 0) ? 1 : 0; let lastFill = T.lastFill;
+  while (slots > 0 && (tierUps.length || (newLeft && fresh.length))) {
+    if ((lastFill === 'new' || !(newLeft && fresh.length)) && tierUps.length) { const id = tierUps.shift(); (T.terms[id] ? activate : starts).push(T.terms[id] ? id : { id, tier: tiersDoneOld(id) }); lastFill = 'tier'; }
+    else { starts.push({ id: fresh.shift(), tier: 0 }); newLeft--; lastFill = 'new'; }
+    slots--;
+  }
+  const ids = active.concat(activate, starts.map(s => s.id));
+  const open = []; let gLeft = pace.ground; const gSeen = new Set();
+  ids.forEach(id => {
+    const ts = T.terms[id]; const bl = blocksLeft(id);
+    if (bl.length) { bl.forEach(b => { const g = T.ground[b]; if (gLeft > 0 && !gSeen.has(b) && !(g && g.ok === t) && !(g && g.miss === t)) { open.push({ type: 'term', k: 'ground', id, g: b }); gSeen.add(b); gLeft--; } }); return; }
+    if (ts && ts.lastUp === t) return;
+    const pi = ts ? activePhrase(ts) : 0;
+    if (pi >= 0) { if (!(ts && ts.ph[pi].miss === t)) open.push({ type: 'term', k: 'adv', id }); }
+    else if (ts.whole !== t) open.push({ type: 'term', k: 'whole', id });
+  });
+  const close = [];
+  const phReviews = []; Object.keys(T.terms).forEach(id => { const ts = T.terms[id]; if (!T4[id] || ts.st === 'paused' || ts.st === 'wait' || ts.st === 'done') return; ts.ph.forEach((p, i) => { if (p.s === 3 && p.due && p.due <= t) phReviews.push({ type: 'term', k: 'review', id, p: i, due: p.due }); }); });
+  phReviews.sort((a, b) => a.due < b.due ? -1 : 1);
+  const maint = Object.keys(T.terms).filter(id => T4[id] && T.terms[id].st === 'paused' && !activate.includes(id) && T.terms[id].mdue && T.terms[id].mdue <= t && T.terms[id].ph.some(p => p.s >= 1)).sort((a, b) => T.terms[a].mdue < T.terms[b].mdue ? -1 : 1).map(id => ({ type: 'term', k: 'maint', id }));
+  const tcards = Object.keys(S.cards).filter(id => ITEMS[id] && ITEMS[id].kind === 'term' && S.cards[id].due <= t).sort((a, b) => S.cards[a].due < S.cards[b].due ? -1 : 1).map(id => ({ type: 'card', id, term: true }));
+  const extra = [];
+  if (pace.extra) ids.filter(id => T.terms[id]).filter(id => { const ts = T.terms[id]; return ts.lapses >= 2 || ts.ph.some(p => p.miss && p.miss >= addDays(t, -7)); }).slice(0, pace.extra).forEach(id => { if (activePhrase(T.terms[id]) >= 0) extra.push({ type: 'term', k: 'practice', id, extra: true }); });
+  // interleave so no single kind crowds out the others
+  // lowest priority filler: one same-day practice (no step change) per active term, so the end review is never empty
+  const fill = ids.filter(id => !blocksLeft(id).length && !extra.some(x => x.id === id) && (!T.terms[id] || activePhrase(T.terms[id]) >= 0)).map(id => ({ type: 'term', k: 'practice', id }));
+  const pools = [extra, phReviews, maint, tcards]; let more = true;
+  while (more) { more = false; pools.forEach(pl => { if (pl.length) { close.push(pl.shift()); more = true; } }); }
+  close.push(...fill);
+  let closeN = Math.min(close.length, Math.max(1, Math.round(budget / 3)));
+  let openN = Math.min(open.length, budget - closeN);
+  if (!openN && open.length) { openN = 1; closeN = Math.min(closeN, budget - 1); }
+  closeN = Math.min(close.length, budget - openN);
+  return { open: open.slice(0, openN), close: close.slice(0, closeN), activate, starts, pace, budget, waiting: Math.max(0, open.length - openN) + Math.max(0, close.length - closeN) };
+}
+// Called when a session starts: the plan's activations and new starts become real state.
+function commitTermPlan(tp) {
+  if (!tp) return; const t = today();
+  tp.activate.forEach(id => { T.terms[id].st = 'active'; });
+  tp.starts.forEach(s => { if (T.terms[s.id] && T.terms[s.id].st === 'active') return; const ts = newTermState(s.id, s.tier, 'active'); if (s.tier > 0) { ts.origin = 'tierup'; ts.floor = 1; ts.peak = 1; } T.terms[s.id] = ts; if (s.tier === 0) { if (!T.day || T.day.d !== t) T.day = { d: t, newTerms: 0 }; T.day.newTerms++; T.lastFill = 'new'; } else T.lastFill = 'tier'; });
+  saveTerms();
+}
+
+/* ---------- answer checking ---------- */
+function coverage(input, alt, ord) {
+  const have = tokens(input); if (!have.length) return false;
+  // ord: every word counts (clause lists like FROM, WHERE …); otherwise only content words
+  const want = tokens(alt).filter(x => ord ? x.length >= 2 : x.length >= 3 && !STOP.has(x)); if (!want.length) return norm(input) === norm(alt);
+  const at = w => { let i = have.indexOf(w); if (i < 0 && w.length >= 5) i = have.findIndex(h => Math.abs(h.length - w.length) <= 1 && lev(h, w) <= 1); return i; };
+  const pos = want.map(at); const got = pos.filter(i => i >= 0);
+  if (got.length / want.length < (ord ? 1 : 0.75)) return false;
+  if (ord) for (let i = 1; i < got.length; i++) if (got[i] < got[i - 1]) return false;
+  return true;
+}
+/* Typed answer for one phrase. Accepted: any accepted wording, with small typos in
+   long content words. NOT accepted: a missing/changed precision word (each, by,
+   one or more, TRUE...), or an added "not"/"never". Returns {ok, alt} or {ok:false, prec}. */
+function checkPhrase(input, ph) {
+  if (!norm(input)) return { ok: false };
+  let precFail = null;
+  for (const a of ph.a) {
+    const near = ph.ord ? coverage(input, a, true) : norm(a) === norm(input) || checkBlank(input, [a], true) || coverage(input, a, false);
+    if (!near) continue;
+    const miss = precWords(a).filter(w => !hasWord(input, w));
+    const added = ['not', 'never', 'no'].filter(w => hasWord(input, w) && !hasWord(a, w));
+    if (!miss.length && !added.length) return { ok: true, alt: a };
+    if (!precFail) {
+      if (added.length) precFail = { want: '', got: added[0], why: 'Adding "' + added[0] + '" flips the meaning.' };
+      else { const w = miss[0]; const sw = PREC_SWAP.find(x => x[0] === w && x[1] && hasWord(input, x[1])); precFail = { want: w, got: sw ? sw[1] : null, why: sw ? sw[2] : 'The small word "' + w + '" is part of the precise wording here.' }; }
+    }
+  }
+  return { ok: false, prec: precFail };
+}
+function phraseDistractors(id, ti, pi, n) {
+  const ph = T4[id].tiers[ti].ph[pi]; const out = []; const seen = new Set(ph.a.map(norm));
+  const add = (t, why) => { const k = norm(t); if (!t || seen.has(k)) return; seen.add(k); out.push({ t, why }); };
+  ph.d.forEach(x => add(x[0], x[1]));
+  genSwaps(ph.t).forEach(x => add(x[0], x[1]));
+  if (out.length < n) { // last resort: phrases of other terms in the same lesson
+    const it = ITEMS[id]; const wc = ph.t.split(/\s+/).length; const pool = [];
+    Object.keys(T4).forEach(o => { if (o !== id && ITEMS[o].lesson === it.lesson) T4[o].tiers[0].ph.forEach(p => pool.push({ t: p.t, d: Math.abs(p.t.split(/\s+/).length - wc), f: ITEMS[o].front })); });
+    shuffle(pool).sort((a, b) => a.d - b.d).forEach(p => add(p.t, 'That phrase belongs to "' + p.f + '".'));
+  }
+  return out.slice(0, n);
+}
+function spotQuestion(id, ti, pi) {
+  const tr = T4[id].tiers[ti], ph = tr.ph[pi];
+  if (ph.spot) { if (ph.spot.which) return { q: ph.spot.q, o: [ph.t].concat(tr.ph.filter((x, i) => i !== pi).map(x => x.t)), why: ph.spot.why, plain: true }; return ph.spot; }
+  // fallback: spot the accurate full definition among near-miss versions of THIS phrase
+  const ds = phraseDistractors(id, ti, pi, 3);
+  return { q: 'Spot the <b>accurate</b> definition of <b>' + esc(ITEMS[id].front) + '</b>.', o: [tr.def].concat(ds.map(d => tr.def.replace(ph.t, d.t))), why: 'The accurate version says "' + ph.t + '". ' + (ds[0] ? ds[0].why : ''), auto: true };
+}
+function precDrill(ph) {
+  const w = precWords(ph.t).find(x => PREC_GROUPS.some(g => g.includes(x))); if (!w) return null;
+  const g = PREC_GROUPS.find(x => x.includes(w)); const re = new RegExp('\\b' + w.replace(/ /g, '\\s+') + '\\b', 'i'); const m = ph.t.match(re); if (!m) return null;
+  return { word: m[0], shown: ph.t.replace(re, '____'), opts: shuffle(g.slice(0, 4).map(x => m[0] === m[0].toUpperCase() && /[a-z]/i.test(m[0]) ? x.toUpperCase() : x)) };
+}
+
+/* ---------- answering: the mastery rules ---------- */
+function answerGround(g, ok) {
+  const t = today(); const s = T.ground[g] || (T.ground[g] = { ok: null, done: null, n: 0, miss: null, seen: t }); s.n++; let ev;
+  if (ok) { if (s.done) ev = 'keep'; else if (s.ok && s.ok !== t && s.miss !== t) { s.done = t; ev = 'grounded'; } else { if (!s.ok && s.miss !== t) s.ok = t; ev = 'half'; } }
+  else { ev = s.done ? 'keep' : s.ok ? 'down' : 'stay'; if (!s.done) s.ok = null; s.miss = t; }
+  return ev;
+}
+function finishTier(id) {
+  const ts = T.terms[id], t = today(); ts.done[ts.tier] = t;
+  if (ts.tier === 0 || !(S.items[id] && S.items[id].mastered)) { const st = itemState(id); st.mastered = true; addCard(id); }
+  const next = ts.tier + 1;
+  if (T4[id].tiers[next]) { ts.tier = next; ts.ph = newPh(T4[id].tiers[next].ph.length); ts.st = 'wait'; ts.wait = addDays(t, TIER_WAIT_DAYS); ts.whole = null; }
+  else ts.st = 'done';
+  ts.peak = 1;
+}
+function answerTerm(step, ok) {
+  const t = today(); const id = step.id; const ts = T.terms[id]; let ev = 'stay', xp = ok ? 3 : 1;
+  if (step.retry) { addXP(1); save(); return { event: ok ? 'practice' : 'stay', correct: ok, retry: true }; }
+  if (step.k === 'ground') { ev = answerGround(step.g, ok); }
+  else if (step.k === 'adv') {
+    const pi = activePhrase(ts); const ph = ts.ph[pi]; ts.last = t;
+    if (ok) {
+      if (ts.lastUp !== t && ph.miss !== t) { ph.s++; ph.up = t; ts.lastUp = t; xp = 3 + ph.s; if (ph.s === 3) { ph.ivl = 3; ph.due = addDays(t, 3); ev = activePhrase(ts) < 0 ? 'allph' : 'phrase'; } else ev = 'up'; }
+      else ev = 'practice';
+    } else { const b = ph.s; ph.s = Math.max(0, ph.s - 1); ph.miss = t; ts.lapses++; ev = ph.s < b ? 'down' : 'stay'; }
+  } else if (step.k === 'whole') {
+    if (ok && ts.lastUp !== t) { ts.lastUp = t; ts.whole = t; finishTier(id); ev = 'tier'; xp = 10; } else if (ok) ev = 'practice'; else { ts.whole = t; ev = 'stay'; }
+  } else if (step.k === 'review') {
+    const ph = ts.ph[step.p]; ph.rn = (ph.rn || 0) + 1;
+    if (ok) { ph.ivl = Math.min(60, (ph.ivl || 3) * 2); ph.due = addDays(t, ph.ivl); ev = 'review'; xp = 4; }
+    else { ph.s = 2; ph.miss = t; ph.due = null; ts.lapses++; ev = 'down'; }
+  } else if (step.k === 'maint') {
+    const ph = ts.ph[step.p];
+    if (ok) { ts.mivl = Math.min(30, (ts.mivl || 3) * 2); ts.mdue = addDays(t, ts.mivl); ev = 'review'; xp = 4; }
+    else { const b = ph.s; ph.s = Math.max(0, ph.s - 1); ph.miss = t; ts.mdue = addDays(t, 1); ts.lapses++; ev = ph.s < b ? 'down' : 'stay'; }
+  } else if (step.k === 'practice') { ev = ok ? 'practice' : 'stay'; xp = ok ? 2 : 1; }
+  if (ts) ts.peak = Math.max(ts.peak || 0, termFrac4(ts));
+  t4Log(ok); addXP(xp); save();
+  return { event: ev, correct: ok };
+}
+
+/* ---------- session steps for terms ---------- */
+function initTerm(step) {
+  const t = today(); const f = { term: true, step, checked: false, vals: [], kind: step.k };
+  if (step.k === 'ground') {
+    const G = GROUND[step.g]; const s = T.ground[step.g]; f.G = G; f.intro = !s; f.q = G.qs[(s ? s.n : 0) % G.qs.length];
+  } else {
+    const ts = T.terms[step.id]; const ti = ts.tier; const tr = T4[step.id].tiers[ti]; f.ti = ti; f.tr = tr;
+    let pi = step.k === 'adv' || step.k === 'practice' ? activePhrase(ts) : step.k === 'review' ? step.p : -1;
+    if (step.k === 'maint') { pi = -1; ts.ph.forEach((p, i) => { if (p.s >= 1) pi = i; }); step.p = pi; }
+    f.pi = pi;
+    if (step.k === 'whole') { f.form = 'whole'; }
+    else {
+      const ph = ts.ph[pi]; f.ph = tr.ph[pi];
+      f.form = step.k === 'adv' ? FORMS[ph.s] : step.k === 'practice' ? 'pick' : step.k === 'maint' ? (ph.s >= 2 ? 'type' : 'pick') : ((ph.rn || 0) % 2 === 1 && precDrill(f.ph) ? 'prec' : 'type');
+      if (step.k === 'adv' && !ph.seen) { f.intro = true; ph.seen = t; saveTerms(); }
+    }
+  }
+  if (f.kind === 'ground' || f.form === 'spot') { const q = f.kind === 'ground' ? f.q : (f.q = spotQuestion(step.id, f.ti, f.pi)); if (q.o) { f.opts = shuffle(q.o.map((x, i) => ({ x, i }))); } }
+  if (f.form === 'pick') { const ds = phraseDistractors(step.id, f.ti, f.pi, 3); f.opts = shuffle([{ x: f.ph.t, i: 0 }].concat(ds.map((d, i) => ({ x: d.t, i: i + 1, why: d.why })))); }
+  if (f.form === 'prec') { f.pd = precDrill(f.ph); }
+  f.snap = JSON.stringify({ ts: T.terms[step.id] || null, g: step.g ? T.ground[step.g] || null : null, log: T.log.length });
+  return f;
+}
+function termDefHTML(f, blank) {
+  const ts = T.terms[f.step.id];
+  return f.tr.segs.map(sg => {
+    if (sg.p == null) return esc(sg.s);
+    if (sg.p === f.pi && blank) return '<span class="slot' + (f.checked ? (f.ok ? ' ok' : ' bad') : f.pick != null ? ' filled' : '') + '">' + (f.checked ? esc(sg.s) : f.pick != null && f.opts ? esc(f.opts[f.pick].x) : '\u00a0'.repeat(12)) + '</span>';
+    const s = ts.ph[sg.p].s; return '<span class="pc' + (sg.p === f.pi ? ' cur' : s >= 3 ? ' known' : ' later') + '">' + esc(sg.s) + '</span>';
+  }).join('');
+}
+function phrasePips(ts, ti) {
+  return '<div class="pips">' + ts.ph.map((p, i) => '<span class="ph' + (i === activePhrase(ts) ? ' cur' : '') + '" title="phrase ' + (i + 1) + '">' + FORMS.map((fm, k) => '<i class="' + (p.s > k ? 'l3' : '') + '"></i>').join('') + '</span>').join('') +
+    '<span>' + ts.ph.filter(p => p.s >= 3).length + '/' + ts.ph.length + ' phrases · tier ' + (ti + 1) + ' (' + TIER_NAMES[ti] + ')</span></div>';
+}
+function optsHTML(f, act) {
+  return '<div class="opts">' + f.opts.map((o, i) => '<button class="opt' + (f.checked ? (o.i === 0 ? ' ok' : i === f.pick ? ' bad' : '') : '') + '" data-act="' + act + '" data-i="' + i + '"' + (f.checked ? ' disabled' : '') + '>' + (f.html ? o.x : esc(o.x)) + '</button>').join('') + '</div>';
+}
+function tapHTML(f, q) {
+  const parts = q.tap.map((p, i) => p[1] == null ? '<span>' + p[0] + '</span>' : '<button class="tap' + (q.inline ? ' inl' : ' blk') + (f.checked ? (p[1] === 1 ? ' ok' : i === f.pick ? ' bad' : '') : '') + '" data-act="tTap" data-i="' + i + '"' + (f.checked ? ' disabled' : '') + '>' + p[0] + '</button>').join(q.inline ? '' : '');
+  return q.inline ? '<div class="tapline mono">' + parts + '</div>' : '<div class="tapgrid">' + parts + '</div>';
+}
+function viewTerm(step) {
+  if (!F || F.stepIndex !== SESSION.i) { F = initTerm(step); F.stepIndex = SESSION.i; }
+  const f = F, it = ITEMS[step.id], L = LESSONS[it.lesson]; let h = '';
+  if (f.kind === 'ground') {
+    h += '<div class="kicker">🧱 Building block · <b>' + esc(f.G.name) + '</b>' + (f.intro ? ' · <b class="new">NEW</b>' : '') + ' · used by ' + esc(it.front) + '</div>';
+    if (f.intro) h += '<div class="teach">' + f.G.teach + '</div>';
+    const g = T.ground[step.g]; h += '<div class="muted small">Grounded after a correct answer on 2 different days' + (g && g.ok ? ' · 1/2 ✓' : '') + '</div>';
+    h += '<h2 class="q">' + f.q.q + '</h2>' + (f.q.show ? '<div class="scene">' + f.q.show + '</div>' : '');
+    f.html = true; h += f.q.tap ? tapHTML(f, f.q) : optsHTML(f, 'tPick');
+  } else {
+    const ts = T.terms[step.id];
+    h += '<div class="kicker">🧩 Term · ' + esc(L.title) + (f.intro ? ' · <b class="new">NEW PHRASE</b>' : '') + (step.extra ? ' · <b class="new">EXTRA REVIEW</b>' : '') + (step.k === 'review' || step.k === 'maint' ? ' · review' : '') + '</div>' + phrasePips(ts, f.ti);
+    const formName = { pick: 'PICK: choose the exact phrase', type: 'TYPE: write the phrase (no options)', spot: 'SPOT: use it in a real example', whole: 'Whole definition from memory', prec: 'Precision: choose the exact small word' }[f.form];
+    h += '<div class="muted small">' + formName + '</div><h2>' + esc(it.front) + '</h2>';
+    if (f.intro) h += '<div class="teach">New phrase ' + (f.pi + 1) + ' of ' + f.tr.ph.length + ': <b>' + esc(f.ph.t) + '</b>' + (precWords(f.ph.t).length ? '<br><span class="small">Watch the exact small word' + (precWords(f.ph.t).length > 1 ? 's' : '') + ': ' + precWords(f.ph.t).map(w => '<b>' + esc(w) + '</b>').join(', ') + '</span>' : '') + (f.ph.a.length > 1 ? '<br><span class="small muted">Also accepted: ' + f.ph.a.slice(1).map(esc).join(' · ') + '</span>' : '') + '</div>';
+    if (f.form === 'pick') { h += '<p class="def">' + termDefHTML(f, true) + '</p>' + optsHTML(f, 'tPick'); }
+    else if (f.form === 'type') { h += '<p class="def">' + termDefHTML(f, true) + '</p><div class="inputs"><label class="inp ' + (f.checked ? (f.ok ? 'ok' : 'bad') : '') + '"><span>?</span><input type="text" data-i="0" value="' + esc(f.vals[0] || '') + '" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + ' data-autofocus placeholder="' + f.ph.t.split(/\s+/).length + ' words"></label></div>'; }
+    else if (f.form === 'prec') { h += '<p class="def model">' + esc(f.pd.shown) + '</p>'; f.opts = f.opts || f.pd.opts.map(x => ({ x, i: norm(x) === norm(f.pd.word) ? 0 : 1 })); h += optsHTML(f, 'tPick'); }
+    else if (f.form === 'spot') { h += '<p class="def">' + termDefHTML(f, false) + '</p><h3 class="q">' + (f.q.plain ? esc(f.q.q) : f.q.q) + '</h3>' + (f.q.show ? '<div class="scene">' + f.q.show + '</div>' : ''); f.html = !(f.q.auto || f.q.plain); h += f.q.tap ? tapHTML(f, f.q) : optsHTML(f, 'tPick'); }
+    else if (f.form === 'whole') { h += '<p class="muted">Write the whole tier ' + (f.ti + 1) + ' definition. Every phrase must be there, with its exact small words.</p><textarea class="recall" rows="4" data-i="0" autocomplete="off" autocapitalize="off" spellcheck="false"' + (f.checked ? ' disabled' : '') + ' data-autofocus>' + esc(f.vals[0] || '') + '</textarea>'; }
+  }
+  if (!f.checked) {
+    if (f.form === 'type' || f.form === 'whole') h += '<div class="actions"><button class="btn primary big" data-act="tCheck">Check</button><button class="btn ghost" data-act="tIdk">I don\'t know: show me</button></div>';
+    else h += '<div class="actions"><button class="btn ghost" data-act="tIdk">I don\'t know: show me</button></div>';
+  } else if (f.form === 'whole' && !f.graded) {
+    h += '<div class="feedback ' + (f.wres.every(Boolean) ? 'good' : 'meh') + '"><b>' + f.wres.filter(Boolean).length + '/' + f.wres.length + ' phrases found</b>' + (f.wres.some(x => !x) ? '<br>Missing or imprecise: ' + f.tr.ph.filter((p, i) => !f.wres[i]).map(p => '<code>' + esc(p.t) + '</code>').join(' ') : '') + '</div>' +
+      '<div class="label">Model answer</div><p class="def model">' + esc(f.tr.def) + '</p><div class="muted small">Same meaning with the exact small words counts. You decide:</div>' +
+      '<div class="actions two"><button class="btn bad" data-act="tSelf" data-ok="0">✗ Not yet</button><button class="btn good' + (f.wres.every(Boolean) ? ' primary' : '') + '" data-act="tSelf" data-ok="1">✓ I had it</button></div>';
+  } else {
+    const o = f.outcome; let msg;
+    const nextForm = { up: '', phrase: '' };
+    if (o.correct) msg = o.retry ? '✅ Correct (practice: it counts again tomorrow).' : o.event === 'grounded' ? '🧱 Grounded! This building block is now reused by every term that needs it.' : o.event === 'half' ? '✅ Correct! Get it right again on another day to ground it.' : o.event === 'up' ? '⬆️ Step done. Tomorrow: the next form of this phrase.' : o.event === 'phrase' ? '🎯 Phrase mastered (pick, type and spot). The next phrase starts on another day.' : o.event === 'allph' ? '🎉 Every phrase is mastered. On another day: the whole definition.' : o.event === 'tier' ? '🏆 Tier mastered! It joins your flashcards; the next tier unlocks in ' + TIER_WAIT_DAYS + ' days.' : o.event === 'review' ? '✅ Still solid. Next review later.' : '✅ Correct (already stepped up today; it counts again tomorrow).';
+    else msg = o.event === 'down' ? '↩️ Not quite. This phrase drops back one step.' : '↩️ Not quite. You\'ll see it again.';
+    h += '<div class="feedback ' + (o.correct ? 'good' : 'badfb') + '">' + msg + '</div>';
+    if (f.precFail) h += '<div class="hintbox">🎯 Precision: ' + (f.precFail.got ? '"' + esc(f.precFail.got) + '" instead of "' + esc(f.precFail.want) + '". ' : '') + esc(f.precFail.why) + '</div>';
+    if (f.pickWhy) h += '<div class="hintbox">💡 ' + esc(f.pickWhy) + '</div>';
+    const why = f.kind === 'ground' ? f.q.why : f.form === 'spot' ? f.q.why : null; if (why) h += '<div class="hintbox">💡 ' + esc(why) + '</div>';
+    if (f.ph && f.form !== 'whole') { h += '<div class="small">Exact phrase: <b>' + esc(f.ph.t) + '</b>' + (f.ph.a.length > 1 ? '<br><span class="muted">Also accepted: ' + f.ph.a.slice(1).map(esc).join(' · ') + '</span>' : '') + '</div>'; }
+    h += '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button>' + (!o.correct && f.form === 'type' && !f.overridden && !f.precFail ? '<button class="btn ghost" data-act="tOverride">I was actually right (typo or synonym)</button>' : '') + '</div>';
+  }
+  return h;
+}
+function finishTerm(ok) {
+  const step = SESSION.steps[SESSION.i]; const o = answerTerm(step, ok); F.checked = true; F.ok = ok; F.outcome = o;
+  if (ok) { SESSION.stats.right++; if (o.event === 'tier') SESSION.stats.mastered++; else if (['up', 'phrase', 'allph', 'grounded'].includes(o.event)) SESSION.stats.ups++; }
+  else SESSION.stats.wrong++;
+  const key = 't' + step.id + step.k + (step.g || '') + (step.p != null ? step.p : '');
+  if (!ok && !step.retry && !SESSION.requeued[key]) { SESSION.requeued[key] = true; SESSION.steps.push(Object.assign({}, step, { retry: true })); F.requeuedNow = key; }
+}
+function wholeCheck(input, tr) { return tr.ph.map(p => p.a.some(a => coverage(input, a, p.ord) && precWords(a).every(w => hasWord(input, w)))); }
+
+/* ---------- "How learning works" (More screen + once in the first session after the update) ---------- */
+function learnHowHTML() {
+  return '<ul class="plan learn">' +
+    '<li><b>🧱 Building blocks first.</b> Words like row, column, result rows, expression and condition are learned once with a real mini table, query and output (tap the actual thing). A term\'s definition starts only after its building blocks are grounded (right on 2 different days).</li>' +
+    '<li><b>🧩 One phrase at a time.</b> Each definition is split into short phrases. The next phrase starts only after the current one is fully mastered.</li>' +
+    '<li><b>✋ Pick → ⌨️ Type → 🔎 Spot.</b> A phrase is mastered when you have: picked it from options, typed it without options, and spotted it in a real query, table or scenario, each right on a <b>different day</b>. A term moves at most one step a day. A miss drops one step. After all phrases, you write the whole definition on another day.</li>' +
+    '<li><b>✍️ Accepted wordings.</b> Each phrase has up to 3 correct ways of saying it; any one counts. Small typos in long words are fine.</li>' +
+    '<li><b>🎯 Precision words.</b> Small words change meaning: each / one / every / all, by / on, one or more / one, before / after, TRUE / FALSE. Wrong options use exactly these near-misses, with a short reason. When typing, changing one of these words counts as wrong.</li>' +
+    '<li><b>🪜 Tiers.</b> Tier 1 is the simplest professional wording (how a junior would say it in an interview). After mastery it becomes a flashcard, and 7 days later tier 2 (intermediate) unlocks, then tier 3 (advanced) where it makes sense.</li>' +
+    '<li><b>👯 2–3 terms at once.</b> Two terms run in parallel, each at its own slow pace; a third joins when your recent term answers are very accurate. Not so basic that you misunderstand, not so simple that it gets boring.</li>' +
+    '<li><b>⏱ Session split.</b> About 1/3 terminology and 2/3 code and problems, by item count: a short term block first, then code practice and problems, then a quick term review at the end. Terms never take time away from code.</li>' +
+    '<li><b>🐢 Automatic pacing.</b> If you miss many recent term answers (over 35% of the last 20), no new term starts and weak phrases get extra review. Code practice is never slowed down.</li>' +
+    '<li><b>🧭 Placement test.</b> Real SQL, output prediction and scenario questions place you at a level and unlock lessons up to it. Tested-out items are still scheduled for review. It only ever unlocks.</li>' +
+    '<li><b>🔒 Progress is never reset.</b> Updates keep your streak, XP, levels, flashcards and term progress. Earlier term progress keeps its credit: you only add the missing steps.</li></ul>';
+}
+function viewLearn() {
+  return '<header class="top"><button class="back" data-act="go" data-to="settings">‹ More</button><h1>How learning works</h1></header><main><section class="card">' + learnHowHTML() + '</section></main>' + nav('settings');
+}
+function viewHelpStep() {
+  return '<div class="kicker">📖 New: how terms are learned</div><h2>How learning works now</h2>' + learnHowHTML() +
+    '<p class="muted small">You can read this again anytime: More → How learning works.</p><div class="actions"><button class="btn primary big" data-act="helpDone" data-autofocus>Got it, start</button></div>';
+}
+
 /* ============================ ACTIONS ============================ */
 const ACT = {
   go: el => go(el.dataset.to, el.dataset.l ? { l: el.dataset.l } : {}),
-  startDaily: () => { const p = buildDailySession(); if (p.steps.length) startSession(p); },
+  startDaily: () => { const p = buildDailySession(); if (p.steps.length) { commitTermPlan(p.terms); startSession(p); } },
   startLesson: el => startSession(buildLessonSession(el.dataset.l)),
   startCards: () => { const p = buildCardSession(); if (p.steps.length) startSession(p); },
   quit: () => { if (confirm('End the session now? Everything you answered is already saved.')) { SESSION.stats.quit = true; endSession(); } },
@@ -2592,7 +3336,7 @@ const ACT = {
     try { UI.labOut = tableHTML(await runSQL(UI.labCode, null, UI.labDb || 'music'), 100); } catch (e) { UI.labOut = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; }
     out.innerHTML = UI.labOut;
   },
-  exportJSON: () => { download('de-daily-backup-' + today() + '.json', JSON.stringify(Object.assign({}, S, { _ext: E }), null, 1), 'application/json'); toast('Backup downloaded'); },
+  exportJSON: () => { download('de-daily-backup-' + today() + '.json', JSON.stringify(Object.assign({}, S, { _ext: E, _terms: T }), null, 1), 'application/json'); toast('Backup downloaded'); },
   importPaste: () => importData(document.getElementById('importText').value),
   anki: el => { const r = buildAnki(el.dataset.all === '1'); if (!r.n) { toast('Your deck is empty. Try "Export all items".'); return; } download('de-daily-anki-' + today() + '.txt', r.text, 'text/plain'); toast(r.n + ' cards exported'); },
   biteIntro: () => { const id = F.id; if (!S.items[id]) itemState(id); ensureBite(id); const pd = paceDay(); pd.terms++; addXP(2); save(); nextStep(); },
@@ -2613,6 +3357,27 @@ const ACT = {
     if (F.requeuedNow) { const k = SESSION.steps.findIndex((s, j) => j > SESSION.i && s.id === step.id && s.retry && s.type === 'bite'); if (k > 0) SESSION.steps.splice(k, 1); SESSION.requeued[F.requeuedNow] = false; }
     F.overridden = true; F.res = F.res.map(() => true); finishBite(true); render();
   },
+  tPick: el => {
+    if (F.checked) return; F.pick = +el.dataset.i; const o = F.opts[F.pick]; const ok = o.i === 0;
+    if (!ok && F.form === 'prec') { const sw = PREC_SWAP.find(x => norm(x[0]) === norm(F.pd.word) && norm(x[1]) === norm(o.x)); F.pickWhy = sw ? sw[2] : 'The exact word here is "' + F.pd.word + '"; "' + o.x + '" changes the meaning.'; }
+    else if (!ok && o.why) F.pickWhy = o.why;
+    finishTerm(ok); render();
+  },
+  tTap: el => { if (F.checked) return; F.pick = +el.dataset.i; finishTerm(F.q.tap[F.pick][1] === 1); render(); },
+  tCheck: () => {
+    collectInputs();
+    if (F.form === 'whole') { if (!(F.vals[0] || '').trim()) { toast('Write the definition first (or tap I don\'t know)'); return; } F.wres = wholeCheck(F.vals[0] || '', F.tr); F.checked = true; render(); return; }
+    const r = checkPhrase(F.vals[0] || '', F.ph); if (!r.ok && r.prec) F.precFail = r.prec; finishTerm(r.ok); render();
+  },
+  tIdk: () => { collectInputs(); if (F.form === 'whole') { F.wres = F.tr.ph.map(() => false); F.graded = true; } F.pick = -1; finishTerm(false); render(); },
+  tSelf: el => { F.graded = true; finishTerm(el.dataset.ok === '1'); render(); },
+  tOverride: () => {
+    const step = SESSION.steps[SESSION.i]; const sn = JSON.parse(F.snap);
+    if (sn.ts) T.terms[step.id] = sn.ts; T.log.length = sn.log; SESSION.stats.wrong--;
+    if (F.requeuedNow) { const k = SESSION.steps.findIndex((x, j) => j > SESSION.i && x.retry && x.type === 'term' && x.id === step.id); if (k > 0) SESSION.steps.splice(k, 1); SESSION.requeued[F.requeuedNow] = false; }
+    F.overridden = true; F.precFail = null; finishTerm(true); render();
+  },
+  helpDone: () => { T.helpSeen = today(); saveTerms(); nextStep(); },
   goPlacement: () => { UI.pt = ptNew(); go('placement'); },
   startFresh: () => { E.onboarded = today(); save(); render(); },
   ptStart: () => { ptNext(); render(); window.scrollTo(0, 0); },
@@ -2631,7 +3396,7 @@ const ACT = {
   ptIdk: () => { const c = UI.pt.cur; if (c.checked) return; const el = document.getElementById('ptCode') || document.getElementById('ptVal'); if (el) c.val = el.value; c.msg = 'counted as a miss, no other penalty'; ptAnswer(false); render(); },
   ptContinue: () => { ptContinue(); render(); window.scrollTo(0, 0); },
   ptDone: () => { UI.pt = null; go('home'); },
-  reset: () => { if (confirm('Delete ALL progress (XP, streak, levels, cards)? Export a backup first if unsure.')) { S = defaultState(); E = defaultExt(); save(); toast('Progress reset'); go('home'); } }
+  reset: () => { if (confirm('Delete ALL progress (XP, streak, levels, cards)? Export a backup first if unsure.')) { S = defaultState(); E = defaultExt(); T = defaultTerms(); save(); toast('Progress reset'); go('home'); } }
 };
 function collectInputs() { app().querySelectorAll('[data-i]').forEach(el => { if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') F.vals[+el.dataset.i] = el.value; }); }
 
@@ -2646,7 +3411,7 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') {
     e.preventDefault();
     const ins = [...app().querySelectorAll('.inputs input')]; const k = ins.indexOf(e.target);
-    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked) (F.bite ? ACT.checkBite() : ACT.checkFade());
+    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked) (F.term ? ACT.tCheck() : F.bite ? ACT.checkBite() : ACT.checkFade());
   }
 });
 document.addEventListener('change', e => {
@@ -2654,7 +3419,8 @@ document.addEventListener('change', e => {
 });
 
 /* ============================ INIT ============================ */
-S = loadState(); E = loadExt(); migrateExt(); save(); // new v3 state lives in deLearn.ext; deLearn.v1 records are kept as they are
+// v3 state lives in deLearn.ext, v4 term state in deLearn.terms; deLearn.v1 records are kept as they are
+S = loadState(); E = loadExt(); migrateExt(); T = loadTerms(); migrateTerms(); save();
 try { history.replaceState({ screen: 'home', params: {} }, ''); } catch (e) {}
 render();
 if (/^https?:$/.test(location.protocol)) {
