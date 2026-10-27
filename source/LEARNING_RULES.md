@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v4)
+# DE Daily: learning rules (v5)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -64,6 +64,30 @@ This file is the reference for how terminology is taught and scheduled. The code
 | Fast | at least 12 answers and less than 12% missed | A 3rd active term; 3 grounding questions. |
 | Normal | anything else | 2 active terms; 2 grounding questions. |
 
+### Fast lane (v5): only with consistent accuracy
+- **Counted study day:** a day with at least 5 term answers (`FAST_MIN_N`). Days with fewer answers, or no study, neither count nor break the run.
+- **Turns on** when a session is planned and:
+  - the last 4 counted days (`FAST_DAYS`) were each at least 90% correct (`FAST_DAY_ACC`);
+  - those days all come after the last switch-off, so after a slip a fresh run of 4 is always needed;
+  - the rolling accuracy over the last 20 term answers is at least 85% (`FAST_ROLL_ACC`), when there are 10 or more.
+- **While on:**
+  - Up to 5 active terms (`FAST_MAX_ACTIVE`), up to 2 new terms per day (`FAST_NEW_PER_DAY`) and 3 grounding questions.
+  - Every per-term rule is unchanged: building blocks first, one phrase at a time, PICK, TYPE and SPOT on different days, and precision words.
+  - The term budget (the 1/3 split) is unchanged. More terms means they take turns: the active terms asked least recently go first (`ts.asked`). The term block does not get longer, and code is identical.
+  - Home shows "⚡ Fast lane on: consistent accuracy". The session summary repeats it.
+- **Turns off at once**, checked after every term answer, when:
+  - today has at least 5 answers and is under 90% correct; or
+  - the rolling accuracy over the last 20 answers (with at least 10) falls below 85%.
+- **When it turns off:**
+  - Home (that day and the next) and the session summary show "⚡ Fast lane off: …".
+  - The pace returns to normal: 2–3 active terms and at most 1 new term per day.
+  - At the next plan, active terms beyond 3 are paused, starting with the ones with least progress. They keep every phrase step and get gentle maintenance until a slot frees up. Shown progress never drops.
+- **State:** additive fields in `deLearn.terms`:
+  - `daily {date: {n, ok}}`: the last 60 days.
+  - `fast {on, since, off, why}`.
+  - `terms[id].asked`.
+- Overriding a wrong answer also restores today's count and the lane state.
+
 - Pacing affects **only new term material**. Code, Q&A and problems are planned first and identically, whatever the term state. A test checks this.
 
 ## 6. Daily session layout and the 1/3 : 2/3 split
@@ -89,7 +113,7 @@ This file is the reference for how terminology is taught and scheduled. The code
 |---|---|---|
 | `deLearn.v1` | Original progress: XP, streak, days, items (fade levels, mastered), SM-2 cards, theory, problems, settings | Only by normal use (XP, cards, code levels, a term becoming mastered). Never by a migration. |
 | `deLearn.ext` | v3: bite ladders, placement, onboarding, v3 pacing log | Never by v4. It stays byte-identical, and only placement or onboarding changes it. |
-| `deLearn.terms` | v4: `ground`, `terms`, `log`, `day`, `lastFill`, `helpSeen`, `migratedAt` | Yes |
+| `deLearn.terms` | v4: `ground`, `terms`, `log`, `day`, `lastFill`, `helpSeen`, `migratedAt`; v5 adds `daily`, `fast` | Yes |
 
 - **Grounding record** `ground[b] = {ok, done, miss, n, seen}`: `ok` is the first correct day and `done` the day it was grounded.
 - **Term record** `terms[id] = {st, tier, ph[], start, lastUp, whole, done{tier:day}, lapses, floor, peak, origin, mdue, mivl, wait}`
@@ -117,4 +141,5 @@ This file is the reference for how terminology is taught and scheduled. The code
 
 ## 9. Tests
 - `node source/tests/t4_logic.js`: logic and data tests, including a simulated 60 days.
-- `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a and 371b94a survives untouched; that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.
+- `node source/tests/t5_fastlane.js`: fast lane. It turns on only after a consistent run (a small day neither counts nor breaks the run; a counted slip resets it) and turns off at once on a slip or a rolling dip. It also checks the caps (5 active, 2 new a day), the term budget, one step a day, identical code, and that paused terms keep their credit.
+- `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a, 371b94a and c35b2c9 (v4) survives untouched; that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.

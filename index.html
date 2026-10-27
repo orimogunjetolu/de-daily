@@ -2676,6 +2676,7 @@ function viewSummary() {
     (st.mastered ? '<li>🏆 <b>' + st.mastered + '</b> mastered → added to flashcards</li>' : '') +
     (st.cards ? '<li>🃏 <b>' + st.cards + '</b> flashcards reviewed</li>' : '') +
     (st.problems ? '<li>🧩 Problems: <b>' + st.solved + '/' + st.problems + '</b> solved</li>' : '') +
+    (T.fast && T.fast.on ? '<li>⚡ Fast lane on: consistent accuracy</li>' : T.fast && T.fast.off === today() ? '<li>⚡ Fast lane off: ' + esc(T.fast.why || 'accuracy dipped') + '. Back to the normal pace.</li>' : '') +
     '<li>📅 Tomorrow: about <b>' + dueT + '</b> reviews waiting</li></ul>' +
     '<button class="btn primary big" data-act="go" data-to="home">Back home</button></main>';
 }
@@ -2772,7 +2773,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v4.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v5.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -3129,13 +3130,15 @@ function viewPlacement() {
      drops one step. After all phrases: whole-tier recall on a later day.
    - Tier 1 mastered -> flashcard (SM-2) + tier 2 unlocks 7 days later.
    - 2 terms active at once (3 when accuracy is high), each at its own pace.
+   - Fast lane (v5): after >= 90% term accuracy on each of 4 counted study days
+     in a row, up to 5 active terms and 2 new terms a day (see fast lane below).
    - State lives in localStorage 'deLearn.terms' only. deLearn.v1 and
      deLearn.ext are read for migration and never rewritten by it. */
 const TERMS_KEY = 'deLearn.terms';
 const FORMS = ['pick', 'type', 'spot'];
 const TIER_NAMES = ['beginner', 'intermediate', 'advanced'];
 const TIER_WAIT_DAYS = 7;
-function defaultTerms() { return { v: 1, ground: {}, terms: {}, log: [], day: null, lastFill: null, helpSeen: null, migratedAt: null }; }
+function defaultTerms() { return { v: 1, ground: {}, terms: {}, log: [], day: null, lastFill: null, helpSeen: null, migratedAt: null, daily: {}, fast: { on: false, since: null, off: null, why: null } }; }
 function loadTerms() {
   const d = defaultTerms(); let raw = null;
   try { raw = localStorage.getItem(TERMS_KEY); } catch (e) {}
@@ -3266,8 +3269,54 @@ function migrateTerms() {
 }
 
 /* ---------- pacing (term material only, never code) ---------- */
-function t4Log(ok) { T.log.push({ d: today(), ok: ok ? 1 : 0 }); if (T.log.length > 40) T.log.splice(0, T.log.length - 40); }
+function t4Log(ok) { T.log.push({ d: today(), ok: ok ? 1 : 0 }); if (T.log.length > 40) T.log.splice(0, T.log.length - 40); fastDayLog(ok); fastCheckOff(); }
+
+/* ---------- fast lane (v5): more terms in parallel, only with CONSISTENT accuracy ----------
+   ON  (checked when a session is planned): the last FAST_DAYS (4) counted study days were
+       each >= 90% correct. A counted day has >= FAST_MIN_N (5) term answers; days with fewer
+       answers, or no study, neither count nor break the run. Only days after the last
+       switch-off count, so a slip always needs a fresh run of 4. The rolling accuracy
+       (last 20 term answers) must also be >= 85% when there are at least 10.
+   OFF (checked after every term answer, so at once): today has >= 5 answers and < 90%
+       correct, or the rolling accuracy over the last 20 answers (>= 10) drops below 85%.
+       Back to the normal pace: 2-3 active terms, at most 1 new term a day; extra active
+       terms are paused (kept with full credit, gentle maintenance) at the next plan.
+   WHILE ON: up to FAST_MAX_ACTIVE (5) active terms and FAST_NEW_PER_DAY (2) new terms a
+       day. Every per-term rule is unchanged (blocks first, one phrase at a time, pick /
+       type / spot on different days, precision words). The term budget (1/3 split) is
+       unchanged too, so active terms rotate inside it: least recently asked first.
+   State (additive fields in deLearn.terms): T.daily {date: {n, ok}} for the last 60
+   days, T.fast {on, since, off, why}. */
+const FAST_DAYS = 4, FAST_MIN_N = 5, FAST_DAY_ACC = 0.9, FAST_ROLL_ACC = 0.85, FAST_ROLL_MIN = 10, FAST_MAX_ACTIVE = 5, FAST_NEW_PER_DAY = 2;
+function fastState() {
+  if (!T.daily || typeof T.daily !== 'object') T.daily = {};
+  if (!T.fast || typeof T.fast !== 'object') T.fast = { on: false, since: null, off: null, why: null };
+  return T.fast;
+}
+function fastDayLog(ok) { fastState(); const t = today(); const d = T.daily[t] || (T.daily[t] = { n: 0, ok: 0 }); d.n++; if (ok) d.ok++; const ks = Object.keys(T.daily).sort(); if (ks.length > 60) ks.slice(0, ks.length - 60).forEach(k => delete T.daily[k]); }
+function fastRoll() { const l = T.log.slice(-20); return l.length >= FAST_ROLL_MIN ? l.filter(x => x.ok).length / l.length : null; }
+function fastRun() {
+  const f = fastState(); const days = Object.keys(T.daily).filter(d => T.daily[d].n >= FAST_MIN_N && (!f.off || d > f.off)).sort();
+  let run = 0; for (let i = days.length - 1; i >= 0; i--) { const x = T.daily[days[i]]; if (x.ok / x.n >= FAST_DAY_ACC) run++; else break; } return run;
+}
+function fastCheckOff() {
+  const f = fastState(); if (!f.on) return false; const t = today(), d = T.daily[t], roll = fastRoll();
+  let why = null;
+  if (d && d.n >= FAST_MIN_N && d.ok / d.n < FAST_DAY_ACC) why = 'today ' + Math.round(d.ok / d.n * 100) + '% (below 90%)';
+  else if (roll !== null && roll < FAST_ROLL_ACC) why = 'recent ' + Math.round(roll * 100) + '% (below 85%)';
+  if (!why) return false; f.on = false; f.off = t; f.why = why; return true;
+}
+function fastCheckOn() {
+  const f = fastState(); fastCheckOff(); if (f.on) return true; const roll = fastRoll();
+  if (fastRun() >= FAST_DAYS && (roll === null || roll >= FAST_ROLL_ACC)) { f.on = true; f.since = today(); f.why = null; }
+  return f.on;
+}
 function paceInfo4() {
+  if (fastCheckOn()) { const r = fastRoll(); return { mode: 'lane', miss: r === null ? 0 : 1 - r, maxActive: FAST_MAX_ACTIVE, ground: 3, newStart: true, newPerDay: FAST_NEW_PER_DAY, extra: 0, rotate: true, note: '⚡ Fast lane on: consistent accuracy (90%+ on ' + FAST_DAYS + ' study days in a row). Up to ' + FAST_MAX_ACTIVE + ' terms at once and ' + FAST_NEW_PER_DAY + ' new a day; each term still needs pick, type and spot on different days.' }; }
+  const offNote = T.fast && T.fast.off && T.fast.off >= addDays(today(), -1) ? '⚡ Fast lane off: ' + (T.fast.why || 'accuracy dipped') + '. Back to the normal pace (2–3 terms, 1 new a day). ' : '';
+  const p = paceInfo4base(); if (offNote) p.note = offNote + p.note; return p;
+}
+function paceInfo4base() {
   const log = T.log.slice(-20); const n = log.length; const miss = n ? log.filter(x => !x.ok).length / n : 0;
   if (n >= 8 && miss > 0.35) return { mode: 'slow', miss, maxActive: 2, ground: 1, newStart: false, extra: 2, note: '🐢 Slowing down today to strengthen weak terms (' + Math.round(miss * 100) + '% of recent term answers missed). Code practice is unchanged.' };
   if (n >= 12 && miss < 0.12) return { mode: 'fast', miss, maxActive: 3, ground: 3, newStart: true, extra: 0, note: '🚀 Your term answers are accurate lately, so a third term can run in parallel.' };
@@ -3297,9 +3346,14 @@ function planTerms(other, theoryLesson) {
   const activate = [], starts = [];
   const paused = Object.keys(T.terms).filter(id => T4[id] && T.terms[id].st === 'paused').sort((a, b) => termShown(b) - termShown(a));
   const tierUps = tierUpQueue(), fresh = newTermQueue(theoryLesson);
+  // more active terms than the pace allows (the fast lane just turned off): pause the
+  // ones with least progress; they keep all credit and get gentle maintenance
+  const keepMax = pace.mode === 'lane' ? FAST_MAX_ACTIVE : 3; // normal/slow pace never pauses the 3rd term of the old 'fast' mode
+  const pause = active.length > keepMax ? active.sort((a, b) => termShown(b) - termShown(a)).splice(keepMax) : [];
+  if (pace.rotate) active.sort((a, b) => (T.terms[a].asked || '') < (T.terms[b].asked || '') ? -1 : (T.terms[a].asked || '') > (T.terms[b].asked || '') ? 1 : 0);
   let slots = pace.maxActive - active.length;
   while (slots > 0 && paused.length) { activate.push(paused.shift()); slots--; }
-  let newLeft = (day.newTerms || 0) < 1 && (pace.newStart || active.length + activate.length === 0) ? 1 : 0; let lastFill = T.lastFill;
+  let newLeft = (pace.newStart || active.length + activate.length === 0) ? Math.max(0, (pace.newPerDay || 1) - (day.newTerms || 0)) : 0; let lastFill = T.lastFill;
   while (slots > 0 && (tierUps.length || (newLeft && fresh.length))) {
     if ((lastFill === 'new' || !(newLeft && fresh.length)) && tierUps.length) { const id = tierUps.shift(); (T.terms[id] ? activate : starts).push(T.terms[id] ? id : { id, tier: tiersDoneOld(id) }); lastFill = 'tier'; }
     else { starts.push({ id: fresh.shift(), tier: 0 }); newLeft--; lastFill = 'new'; }
@@ -3332,13 +3386,15 @@ function planTerms(other, theoryLesson) {
   let openN = Math.min(open.length, budget - closeN);
   if (!openN && open.length) { openN = 1; closeN = Math.min(closeN, budget - 1); }
   closeN = Math.min(close.length, budget - openN);
-  return { open: open.slice(0, openN), close: close.slice(0, closeN), activate, starts, pace, budget, waiting: Math.max(0, open.length - openN) + Math.max(0, close.length - closeN) };
+  return { open: open.slice(0, openN), close: close.slice(0, closeN), activate, starts, pause, pace, budget, waiting: Math.max(0, open.length - openN) + Math.max(0, close.length - closeN) };
 }
 // Called when a session starts: the plan's activations and new starts become real state.
 function commitTermPlan(tp) {
   if (!tp) return; const t = today();
+  (tp.pause || []).forEach(id => { const ts = T.terms[id]; if (!ts || ts.st !== 'active') return; ts.st = 'paused'; if (!ts.mdue || ts.mdue < addDays(t, 1)) { ts.mdue = addDays(t, 1); ts.mivl = ts.mivl || 3; } });
   tp.activate.forEach(id => { T.terms[id].st = 'active'; });
-  tp.starts.forEach(s => { if (T.terms[s.id] && T.terms[s.id].st === 'active') return; const ts = newTermState(s.id, s.tier, 'active'); if (s.tier > 0) { ts.origin = 'tierup'; ts.floor = 1; ts.peak = 1; } T.terms[s.id] = ts; if (s.tier === 0) { if (!T.day || T.day.d !== t) T.day = { d: t, newTerms: 0 }; T.day.newTerms++; T.lastFill = 'new'; } else T.lastFill = 'tier'; });
+  tp.open.forEach(s => { if (T.terms[s.id]) T.terms[s.id].asked = t; });
+  tp.starts.forEach(s => { if (T.terms[s.id] && T.terms[s.id].st === 'active') return; const ts = newTermState(s.id, s.tier, 'active'); ts.asked = t; if (s.tier > 0) { ts.origin = 'tierup'; ts.floor = 1; ts.peak = 1; } T.terms[s.id] = ts; if (s.tier === 0) { if (!T.day || T.day.d !== t) T.day = { d: t, newTerms: 0 }; T.day.newTerms++; T.lastFill = 'new'; } else T.lastFill = 'tier'; });
   saveTerms();
 }
 
@@ -3458,7 +3514,7 @@ function initTerm(step) {
   if (f.kind === 'ground' || f.form === 'spot') { const q = f.kind === 'ground' ? f.q : (f.q = spotQuestion(step.id, f.ti, f.pi)); if (q.o) { f.opts = shuffle(q.o.map((x, i) => ({ x, i }))); } }
   if (f.form === 'pick') { const ds = phraseDistractors(step.id, f.ti, f.pi, 3); f.opts = shuffle([{ x: f.ph.t, i: 0 }].concat(ds.map((d, i) => ({ x: d.t, i: i + 1, why: d.why })))); }
   if (f.form === 'prec') { f.pd = precDrill(f.ph); }
-  f.snap = JSON.stringify({ ts: T.terms[step.id] || null, g: step.g ? T.ground[step.g] || null : null, log: T.log.length });
+  f.snap = JSON.stringify({ ts: T.terms[step.id] || null, g: step.g ? T.ground[step.g] || null : null, log: T.log.length, dd: (T.daily || {})[today()] || null, fast: T.fast || null });
   return f;
 }
 function termDefHTML(f, blank) {
@@ -3542,6 +3598,7 @@ function learnHowHTML() {
     '<li><b>🪜 Tiers.</b> Tier 1 is the simplest professional wording (how a junior would say it in an interview). After mastery it becomes a flashcard, and 7 days later tier 2 (intermediate) unlocks, then tier 3 (advanced) where it makes sense.</li>' +
     '<li><b>👯 2–3 terms at once.</b> Two terms run in parallel, each at its own slow pace; a third joins when your recent term answers are very accurate. Not so basic that you misunderstand, not so simple that it gets boring.</li>' +
     '<li><b>⏱ Session split.</b> About 1/3 terminology and 2/3 code and problems, by item count: a short term block first, then code practice and problems, then a quick term review at the end. Terms never take time away from code.</li>' +
+    '<li><b>⚡ Fast lane (only with consistent accuracy).</b> When your term answers are 90%+ correct on each of 4 study days in a row (days with at least 5 term answers count; days off neither count nor break the run), up to 5 terms run at once and 2 new terms can start a day. Every term still needs its building blocks and pick, type and spot on different days. It turns off at once if a day drops below 90% or your recent answers fall below 85%, and you are back to 2–3 terms, 1 new a day; extra terms pause with all their progress kept. Terms still take about 1/3 of the session: more terms just take turns.</li>' +
     '<li><b>🐢 Automatic pacing.</b> If you miss many recent term answers (over 35% of the last 20), no new term starts and weak phrases get extra review. Code practice is never slowed down.</li>' +
     '<li><b>🧭 Placement test.</b> Real SQL, output prediction and scenario questions place you at a level and unlock lessons up to it. Tested-out items are still scheduled for review. It only ever unlocks.</li>' +
     '<li><b>🔒 Progress is never reset.</b> Updates keep your streak, XP, levels, flashcards and term progress. Earlier term progress keeps its credit: you only add the missing steps.</li></ul>';
@@ -3667,7 +3724,7 @@ const ACT = {
   tSelf: el => { F.graded = true; finishTerm(el.dataset.ok === '1'); render(); },
   tOverride: () => {
     const step = SESSION.steps[SESSION.i]; const sn = JSON.parse(F.snap);
-    if (sn.ts) T.terms[step.id] = sn.ts; T.log.length = sn.log; SESSION.stats.wrong--;
+    if (sn.ts) T.terms[step.id] = sn.ts; T.log.length = sn.log; fastState(); if (sn.dd) T.daily[today()] = sn.dd; else delete T.daily[today()]; if (sn.fast) T.fast = sn.fast; SESSION.stats.wrong--;
     if (F.requeuedNow) { const k = SESSION.steps.findIndex((x, j) => j > SESSION.i && x.retry && x.type === 'term' && x.id === step.id); if (k > 0) SESSION.steps.splice(k, 1); SESSION.requeued[F.requeuedNow] = false; }
     F.overridden = true; F.precFail = null; finishTerm(true); render();
   },

@@ -4,13 +4,14 @@ Run from the repo root after `python3 source/build.py`:
 It builds a scratch web root in source/tests/.www with
   v2/  = index.html of commit 08c6b1a (before v3: only deLearn.v1)
   v3/  = index.html of commit 371b94a (v3: deLearn.v1 + deLearn.ext)
+  v4/  = index.html of commit c35b2c9 (v4: + deLearn.terms)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -97,8 +98,8 @@ def preserve(br, label, oldbuild, play_old):
         page.click('#startBtn'); r, _ = drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
     v1, ext = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'); oldprog = page.evaluate(PROG); old = json.loads(v1)
     page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
-    check(get(page, 'deLearn.v1') == v1, f'[{label}] deLearn.v1 byte-identical after loading v4')
-    if ext is not None: check(get(page, 'deLearn.ext') == ext, f'[{label}] deLearn.ext byte-identical after loading v4')
+    check(get(page, 'deLearn.v1') == v1, f'[{label}] deLearn.v1 byte-identical after loading the new build')
+    if ext is not None: check(get(page, 'deLearn.ext') == ext, f'[{label}] deLearn.ext byte-identical after loading the new build')
     else: check(get(page, 'deLearn.ext') is not None, f'[{label}] deLearn.ext created additively (v3 migration still runs)')
     newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
     check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
@@ -122,6 +123,32 @@ def preserve(br, label, oldbuild, play_old):
     check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5]))
     ctx.close()
 
+def preserve_v4(br):
+    # real v4 state: crafted v1, a v3 session, then two v4 sessions; then load v5
+    ctx, page, errs = ctxpage(br); label = 'from v4 c35b2c9'
+    page.goto(f'{BASE}/v3/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v4/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    v1, ext, t4 = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), json.loads(get(page, 'deLearn.terms')); oldprog = page.evaluate(PROG)
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    check(get(page, 'deLearn.v1') == v1 and get(page, 'deLearn.ext') == ext, f'[{label}] deLearn.v1 and deLearn.ext byte-identical after loading v5')
+    t5 = json.loads(get(page, 'deLearn.terms'))
+    same = all(k in t5['terms'] and [p['s'] for p in t5['terms'][k]['ph']] == [p['s'] for p in v['ph']] and t5['terms'][k]['st'] == v['st'] for k, v in t4['terms'].items()) and t5['ground'] == t4['ground'] and t5['log'] == t4['log']
+    check(same and 'fast' in t5 and not t5['fast']['on'], f'[{label}] deLearn.terms kept (terms, phrase steps, blocks, log); fast lane added off')
+    newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not lower, f'[{label}] no lesson or item progress lowered ' + str(lower[:5]))
+    page.click('#startBtn'); n, _ = drive(page); check(n > 0, f'[{label}] v5 session completes ({n} steps)')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
+def fast_lane_ui(br):
+    ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    page.evaluate("""(() => { const t = today(); for (let i = 1; i <= 4; i++) T.daily[addDays(t, -i)] = { n: 10, ok: 10 }; T.log = Array.from({ length: 20 }, () => ({ d: addDays(t, -1), ok: 1 })); saveTerms(); go('home'); })()""")
+    check('Fast lane on: consistent accuracy' in page.inner_text('main'), 'Home shows "Fast lane on: consistent accuracy" after 4 consistent days')
+    page.evaluate("""(() => { for (let i = 0; i < 5; i++) t4Log(i > 0); saveTerms(); go('home'); })()""")
+    txt = page.inner_text('main'); check('Fast lane off' in txt and 'Fast lane on' not in txt, 'a slip (4/5 today) turns it off at once, with a note')
+    check(not errs, 'no JS errors (fast lane): ' + '; '.join(errs[:5])); ctx.close()
+
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -132,7 +159,7 @@ with sync_playwright() as p:
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn'); page.click('[data-act="startFresh"]')
     page.click('#startBtn'); check(page.locator('[data-act="helpDone"]').count() == 1, 'first session after the update opens with "How learning works"')
     txt = page.inner_text('main')
-    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'pacing', 'Placement', 'never reset']), 'help covers every rule')
+    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'Fast lane', 'pacing', 'Placement', 'never reset']), 'help covers every rule')
     if SHOTS: page.screenshot(path=f'{SHOTS}/v4-help.png', full_page=True)
     n, seen = drive(page); check(n > 0 and 'term:ground:None' in seen, f'fresh session completes with grounding ({n} steps; {sorted(seen)})')
     page.click('main.summary [data-to="home"]'); page.click('#startBtn')
@@ -141,6 +168,8 @@ with sync_playwright() as p:
     page.click('nav [data-to="settings"]'); page.click('[data-act="go"][data-to="learn"]')
     check('How learning works' in page.inner_text('header') and 'Pick → ⌨️ Type' in page.inner_text('main'), 'More → How learning works screen')
     if SHOTS: page.screenshot(path=f'{SHOTS}/v4-learn.png', full_page=True)
+    preserve_v4(br)
+    fast_lane_ui(br)
     # simulate following days by moving the clock forward
     forms = set()
     for d in range(1, 9):
@@ -159,7 +188,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v4' in caches, 'service worker cache de-daily-v4: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v5' in caches, 'service worker cache de-daily-v5: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()
