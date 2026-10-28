@@ -92,6 +92,35 @@ pre.qy{background:#1f2a24;color:#e8f3ec;border-radius:8px;padding:8px 10px;margi
 .tapline{background:var(--chip);border-radius:10px;padding:10px;margin:12px 0;line-height:2.1;font-size:.9rem;word-break:break-word}
 .pips .ph{display:inline-flex;gap:2px;padding:2px;border-radius:6px}.pips .ph i{width:10px}.pips .ph.cur{box-shadow:0 0 0 1.5px var(--pri)}.pc.known{border-bottom-style:solid}.pc.cur{font-weight:600}
 .plan li.split{color:var(--muted);font-size:.85rem}.plan.learn li{margin-bottom:8px;line-height:1.45}
+
+/* v6 illustrations: before → query → after. Marks: m kept, u kept-no-match, x dropped, d duplicate, n new, g0-g3 groups */
+.ill{margin:10px 0}.ill-step{font:700 .72rem system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.ill-ins{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}.ill-ins.dim{opacity:.85}.ill-t{min-width:0;max-width:100%}
+.ill-role{font:700 .78rem system-ui,sans-serif;color:var(--pri);margin-bottom:2px}.ill-name{font-size:.78rem;color:var(--muted)}
+.ill-scroll{overflow-x:auto;max-width:100%}
+table.mini.ill{font:12.5px ui-monospace,Menlo,Consolas,monospace;margin:4px 0;width:auto}table.mini.ill td,table.mini.ill th{padding:3px 7px;white-space:nowrap}
+table.mini.ill td.mk,table.mini.ill th.mk{width:1.4em;padding:3px 4px;text-align:center;font-weight:700}
+table.mini.ill td.null span{display:inline-block;padding:0 5px;border:1.5px dashed var(--bad);border-radius:5px;color:var(--bad);font-style:normal;font-weight:700;font-size:11px;background:var(--badbg)}
+.mk-m{background:var(--okbg)}.mk-m td.mk{color:var(--ok)}.mk-u{background:var(--mehbg)}.mk-u td.mk{color:var(--meh)}
+.mk-x td{opacity:.55;text-decoration:line-through}.mk-x td.mk,.mk-x td.null{text-decoration:none}.mk-x td.mk{color:var(--bad);opacity:1}
+.mk-d{background:repeating-linear-gradient(45deg,var(--mehbg),var(--mehbg) 6px,transparent 6px,transparent 12px)}.mk-d td.mk{color:var(--meh)}
+.mk-n{background:#dbeafe}.mk-n td.mk{color:#1d4ed8}@media (prefers-color-scheme:dark){.mk-n{background:#14284a}.mk-n td.mk{color:#93c5fd}}
+.mk-g0{background:#e0f2fe}.mk-g1{background:#fce7f3}.mk-g2{background:#ede9fe}.mk-g3{background:#fef3c7}
+@media (prefers-color-scheme:dark){.mk-g0{background:#0c2d40}.mk-g1{background:#3d1530}.mk-g2{background:#2a1f4a}.mk-g3{background:#3a2c0a}}
+table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px var(--pri)}.newc-k{box-shadow:inset 0 -2px 0 var(--pri)}
+.ill-err{padding:8px 10px;border-radius:10px;background:var(--badbg);color:var(--bad);font-weight:600;font-size:.9rem}
+.ill-lg{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.lg{font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.ill-fig{margin:6px 0;text-align:center}.venn{width:100%;max-width:300px;height:auto}.venn .vf{fill:var(--pri);fill-opacity:.32}.venn .vo{fill:none;stroke:var(--ink);stroke-width:1.5}
+.venn .vn{font:600 10px system-ui,sans-serif;fill:var(--ink)}.venn .vt{font:600 9px system-ui,sans-serif;fill:var(--ink)}
+.flow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.fcol{display:flex;gap:6px}.fstack{display:flex;flex-direction:column;gap:3px}
+.fc{display:block;width:34px;height:9px;border-radius:3px;border:1px solid var(--line)}.fc.mk-x{opacity:.35}.farr{font-size:1.4rem;color:var(--pri)}.fcnt{flex-basis:100%;font-size:.8rem;color:var(--muted)}
+.ill-run{margin-top:10px}
+.lrf{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}.lrr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lrr.sw{font-size:.85rem}
+.ill-ins.two{flex-wrap:nowrap;gap:6px}.ill-ins.two>.ill-t{flex:0 1 auto}.ill-ins.two table.mini.ill{font-size:11px;width:min-content}.ill-ins.two table.mini.ill td,.ill-ins.two table.mini.ill th{padding:2px 4px}.ill-ins.two table.mini.ill th{white-space:normal}.ill-ins.two table.mini.ill td.mk{padding:2px 2px}
+.ill-ins.two .ill-role,.ill-ins.two .ill-name{width:0;min-width:100%}
+@media (max-width:330px){.ill-ins.two{flex-wrap:wrap}}pre.qy.raw{white-space:pre-wrap;font-size:12px}
+tr.tapr{cursor:pointer}tr.tapr td{border-color:var(--line)}tr.tapr.on{outline:2.5px solid var(--pri);outline-offset:-2px;background:var(--chip)}tr.tapr.good{background:var(--okbg)}tr.tapr.wrong{background:var(--badbg);outline:2.5px solid var(--bad);outline-offset:-2px}
+.ill-ref summary{cursor:pointer;color:var(--pri);font-size:.9rem;margin:6px 0}
 </style>
 </head>
 <body>

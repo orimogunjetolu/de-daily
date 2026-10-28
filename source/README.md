@@ -13,7 +13,7 @@
 1. Edit `source/app.js` (e.g. add a module to the curriculum; markup rules are explained at the top of the file).
 2. From the repo root run `python source/build.py`.
 3. Open `index.html` in a browser to test, and run the tests in `source/tests/` (see LEARNING_RULES.md §9).
-4. In `sw.js`, bump `CACHE = 'de-daily-v5'` to the next number (v6, ...) so installed phones update.
+4. In `sw.js`, bump `CACHE = 'de-daily-v6'` to the next number (v6, ...) so installed phones update.
 5. Commit and push. GitHub Pages republishes within about a minute.
 
 ## Saved progress (never break it)
@@ -31,3 +31,5 @@ Full rules, thresholds, state keys, migration and the authoring guide: **[LEARNI
 - **2–3 terms in parallel**; the session is about 1/3 terms (short block first, quick review last) and 2/3 code and problems, by item count. Pacing changes only new term material.
 - State lives in `localStorage['deLearn.terms']`; v4 never rewrites `deLearn.v1` or `deLearn.ext`.
 - **Placement test** (first launch, or More → Placement test): adaptive across 5 levels (SQL basics → joins/grouping → window functions/CTEs → ETL → Project 1), with real SQL checked by sql.js, predict-the-output and scenario questions. Includes "I don't know"; when results are shaky it places one level lower. It unlocks lessons up to that level and schedules their items as flashcards, so they still get reviewed. It never removes progress.
+
+v6: shape-changing concepts (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) are taught picture first: before/after tables, then visual questions, then theory and terms. See `LEARNING_RULES.md` §0. Tests: `node source/tests/t6_illus.js`.

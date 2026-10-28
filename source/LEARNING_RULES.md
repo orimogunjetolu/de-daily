@@ -1,6 +1,48 @@
-# DE Daily: learning rules (v5)
+# DE Daily: learning rules (v6)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
+
+## 0. See it first: illustrate shape-changing concepts (v6)
+
+**Rule:** any concept that changes the *shape* of data (which rows, how many, which columns) is taught **picture first**:
+1. **Illustration** (`illus` steps): small input tables → the query → a diagram → the result table.
+2. **Visual questions** (`vq` steps), grounded in those same tables: tap the rows that survive, predict the row count, explain why a NULL appears, name the LEFT/RIGHT table, run the query yourself.
+3. Only then **theory**, then **building blocks** and **definition phrases** (sections 1–6, unchanged).
+
+Illustrated lessons: sql2 (WHERE and NULL), sql3 (ORDER BY + LIMIT, DISTINCT), sql4 (GROUP BY, WHERE vs HAVING), sql5 (joins), sql6 (subquery filter), sql7 (CTEs, UNION ALL vs UNION), sql8 (window functions: PARTITION BY + LAG and ROW_NUMBER keep every row), sql9 (cleaning with CASE/COALESCE/CAST), etl1 (raw → staging), etl2 (plain INSERT retry duplicates vs delete-then-insert), etl4 (zero-row quality check, dedupe), pj3 (flattening nested JSON), pj4 (primary key refusing a duplicate, delete-then-insert), pj5 (model that keeps rows vs one that collapses them). sql1 has no illustration, so a new learner's first lesson is the same as before. The building block **condition** also shows a before/after picture.
+
+**Joins (sql5)** use one tiny data set throughout: artists (1 Burna Boy, 2 Tems, 3 Asake) and songs (10 Last Last→1, 11 Free Mind→2, 12 Mystery Song→9). The six pictures are: which table is LEFT, then INNER, LEFT, RIGHT, FULL OUTER, and the swap. **LEFT/RIGHT is only about written order**: the table after `FROM` is LEFT and the table after `JOIN` is RIGHT. Swapping them swaps the roles, so any RIGHT JOIN can be written as a LEFT JOIN with the tables swapped. The sql.js bundled in the app is **SQLite 3.49.1**, so RIGHT and FULL OUTER JOIN really run in the app (SQLite has supported them since 3.39). The lesson notes the MySQL workaround (LEFT JOIN UNION RIGHT JOIN).
+
+**What the pictures show:** the input tables side by side in written order, with a role label (e.g. "⬅ LEFT (FROM)"). Each row is marked with a colour and a symbol, so colour is never the only signal:
+
+| Mark | Symbol | Meaning |
+|---|---|---|
+| m | ✓ | kept / matched |
+| u | ◐ | kept with no match (NULLs fill the other side) |
+| x | ✕ | dropped (struck through) |
+| d | ⧉ | duplicate |
+| n | ＋ | new or changed |
+| g0–g3 | (colour) | same group |
+
+NULL cells are shown as a dashed red **NULL** badge. Leading and trailing spaces are shown as ␣. A column the query adds is outlined. Joins also get a Venn diagram, and other concepts get a row-flow figure ("N rows in → M rows out"). The legend lists only the marks that are present. Every picture with a query has **▶ Run this query**, which runs it on real SQLite with exactly those tables.
+
+**Scheduling:**
+- **Lesson session** (Roadmap → lesson): pictures → visual questions → theory → code items → terms → problems.
+- **Daily session:** when the next lesson is new and illustrated, its pictures and questions come just before its theory. They are *not* counted as "other practice", so they don't enlarge the term budget.
+- A lesson's terms only start **after** its pictures were seen (`newTermQueue` checks `visSeen`). In practice this means from the next day.
+- **Existing learners** (theory read before v6): at most **one** unseen lesson's pictures are added a day, before the term block. Lessons with terms already in progress come first, then curriculum order. No catch-up on a day a new lesson's pictures are shown. Terms already in progress continue untouched; only *not yet started* terms of an un-illustrated lesson wait.
+- A missed visual question comes back once at the end of the session. XP: +5 per correct visual question, +5 the first time a lesson's pictures are finished.
+
+**State (additive):** `deLearn.terms.vis[lessonId] = {seen: day|null, q: {[i]: {n, ok: day, miss: day}}}`. Nothing else is written; v1 and ext are untouched.
+
+### Authoring an illustration
+Data lives in `ILLUS` in `app.js` (block "v6 ILLUSTRATIONS", just before `GROUND`). The format is documented in its header comment.
+- Keep tables to **2–5 rows and 2–3 columns** so two fit side by side at 390px. Use the same tables for every scene and question in a lesson.
+- Include at least one row that is *not* kept (no match, a NULL, a duplicate), because the contrast is the lesson.
+- A scene is `{h, say, ins: [{t, m, role}], sql, fig, vl, out: {c, r, m, nc} | {err}, lg, note, norun, ordered}`. `out` must be exactly what SQLite returns: `t6_illus.js` runs every scene and fails if the drawing and the real result differ (unordered unless `ordered`; `err` must be contained in the error message).
+- For scenes with no SQL (e.g. raw JSON in pj3), use `ins: [{raw, role}]` and `code` instead of `sql`.
+- Questions: `{k:'mc', q, o:[correct first, …], why}` (options are shuffled), `{k:'tap', t, ans:[row idx], why}`, `{k:'run', code: '… ____ …', sol, forbid?, why}`. `run` is checked by comparing the result with `sol` on the lesson's tables. `forbid` is a regex that marks a correct-looking answer wrong when it uses a banned keyword (e.g. "without RIGHT JOIN").
+- Order scenes from the simplest to the most surprising, and put the definition words in `say` only *after* the picture shows the behaviour.
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
@@ -113,7 +155,7 @@ This file is the reference for how terminology is taught and scheduled. The code
 |---|---|---|
 | `deLearn.v1` | Original progress: XP, streak, days, items (fade levels, mastered), SM-2 cards, theory, problems, settings | Only by normal use (XP, cards, code levels, a term becoming mastered). Never by a migration. |
 | `deLearn.ext` | v3: bite ladders, placement, onboarding, v3 pacing log | Never by v4. It stays byte-identical, and only placement or onboarding changes it. |
-| `deLearn.terms` | v4: `ground`, `terms`, `log`, `day`, `lastFill`, `helpSeen`, `migratedAt`; v5 adds `daily`, `fast` | Yes |
+| `deLearn.terms` | v4: `ground`, `terms`, `log`, `day`, `lastFill`, `helpSeen`, `migratedAt`; v5 adds `daily`, `fast`; v6 adds `vis` | Yes |
 
 - **Grounding record** `ground[b] = {ok, done, miss, n, seen}`: `ok` is the first correct day and `done` the day it was grounded.
 - **Term record** `terms[id] = {st, tier, ph[], start, lastUp, whole, done{tier:day}, lapses, floor, peak, origin, mdue, mivl, wait}`
@@ -142,4 +184,5 @@ This file is the reference for how terminology is taught and scheduled. The code
 ## 9. Tests
 - `node source/tests/t4_logic.js`: logic and data tests, including a simulated 60 days.
 - `node source/tests/t5_fastlane.js`: fast lane. It turns on only after a consistent run (a small day neither counts nor breaks the run; a counted slip resets it) and turns off at once on a slip or a rolling dip. It also checks the caps (5 active, 2 new a day), the term budget, one step a day, identical code, and that paused terms keep their credit.
-- `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a, 371b94a and c35b2c9 (v4) survives untouched; that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.
+- `node source/tests/t6_illus.js`: illustrations. Every scene's SQL runs on real sql.js and must match the drawn result. Every visual question's answer is checked (tap indexes, unique mc options, `run` solutions run and respect `forbid`). It also checks the flow: pictures → questions → theory in lesson and daily sessions, no terms from a lesson on the day its pictures are first shown, and terms starting once the pictures are seen. For existing learners it checks one catch-up lesson a day, terms in progress first, catch-up before term practice, and no progress lowered.
+- `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a, 371b94a, c35b2c9 (v4) and 051a0fb (v5) survives untouched (v5→v6: one lesson's pictures, `vis` added, nothing lowered); the joins lesson at 390px (no page overflow, RIGHT/FULL JOIN run in the app, screenshots `v6-joins-*.png` when `SHOTS` is set); that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.

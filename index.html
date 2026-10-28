@@ -92,6 +92,35 @@ pre.qy{background:#1f2a24;color:#e8f3ec;border-radius:8px;padding:8px 10px;margi
 .tapline{background:var(--chip);border-radius:10px;padding:10px;margin:12px 0;line-height:2.1;font-size:.9rem;word-break:break-word}
 .pips .ph{display:inline-flex;gap:2px;padding:2px;border-radius:6px}.pips .ph i{width:10px}.pips .ph.cur{box-shadow:0 0 0 1.5px var(--pri)}.pc.known{border-bottom-style:solid}.pc.cur{font-weight:600}
 .plan li.split{color:var(--muted);font-size:.85rem}.plan.learn li{margin-bottom:8px;line-height:1.45}
+
+/* v6 illustrations: before → query → after. Marks: m kept, u kept-no-match, x dropped, d duplicate, n new, g0-g3 groups */
+.ill{margin:10px 0}.ill-step{font:700 .72rem system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.ill-ins{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}.ill-ins.dim{opacity:.85}.ill-t{min-width:0;max-width:100%}
+.ill-role{font:700 .78rem system-ui,sans-serif;color:var(--pri);margin-bottom:2px}.ill-name{font-size:.78rem;color:var(--muted)}
+.ill-scroll{overflow-x:auto;max-width:100%}
+table.mini.ill{font:12.5px ui-monospace,Menlo,Consolas,monospace;margin:4px 0;width:auto}table.mini.ill td,table.mini.ill th{padding:3px 7px;white-space:nowrap}
+table.mini.ill td.mk,table.mini.ill th.mk{width:1.4em;padding:3px 4px;text-align:center;font-weight:700}
+table.mini.ill td.null span{display:inline-block;padding:0 5px;border:1.5px dashed var(--bad);border-radius:5px;color:var(--bad);font-style:normal;font-weight:700;font-size:11px;background:var(--badbg)}
+.mk-m{background:var(--okbg)}.mk-m td.mk{color:var(--ok)}.mk-u{background:var(--mehbg)}.mk-u td.mk{color:var(--meh)}
+.mk-x td{opacity:.55;text-decoration:line-through}.mk-x td.mk,.mk-x td.null{text-decoration:none}.mk-x td.mk{color:var(--bad);opacity:1}
+.mk-d{background:repeating-linear-gradient(45deg,var(--mehbg),var(--mehbg) 6px,transparent 6px,transparent 12px)}.mk-d td.mk{color:var(--meh)}
+.mk-n{background:#dbeafe}.mk-n td.mk{color:#1d4ed8}@media (prefers-color-scheme:dark){.mk-n{background:#14284a}.mk-n td.mk{color:#93c5fd}}
+.mk-g0{background:#e0f2fe}.mk-g1{background:#fce7f3}.mk-g2{background:#ede9fe}.mk-g3{background:#fef3c7}
+@media (prefers-color-scheme:dark){.mk-g0{background:#0c2d40}.mk-g1{background:#3d1530}.mk-g2{background:#2a1f4a}.mk-g3{background:#3a2c0a}}
+table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px var(--pri)}.newc-k{box-shadow:inset 0 -2px 0 var(--pri)}
+.ill-err{padding:8px 10px;border-radius:10px;background:var(--badbg);color:var(--bad);font-weight:600;font-size:.9rem}
+.ill-lg{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.lg{font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.ill-fig{margin:6px 0;text-align:center}.venn{width:100%;max-width:300px;height:auto}.venn .vf{fill:var(--pri);fill-opacity:.32}.venn .vo{fill:none;stroke:var(--ink);stroke-width:1.5}
+.venn .vn{font:600 10px system-ui,sans-serif;fill:var(--ink)}.venn .vt{font:600 9px system-ui,sans-serif;fill:var(--ink)}
+.flow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.fcol{display:flex;gap:6px}.fstack{display:flex;flex-direction:column;gap:3px}
+.fc{display:block;width:34px;height:9px;border-radius:3px;border:1px solid var(--line)}.fc.mk-x{opacity:.35}.farr{font-size:1.4rem;color:var(--pri)}.fcnt{flex-basis:100%;font-size:.8rem;color:var(--muted)}
+.ill-run{margin-top:10px}
+.lrf{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}.lrr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lrr.sw{font-size:.85rem}
+.ill-ins.two{flex-wrap:nowrap;gap:6px}.ill-ins.two>.ill-t{flex:0 1 auto}.ill-ins.two table.mini.ill{font-size:11px;width:min-content}.ill-ins.two table.mini.ill td,.ill-ins.two table.mini.ill th{padding:2px 4px}.ill-ins.two table.mini.ill th{white-space:normal}.ill-ins.two table.mini.ill td.mk{padding:2px 2px}
+.ill-ins.two .ill-role,.ill-ins.two .ill-name{width:0;min-width:100%}
+@media (max-width:330px){.ill-ins.two{flex-wrap:wrap}}pre.qy.raw{white-space:pre-wrap;font-size:12px}
+tr.tapr{cursor:pointer}tr.tapr td{border-color:var(--line)}tr.tapr.on{outline:2.5px solid var(--pri);outline-offset:-2px;background:var(--chip)}tr.tapr.good{background:var(--okbg)}tr.tapr.wrong{background:var(--badbg);outline:2.5px solid var(--bad);outline-offset:-2px}
+.ill-ref summary{cursor:pointer;color:var(--pri);font-size:.9rem;margin:6px 0}
 </style>
 </head>
 <body>
@@ -1789,6 +1818,396 @@ const SC_SNG = MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11,
 const SC_CHART = MT(['chart_date', 'artist', 'title', 'streams'], [['10-16', 'Rema', 'Calm Down', 1200], ['10-17', 'Rema', 'Calm Down', 1100], ['10-17', 'Tems', 'Free Mind', 800]]);
 const SCENE = '<div class="scene">' + LAB('Table <code>songs</code>', SC_SONGS) + LAB('Query', QY(SC_Q)) + LAB('Output (the result)', SC_RES) + '</div>';
 
+/* =====================================================================
+   v6 ILLUSTRATIONS: "illustrate shape-changing concepts first".
+   Any concept that changes the SHAPE of data (joins, grouping, windows,
+   UNION, DISTINCT, filtering, ORDER BY/LIMIT, CTEs, ETL transforms) is
+   shown as BEFORE tables → query → AFTER table, with rows highlighted,
+   BEFORE any definition phrases. Lesson flow:
+     1. illustration scenes ('illus' steps, one per scene)
+     2. interactive visual questions on the same tables ('vq' steps)
+     3. theory, code, then building blocks + definition phrases (unchanged rules)
+   A lesson's terms only start after its illustration has been seen
+   (T.vis[lessonId].seen). Authoring guide: source/LEARNING_RULES.md §9.
+
+   Format  ILLUS[lessonId] = { tables: {name: ILT(name, cols, rows, ddl?)}, scenes: [...], qs: [...] }
+   Scene   { h: title, say: html, sql?: shown + runnable on the lesson tables,
+             code?: non-SQL code shown (no run), ins: [{ t: tableName | tab: ILT(...) | raw: text,
+             m: [row marks], role: label }], out: { c, r, m, nc: [new column idx], ordered?, err? },
+             fig: 'venn-inner|left|right|full' | 'flow' | 'lr', vl: [left-only, both, right-only labels],
+             note: html, lg: {mark: legend text} }
+   Marks   m kept/matched · u kept with no match (NULLs fill the other side) · x not in the
+           result · d duplicate · n new/replaced row · g0..g3 group colours
+   Question{ k: 'tap', q, sql?, t: tableName (rows to tap), ans: [row idx], why }
+           { k: 'mc', q, sql?, o: [correct, ...wrong], why }
+           { k: 'run', q, code: starter query, sol: query, forbid?: regex source, why }
+   Every scene with sql + out is checked against the real SQL engine by
+   source/tests/t6_illus.js, so the drawings can never disagree with SQL.
+   ===================================================================== */
+const ILT = (n, c, r, ddl) => ({ n, c, r, ddl });
+const ILL_ART = ILT('artists', ['artist_id', 'name'], [[1, 'Burna Boy'], [2, 'Tems'], [3, 'Asake']]);
+const ILL_SNG = ILT('songs', ['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2], [12, 'Mystery Song', 9]]);
+const ILL_JSEL = 'SELECT a.name, s.title, s.artist_id\n';
+const ILL_ENT = ILT('entries', ['artist', 'title', 'streams'], [['Rema', 'Calm Down', 1200], ['Rema', 'Charm', 500], ['Tems', 'Free Mind', 800], ['Wizkid', 'Essence', 700], ['Tems', 'Me & U', 300]]);
+const ILL_POS = ILT('chart', ['chart_date', 'title', 'position'], [['10-16', 'Calm Down', 1], ['10-17', 'Calm Down', 2], ['10-16', 'Rush', 2], ['10-17', 'Rush', 1], ['10-17', 'Essence', 3]]);
+const ILLUS = {
+  sql5: {
+    tables: { artists: ILL_ART, songs: ILL_SNG },
+    scenes: [
+      { h: 'Two tables, and which one is LEFT', fig: 'lr',
+        say: 'Before any definition, look at the data. <b>artists</b> has one row per artist. <b>songs</b> has one row per song, and <code>songs.artist_id</code> points at <code>artists.artist_id</code>.<br><b>Left or right?</b> It is only about the <b>order you write them</b>: the table after <code>FROM</code> (written first) is the <b>LEFT</b> table; the table after <code>JOIN</code> is the <b>RIGHT</b> table. It has nothing to do with size or keys.',
+        sql: 'SELECT a.name, s.title, s.artist_id\nFROM artists a          -- LEFT (first)\nJOIN songs s             -- RIGHT (second)\n  ON s.artist_id = a.artist_id;', norun: true,
+        ins: [{ t: 'artists', role: '⬅ LEFT table: written first, after FROM' }, { t: 'songs', role: 'RIGHT table ➡: written after JOIN' }],
+        note: 'Matches: Burna Boy (1) ↔ Last Last, Tems (2) ↔ Free Mind. <b>Asake</b> (3) has no song. <b>Mystery Song</b> points at artist 9, who does not exist. Watch what each join does with these two.' },
+      { h: 'INNER JOIN: only matches', fig: 'venn-inner', vl: ['Asake', '2 matches', 'Mystery Song'],
+        say: 'INNER JOIN keeps a row only when the two sides <b>match</b>. Asake and Mystery Song have no partner, so both disappear.',
+        sql: ILL_JSEL + 'FROM artists a\nINNER JOIN songs s\n  ON s.artist_id = a.artist_id;',
+        ins: [{ t: 'artists', m: ['m', 'm', 'x'], role: '⬅ LEFT (FROM)' }, { t: 'songs', m: ['m', 'm', 'x'], role: 'RIGHT (JOIN) ➡' }],
+        out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2]], m: ['m', 'm'] } },
+      { h: 'LEFT JOIN: every left row stays', fig: 'venn-left', vl: ['Asake', '2 matches', 'Mystery Song'],
+        say: 'LEFT JOIN keeps <b>every row of the LEFT table</b> (artists). Asake has no song, so the right-side columns are filled with <b>NULL</b>. Mystery Song is still dropped: it is on the right side.',
+        sql: ILL_JSEL + 'FROM artists a\nLEFT JOIN songs s\n  ON s.artist_id = a.artist_id;',
+        ins: [{ t: 'artists', m: ['m', 'm', 'u'], role: '⬅ LEFT (FROM): all kept' }, { t: 'songs', m: ['m', 'm', 'x'], role: 'RIGHT (JOIN) ➡' }],
+        out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], ['Asake', null, null]], m: ['m', 'm', 'u'] } },
+      { h: 'RIGHT JOIN: every right row stays', fig: 'venn-right', vl: ['Asake', '2 matches', 'Mystery Song'],
+        say: 'Same written order, other side. RIGHT JOIN keeps <b>every row of the RIGHT table</b> (songs). Mystery Song has no artist 9, so <code>name</code> is <b>NULL</b>. Asake is dropped now.',
+        sql: ILL_JSEL + 'FROM artists a\nRIGHT JOIN songs s\n  ON s.artist_id = a.artist_id;',
+        ins: [{ t: 'artists', m: ['m', 'm', 'x'], role: '⬅ LEFT (FROM)' }, { t: 'songs', m: ['m', 'm', 'u'], role: 'RIGHT (JOIN) ➡: all kept' }],
+        out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], [null, 'Mystery Song', 9]], m: ['m', 'm', 'u'] } },
+      { h: 'FULL OUTER JOIN: everything from both', fig: 'venn-full', vl: ['Asake', '2 matches', 'Mystery Song'],
+        say: 'FULL OUTER JOIN keeps <b>all rows from both tables</b>: the 2 matches, plus Asake (NULL song) and Mystery Song (NULL artist). 4 rows.',
+        sql: ILL_JSEL + 'FROM artists a\nFULL OUTER JOIN songs s\n  ON s.artist_id = a.artist_id;',
+        ins: [{ t: 'artists', m: ['m', 'm', 'u'], role: '⬅ LEFT (FROM): all kept' }, { t: 'songs', m: ['m', 'm', 'u'], role: 'RIGHT (JOIN) ➡: all kept' }],
+        out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], ['Asake', null, null], [null, 'Mystery Song', 9]], m: ['m', 'm', 'u', 'u'] },
+        note: 'This app runs SQLite 3.49 (in sql.js 1.13), so RIGHT and FULL JOIN run here (they need SQLite 3.39+). MySQL has no FULL OUTER JOIN: there you write a LEFT JOIN, then UNION, then the same query as a RIGHT JOIN.' },
+      { h: 'Swap the order, swap the roles', fig: 'venn-left', vl: ['Mystery Song', '2 matches', 'Asake'],
+        say: 'Write <b>songs first</b> and it becomes the LEFT table. Now a LEFT JOIN keeps every song, which is exactly what the RIGHT JOIN above did. <b>Any RIGHT JOIN can be rewritten as a LEFT JOIN by swapping the two tables.</b> Most teams only write LEFT JOIN for that reason.',
+        sql: ILL_JSEL + 'FROM songs s\nLEFT JOIN artists a\n  ON a.artist_id = s.artist_id;',
+        ins: [{ t: 'songs', m: ['m', 'm', 'u'], role: '⬅ LEFT now (FROM): all kept' }, { t: 'artists', m: ['m', 'm', 'x'], role: 'RIGHT now (JOIN) ➡' }],
+        out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], [null, 'Mystery Song', 9]], m: ['m', 'm', 'u'] } }
+    ],
+    qs: [
+      { k: 'tap', q: 'INNER JOIN: tap the <b>artists</b> rows that survive.', sql: 'FROM artists a INNER JOIN songs s ON s.artist_id = a.artist_id', t: 'artists', ans: [0, 1], why: 'Only artists with a matching song survive. No song has artist_id 3, so Asake is dropped.' },
+      { k: 'tap', q: 'LEFT JOIN: tap the <b>songs</b> rows that appear in the result.', sql: 'FROM artists a LEFT JOIN songs s ON s.artist_id = a.artist_id', t: 'songs', ans: [0, 1], why: 'LEFT JOIN keeps every artist (left), not every song. Mystery Song points at artist 9, who does not exist, so it is dropped.' },
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT a.name, s.title FROM artists a FULL OUTER JOIN songs s ON s.artist_id = a.artist_id;', o: ['4', '3', '2', '6'], why: '2 matches + Asake (no song) + Mystery Song (no artist) = 4.' },
+      { k: 'mc', q: 'In the LEFT JOIN result, why is <code>title</code> NULL for Asake?', o: ['No song has artist_id 3, so there is nothing to fill the right-side columns', 'Asake\'s song has an empty title in the songs table', 'NULL means the title is an empty string', 'The join failed for that row'], why: 'LEFT JOIN keeps Asake anyway and fills the right side with NULL: "no match", not "empty".' },
+      { k: 'mc', q: 'Which is the <b>LEFT</b> table here?', sql: 'SELECT a.name, s.title\nFROM songs s\nLEFT JOIN artists a ON a.artist_id = s.artist_id;', o: ['songs: it is written first, after FROM', 'artists: it holds the primary key', 'artists: it comes after JOIN', 'whichever table is bigger'], why: 'Left/right is only about written order: FROM songs → songs is LEFT; JOIN artists → artists is RIGHT.' },
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT a.name, s.title FROM artists a RIGHT JOIN songs s ON s.artist_id = a.artist_id;', o: ['3', '2', '4', '1'], why: 'Every song (right table) stays: 2 matches + Mystery Song with NULL name. Asake is dropped.' },
+      { k: 'mc', q: 'Rewrite <code>FROM artists a RIGHT JOIN songs s ON …</code> as a LEFT JOIN.', o: ['FROM songs s LEFT JOIN artists a ON …', 'FROM artists a LEFT JOIN songs s ON …', 'FROM songs s RIGHT JOIN artists a ON …', 'It cannot be rewritten'], why: 'Swap the tables: the one you wanted to keep in full (songs) goes after FROM.' },
+      { k: 'run', q: 'Run it: fill the blank so <b>Asake stays</b> (with a NULL title). Press ▶ Run to see the result, then ✓ Check.', code: 'SELECT a.name, s.title, s.artist_id\nFROM artists a\n____ JOIN songs s\n  ON s.artist_id = a.artist_id;', sol: 'SELECT a.name, s.title, s.artist_id FROM artists a LEFT JOIN songs s ON s.artist_id = a.artist_id;', why: 'LEFT JOIN keeps every row of the left table (artists). FULL would also add Mystery Song.' },
+      { k: 'run', q: 'Run it: keep <b>every song</b>, even Mystery Song, <b>without</b> RIGHT JOIN.', code: 'SELECT a.name, s.title, s.artist_id\nFROM ____\nLEFT JOIN ____\n  ON a.artist_id = s.artist_id;', sol: 'SELECT a.name, s.title, s.artist_id FROM songs s LEFT JOIN artists a ON a.artist_id = s.artist_id;', forbid: 'right\\s+join|full', why: 'FROM songs s LEFT JOIN artists a: songs is written first, so it is the left table and every song is kept.' }
+    ] },
+  sql2: {
+    tables: { songs: ILT('songs', ['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700], ['Free Mind', 'Tems', null]]) },
+    scenes: [
+      { h: 'WHERE keeps fewer rows', fig: 'flow', say: 'WHERE checks the condition on <b>each row</b>. Rows where it is TRUE stay; FALSE <b>and UNKNOWN</b> rows are dropped. The columns do not change, only the number of rows.',
+        sql: 'SELECT title, streams\nFROM songs\nWHERE streams > 800;', ins: [{ t: 'songs', m: ['m', 'm', 'x', 'x'] }],
+        out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 1200]], m: ['m', 'm'] },
+        note: 'Free Mind has NULL streams. <code>NULL &gt; 800</code> is UNKNOWN, not TRUE, so it is dropped too.' },
+      { h: 'Finding the missing values', fig: 'flow', say: 'To keep rows with a missing value you must ask <code>IS NULL</code>. <code>= NULL</code> is never TRUE.',
+        sql: 'SELECT title, streams\nFROM songs\nWHERE streams IS NULL;', ins: [{ t: 'songs', m: ['x', 'x', 'x', 'm'] }],
+        out: { c: ['title', 'streams'], r: [['Free Mind', null]], m: ['m'] } }
+    ],
+    qs: [
+      { k: 'tap', q: 'Tap the rows kept by <code>WHERE streams &lt; 1000</code>.', t: 'songs', ans: [0, 2], why: 'Rush (900) and Essence (700). Free Mind\'s NULL makes the test UNKNOWN, so it is dropped.' },
+      { k: 'mc', q: 'How many rows does this return?', sql: "SELECT title FROM songs WHERE streams <> 900;", o: ['2', '3', '4', '1'], why: 'Calm Down and Essence. Rush is 900, and NULL <> 900 is UNKNOWN, so Free Mind is dropped.' }
+    ] },
+  sql3: {
+    tables: { chart: ILT('chart', ['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700], ['Charm', 'Rema', 500]]) },
+    scenes: [
+      { h: 'ORDER BY + LIMIT: sort, then cut', fig: 'flow', say: 'ORDER BY rearranges the <b>result rows</b>; LIMIT then keeps the first n. Together they answer "top 2".',
+        sql: 'SELECT title, streams\nFROM chart\nORDER BY streams DESC\nLIMIT 2;', ins: [{ t: 'chart', m: ['m', 'm', 'x', 'x'] }],
+        out: { c: ['title', 'streams'], r: [['Calm Down', 1200], ['Rush', 900]], m: ['m', 'm'], ordered: true }, lg: { m: '✓ in the top 2' } },
+      { h: 'DISTINCT: duplicates collapse', fig: 'flow', say: 'DISTINCT removes duplicate <b>result rows</b>. Rema appears twice in the input but once in the output. Colours show which rows collapse together.',
+        sql: 'SELECT DISTINCT artist\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g1', 'g2', 'g1'] }],
+        out: { c: ['artist'], r: [['Ayra Starr'], ['Rema'], ['Wizkid']], m: ['g0', 'g1', 'g2'] } }
+    ],
+    qs: [
+      { k: 'tap', q: 'Tap the rows returned by <code>ORDER BY streams LIMIT 2</code> (ascending).', t: 'chart', ans: [2, 3], why: 'Ascending puts the smallest first: Charm (500), then Essence (700).' },
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT DISTINCT artist, title FROM chart;', o: ['4', '3', '2', '1'], why: 'DISTINCT applies to the whole selected row. Every (artist, title) pair is different, so all 4 stay.' }
+    ] },
+  sql4: {
+    tables: { entries: ILL_ENT },
+    scenes: [
+      { h: 'GROUP BY: many rows become one per group', fig: 'flow', say: 'Each colour is one group (one artist). GROUP BY collapses each group into <b>one row</b>; aggregates (COUNT, SUM) summarise the rows inside it. 5 rows in, 3 rows out.',
+        sql: 'SELECT artist, COUNT(*) AS songs, SUM(streams) AS total\nFROM entries\nGROUP BY artist;', ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'g2', 'g1'] }],
+        out: { c: ['artist', 'songs', 'total'], r: [['Rema', 2, 1700], ['Tems', 2, 1100], ['Wizkid', 1, 700]], m: ['g0', 'g1', 'g2'], nc: [1, 2] } },
+      { h: 'WHERE filters rows before grouping', fig: 'flow', say: 'WHERE runs <b>first</b>, on single rows. Charm (500) and Me & U (300) are removed <b>before</b> the groups are built, so they never reach SUM.',
+        sql: 'SELECT artist, SUM(streams) AS total\nFROM entries\nWHERE streams >= 700\nGROUP BY artist;', ins: [{ t: 'entries', m: ['g0', 'x', 'g1', 'g2', 'x'] }],
+        out: { c: ['artist', 'total'], r: [['Rema', 1200], ['Tems', 800], ['Wizkid', 700]], m: ['g0', 'g1', 'g2'], nc: [1] } },
+      { h: 'HAVING filters groups after grouping', fig: 'flow', say: 'HAVING runs <b>after</b> GROUP BY, on whole groups. Wizkid\'s group totals 700, so the whole group is removed.',
+        sql: 'SELECT artist, SUM(streams) AS total\nFROM entries\nGROUP BY artist\nHAVING SUM(streams) > 1000;', ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'x', 'g1'] }],
+        out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'], nc: [1] } }
+    ],
+    qs: [
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT artist, COUNT(*) FROM entries GROUP BY artist;', o: ['3', '5', '2', '1'], why: 'One row per distinct artist: Rema, Tems, Wizkid.' },
+      { k: 'tap', q: 'Tap the rows that reach the groups in <code>WHERE streams &gt; 750 GROUP BY artist</code>.', t: 'entries', ans: [0, 2], why: 'WHERE filters single rows first: only Calm Down (1200) and Free Mind (800) pass.' },
+      { k: 'mc', q: '"Only artists whose total streams exceed 1,000." Where does the condition go?', o: ['HAVING SUM(streams) > 1000', 'WHERE SUM(streams) > 1000', 'WHERE streams > 1000', 'ORDER BY SUM(streams) > 1000'], why: 'It is a condition on a group total, so it goes in HAVING, after GROUP BY.' }
+    ] },
+  sql6: {
+    tables: { entries: ILL_ENT },
+    scenes: [
+      { h: 'A subquery used as a filter', fig: 'flow', say: 'The inner query runs first and returns <b>one value</b>: the average, 700. The outer WHERE then keeps rows above it. Essence (700) is not above 700.',
+        sql: 'SELECT title, streams\nFROM entries\nWHERE streams > (SELECT AVG(streams) FROM entries);', ins: [{ t: 'entries', m: ['m', 'x', 'm', 'x', 'x'] }],
+        out: { c: ['title', 'streams'], r: [['Calm Down', 1200], ['Free Mind', 800]], m: ['m', 'm'] } }
+    ],
+    qs: [{ k: 'mc', q: 'What single value does the subquery <code>(SELECT AVG(streams) FROM entries)</code> return?', o: ['700', '3500', '1200', '5'], why: '(1200 + 500 + 800 + 700 + 300) / 5 = 700.' }] },
+  sql7: {
+    tables: { entries: ILL_ENT, chart_mon: ILT('chart_mon', ['title'], [['Rush'], ['Calm Down']]), chart_tue: ILT('chart_tue', ['title'], [['Calm Down'], ['Essence']]) },
+    scenes: [
+      { h: 'A CTE is a named, temporary result', fig: 'flow', say: 'The CTE <code>totals</code> is computed first (one row per artist) and exists only for this query. The final SELECT reads it like a table.',
+        sql: 'WITH totals AS (\n  SELECT artist, SUM(streams) AS total\n  FROM entries GROUP BY artist\n)\nSELECT artist, total\nFROM totals\nWHERE total > 1000;',
+        ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'g2', 'g1'], role: 'entries (stored)' }, { tab: ILT('totals', ['artist', 'total'], [['Rema', 1700], ['Tems', 1100], ['Wizkid', 700]]), m: ['g0', 'g1', 'x'], role: 'totals (the CTE: step 1)' }],
+        out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'] } },
+      { h: 'UNION ALL stacks every row', fig: 'flow', say: 'UNION ALL puts the second result <b>under</b> the first. Calm Down is in both, so it appears twice.',
+        sql: 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'] }, { t: 'chart_tue', m: ['g1', 'g2'] }],
+        out: { c: ['title'], r: [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']], m: ['g0', 'g1', 'd', 'g2'] }, lg: { d: '⧉ duplicate: UNION ALL keeps it' } },
+      { h: 'UNION removes duplicates', fig: 'flow', say: 'UNION stacks too, then <b>removes duplicate rows</b>: 3 rows. That extra step costs time, so use UNION ALL unless you need deduplication.',
+        sql: 'SELECT title FROM chart_mon\nUNION\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'] }, { t: 'chart_tue', m: ['d', 'g2'] }], lg: { d: '⧉ duplicate: UNION removes it' },
+        out: { c: ['title'], r: [['Calm Down'], ['Essence'], ['Rush']], m: ['g1', 'g2', 'g0'] } }
+    ],
+    qs: [
+      { k: 'mc', q: 'How many rows does <code>UNION ALL</code> return here?', sql: 'SELECT title FROM chart_mon UNION ALL SELECT title FROM chart_tue;', o: ['4', '3', '2', '6'], why: '2 + 2 = 4. UNION ALL keeps the duplicate Calm Down.' },
+      { k: 'mc', q: 'And with <code>UNION</code>?', sql: 'SELECT title FROM chart_mon UNION SELECT title FROM chart_tue;', o: ['3', '4', '2', '1'], why: 'Rush, Calm Down, Essence: the duplicate is removed.' }
+    ] },
+  sql8: {
+    tables: { chart: ILL_POS },
+    scenes: [
+      { h: 'PARTITION BY + LAG: rows are kept', fig: 'flow', say: 'Unlike GROUP BY, a window function <b>keeps every row</b> (5 in, 5 out) and <b>adds a column</b>. PARTITION BY title splits rows into groups (colours); LAG reads the previous row in the same group.',
+        sql: 'SELECT title, chart_date, position,\n  LAG(position) OVER (PARTITION BY title ORDER BY chart_date) AS prev\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g0', 'g1', 'g1', 'g2'] }],
+        out: { c: ['title', 'chart_date', 'position', 'prev'], r: [['Calm Down', '10-16', 1, null], ['Calm Down', '10-17', 2, 1], ['Essence', '10-17', 3, null], ['Rush', '10-16', 2, null], ['Rush', '10-17', 1, 2]], m: ['g0', 'g0', 'g2', 'g1', 'g1'], nc: [3] },
+        note: 'The first row of each group has no previous row, so <code>prev</code> is NULL.' },
+      { h: 'ROW_NUMBER numbers rows inside each partition', fig: 'flow', say: 'PARTITION BY chart_date: each day starts again at 1. Still 5 rows out.',
+        sql: 'SELECT chart_date, title, position,\n  ROW_NUMBER() OVER (PARTITION BY chart_date ORDER BY position) AS rn\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g1', 'g0', 'g1', 'g1'] }],
+        out: { c: ['chart_date', 'title', 'position', 'rn'], r: [['10-16', 'Calm Down', 1, 1], ['10-16', 'Rush', 2, 2], ['10-17', 'Rush', 1, 1], ['10-17', 'Calm Down', 2, 2], ['10-17', 'Essence', 3, 3]], m: ['g0', 'g0', 'g1', 'g1', 'g1'], nc: [3] } }
+    ],
+    qs: [
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT title, LAG(position) OVER (PARTITION BY title ORDER BY chart_date) FROM chart;', o: ['5', '3', '2', '1'], why: 'Window functions keep every row: 5 in, 5 out. GROUP BY title would return 3.' },
+      { k: 'mc', q: 'Why is <code>prev</code> NULL for Essence?', o: ['It is the first (only) row in its partition, so there is no previous row', 'Essence has no position', 'LAG always returns NULL for the last row', 'Essence was filtered out'], why: 'LAG looks one row back inside the same partition. Essence\'s partition has one row.' }
+    ] },
+  sql9: {
+    tables: { raw: ILT('raw', ['title', 'streams'], [['  Rush ', '900'], ['Calm Down', null], ['Essence', '700']]) },
+    scenes: [
+      { h: 'Cleaning keeps the rows, fixes the values', fig: 'flow', say: 'TRIM removes the spaces (shown as ␣), CAST turns text into numbers, COALESCE replaces NULL with 0. Same rows, cleaner values.',
+        sql: 'SELECT TRIM(title) AS title,\n  COALESCE(CAST(streams AS INTEGER), 0) AS streams\nFROM raw;', ins: [{ t: 'raw', m: ['n', 'n', 'm'] }],
+        out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 0], ['Essence', 700]], m: ['n', 'n', 'm'] }, lg: { n: '＋ value changed', m: '✓ unchanged' } }
+    ],
+    qs: [{ k: 'mc', q: 'Why does Calm Down end up with streams = 0?', o: ['Its streams was NULL and COALESCE(…, 0) replaced it', 'CAST turns text into 0', 'TRIM removed the number', 'The row was filtered out'], why: 'COALESCE returns the first non-NULL argument: NULL → 0.' }] },
+  etl1: {
+    tables: { raw_tracks: ILT('raw_tracks', ['title', 'streams'], [[' Rush', '900'], [null, '450'], ['Essence ', '700']]) },
+    scenes: [
+      { h: 'Transform: raw → staging', fig: 'flow', say: 'The raw layer keeps the source exactly as received. The transform step cleans it into staging: it trims text, converts types and <b>drops rows that fail a rule</b> (no title).',
+        sql: "SELECT TRIM(title) AS title, CAST(streams AS INTEGER) AS streams\nFROM raw_tracks\nWHERE title IS NOT NULL;", ins: [{ t: 'raw_tracks', m: ['n', 'x', 'n'], role: 'raw (untouched)' }],
+        out: { c: ['title', 'streams'], r: [['Rush', 900], ['Essence', 700]], m: ['n', 'n'] }, lg: { n: '＋ cleaned' } }
+    ],
+    qs: [{ k: 'mc', q: 'After this transform, how many rows reach staging?', o: ['2', '3', '1', '0'], why: 'The row with a missing title fails the rule; the other two are cleaned and kept. Raw still has all 3.' }] },
+  etl2: {
+    tables: { target: ILT('target', ['chart_date', 'title'], [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']]), batch: ILT('batch', ['chart_date', 'title'], [['10-17', 'Rush'], ['10-17', 'Calm Down']]) },
+    scenes: [
+      { h: 'A retry with plain INSERT duplicates rows', fig: 'flow', say: 'The 10-17 load already ran once (4 rows). The scheduler retries it. A plain INSERT adds the same 2 rows again: 6 rows, 2 of them duplicates.',
+        sql: "INSERT INTO target SELECT * FROM batch;\nSELECT * FROM target;", ins: [{ t: 'target', role: 'target before the retry' }, { t: 'batch', role: 'batch for 10-17' }],
+        out: { c: ['chart_date', 'title'], r: [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']], m: ['m', 'm', 'm', 'm', 'd', 'd'] } },
+      { h: 'Delete-then-insert is idempotent', fig: 'flow', say: 'First delete the run date\'s rows, then insert the batch. Run it once or ten times: always 4 rows. Other dates are untouched.',
+        sql: "DELETE FROM target WHERE chart_date = '10-17';\nINSERT INTO target SELECT * FROM batch;\nSELECT * FROM target;", ins: [{ t: 'target', m: ['m', 'm', 'x', 'x'], role: 'target before' }, { t: 'batch', m: ['n', 'n'], role: 'batch for 10-17' }],
+        out: { c: ['chart_date', 'title'], r: [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']], m: ['m', 'm', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted again' } }
+    ],
+    qs: [
+      { k: 'mc', q: 'The plain INSERT job is retried <b>twice more</b> for 10-17 (starting from the 4-row table). How many rows?', o: ['8', '6', '4', '10'], why: 'Each retry adds the 2 rows again: 4 + 2 + 2 = 8.' },
+      { k: 'mc', q: 'The delete-then-insert job runs 3 times for 10-17. How many rows?', o: ['4', '8', '6', '2'], why: 'Each run deletes the 10-17 rows first, so the result is the same every time: idempotent.' }
+    ] },
+  etl4: {
+    tables: { raw_tracks: ILT('raw_tracks', ['track_id', 'title', 'loaded_at'], [[1, 'Rush', '08:00'], [1, 'Rush', '09:00'], [2, 'Essence', '08:00']]) },
+    scenes: [
+      { h: 'A quality check that should return zero rows', fig: 'flow', say: 'A uniqueness check groups by the key and keeps keys that appear more than once. A healthy table returns <b>no rows</b>; here track 1 is duplicated.',
+        sql: 'SELECT track_id, COUNT(*) AS n\nFROM raw_tracks\nGROUP BY track_id\nHAVING COUNT(*) > 1;', ins: [{ t: 'raw_tracks', m: ['g0', 'g0', 'x'] }],
+        out: { c: ['track_id', 'n'], r: [[1, 2]], m: ['g0'], nc: [1] } },
+      { h: 'Dedupe: keep the latest row per key', fig: 'flow', say: 'ROW_NUMBER numbers each track\'s rows, newest first; keeping rn = 1 leaves one row per track.',
+        sql: 'WITH r AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY track_id ORDER BY loaded_at DESC) AS rn\n  FROM raw_tracks\n)\nSELECT track_id, title, loaded_at FROM r WHERE rn = 1;', ins: [{ t: 'raw_tracks', m: ['x', 'g0', 'g1'] }],
+        out: { c: ['track_id', 'title', 'loaded_at'], r: [[1, 'Rush', '09:00'], [2, 'Essence', '08:00']], m: ['g0', 'g1'] } }
+    ],
+    qs: [{ k: 'tap', q: 'Tap the rows the dedupe keeps.', t: 'raw_tracks', ans: [1, 2], why: 'One row per track_id, the latest load: Rush 09:00 and Essence 08:00.' }] },
+  pj3: {
+    tables: {},
+    scenes: [
+      { h: 'Flattening: nested JSON → one row per track', fig: 'flow', say: 'The API returns one nested document. transform.py walks <code>tracks</code> and turns each track into one flat row. The list order becomes the chart position.',
+        code: 'for position, t in enumerate(payload["tracks"], start=1):\n    rows.append({"chart_date": payload["chart_date"], "position": position,\n                 "title": t["title"].strip(), "artist": t["artist"]["name"]})',
+        ins: [{ raw: '{"chart_date": "2026-10-17",\n "tracks": [\n   {"title": "Rush ", "artist": {"name": "Ayra Starr"}},\n   {"title": "Calm Down", "artist": {"name": "Rema"}}\n ]}', role: 'raw JSON (one document)' }],
+        out: { c: ['chart_date', 'position', 'title', 'artist'], r: [['2026-10-17', 1, 'Rush', 'Ayra Starr'], ['2026-10-17', 2, 'Calm Down', 'Rema']], m: ['n', 'n'] }, lg: { n: '＋ one row per track' } }
+    ],
+    qs: [{ k: 'mc', q: 'The JSON has 50 tracks. How many rows does the flattening produce?', o: ['50', '1', '9', '450'], why: 'One row per track. (9 is the number of keys, i.e. columns, per row.)' }] },
+  pj4: {
+    tables: { chart_entries: ILT('chart_entries', ['chart_date', 'track_id', 'title'], [['10-16', 1, 'Rush'], ['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down']], 'CREATE TABLE chart_entries (chart_date, track_id, title, PRIMARY KEY (chart_date, track_id));'),
+      batch: ILT('batch', ['chart_date', 'track_id', 'title'], [['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down'], ['10-17', 3, 'Charm']]) },
+    scenes: [
+      { h: 'The primary key refuses a duplicate load', fig: 'flow', say: '<code>PRIMARY KEY (chart_date, track_id)</code> enforces the grain. Re-inserting 10-17 fails instead of silently duplicating.',
+        sql: 'INSERT INTO chart_entries SELECT * FROM batch;', ins: [{ t: 'chart_entries', role: 'chart_entries (PK chart_date, track_id)' }, { t: 'batch', m: ['d', 'd', 'n'], role: 'rerun batch for 10-17' }],
+        out: { err: 'UNIQUE constraint failed' }, lg: { d: '⧉ key already exists' } },
+      { h: 'load.py: delete the date, then insert', fig: 'flow', say: 'load.py deletes the run date first, then inserts the fresh batch (now with a late Charm). 10-16 is untouched.',
+        sql: "DELETE FROM chart_entries WHERE chart_date = '10-17';\nINSERT INTO chart_entries SELECT * FROM batch;\nSELECT * FROM chart_entries;", ins: [{ t: 'chart_entries', m: ['m', 'x', 'x'] }, { t: 'batch', m: ['n', 'n', 'n'] }],
+        out: { c: ['chart_date', 'track_id', 'title'], r: [['10-16', 1, 'Rush'], ['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down'], ['10-17', 3, 'Charm']], m: ['m', 'n', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted' } }
+    ],
+    qs: [{ k: 'mc', q: 'After delete-then-insert for 10-17, how many rows does chart_entries have?', o: ['4', '6', '3', '5'], why: '1 untouched 10-16 row + the 3 batch rows for 10-17.' }] },
+  pj5: {
+    tables: { chart_entries: ILT('chart_entries', ['chart_date', 'track_id', 'title', 'artist', 'position'], [['10-16', 1, 'Rush', 'Ayra Starr', 2], ['10-17', 1, 'Rush', 'Ayra Starr', 1], ['10-16', 2, 'Calm Down', 'Rema', 1], ['10-17', 2, 'Calm Down', 'Rema', 3], ['10-17', 3, 'Charm', 'Rema', 2]]) },
+    scenes: [
+      { h: 'chart_movement keeps every row, adds columns', fig: 'flow', say: 'The view adds <code>prev_position</code> (LAG per track) and <code>places_gained</code>. 5 rows in, 5 rows out. A new entry has no previous row, so both are NULL.',
+        sql: 'SELECT chart_date, title, position,\n  LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position,\n  LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) - position AS places_gained\nFROM chart_entries;', ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1', 'g2'] }],
+        out: { c: ['chart_date', 'title', 'position', 'prev_position', 'places_gained'], r: [['10-16', 'Rush', 2, null, null], ['10-17', 'Rush', 1, 2, 1], ['10-16', 'Calm Down', 1, null, null], ['10-17', 'Calm Down', 3, 1, -2], ['10-17', 'Charm', 2, null, null]], m: ['g0', 'g0', 'g1', 'g1', 'g2'], nc: [3, 4] } },
+      { h: 'artist_summary collapses to one row per artist', fig: 'flow', say: 'GROUP BY artist: 5 rows become 2. COUNT(DISTINCT track_id) counts songs, not chart days.',
+        sql: 'SELECT artist, COUNT(DISTINCT track_id) AS songs_charted, MIN(position) AS best_position\nFROM chart_entries\nGROUP BY artist;', ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1', 'g1'] }],
+        out: { c: ['artist', 'songs_charted', 'best_position'], r: [['Ayra Starr', 1, 1], ['Rema', 2, 1]], m: ['g0', 'g1'], nc: [1, 2] } }
+    ],
+    qs: [
+      { k: 'mc', q: 'What is <code>places_gained</code> for Charm on 10-17?', o: ['NULL: it is a new entry with no previous position', '0', '2', '-2'], why: 'prev_position is NULL, and NULL − 2 is NULL.' },
+      { k: 'mc', q: 'chart_movement vs artist_summary: how many rows each, from these 5 rows?', o: ['5 and 2', '2 and 5', '5 and 5', '3 and 2'], why: 'Window functions keep rows; GROUP BY collapses them.' }
+    ] }
+};
+// a before/after figure for building blocks (grounding) as well
+const ILL_COND = { h: '', fig: 'flow', sql: 'SELECT title, streams\nFROM songs\nWHERE streams > 800;', norun: true,
+  ins: [{ tab: ILT('songs', ['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700]]), m: ['m', 'm', 'x'], role: 'Before: table songs' }],
+  out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 1200]], m: ['m', 'm'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
+
+/* ---------- v6 illustration rendering (before → query → after) ---------- */
+const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '⧉ duplicate', n: '＋ new or changed', g: '🎨 same colour = same group' };
+const ILL_ICON = { m: '✓', u: '◐', x: '✕', d: '⧉', n: '＋' };
+function illCell(v) {
+  if (v === null || v === undefined) return '<td class="null"><span>NULL</span></td>';
+  const s = String(v); const vis = s.replace(/^ +| +$/g, m => '␣'.repeat(m.length));
+  return '<td>' + _h(vis) + '</td>';
+}
+// one table; marks colour rows; tap = {sel:Set-like array, done, ans} turns rows into buttons
+function illTable(t, m, o) {
+  o = o || {}; m = m || []; const nc = o.nc || [];
+  const hasMk = m.some(x => x && ILL_ICON[x]);
+  return '<div class="ill-t">' + (o.role ? '<div class="ill-role">' + o.role + '</div>' : '') + (o.name !== false ? '<div class="ill-name"><code>' + _h(t.n) + '</code> · ' + t.r.length + ' row' + (t.r.length === 1 ? '' : 's') + '</div>' : '') +
+    '<div class="ill-scroll"><table class="mini ill"><tr>' + (hasMk ? '<th class="mk"></th>' : '') + t.c.map((c, i) => '<th' + (nc.includes(i) ? ' class="newc"' : '') + '>' + _h(c).replace(/_/g, '_<wbr>') + '</th>').join('') + '</tr>' +
+    t.r.map((r, i) => {
+      const mk = m[i] || ''; let cls = mk ? 'mk-' + mk : ''; let attr = '';
+      if (o.tap) { const on = o.tap.sel.includes(i); cls += ' tapr' + (on ? ' on' : ''); if (o.tap.done) { const want = o.tap.ans.includes(i); cls += want === on ? (want ? ' good' : '') : ' wrong'; } else attr = ' data-act="vqTap" data-r="' + i + '" tabindex="0" role="button" aria-pressed="' + on + '"'; }
+      return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>';
+    }).join('') + '</table></div></div>';
+}
+function vennSVG(kind, a, b, vl) {
+  vennSVG.n = (vennSVG.n || 0) + 1; const id = 'vc' + vennSVG.n; const f = 'class="vf"';
+  const L = 'cx="95" cy="66" r="56"', R = 'cx="165" cy="66" r="56"';
+  let sh = '';
+  if (kind === 'left' || kind === 'full') sh += '<circle ' + L + ' ' + f + '/>';
+  if (kind === 'right' || kind === 'full') sh += '<circle ' + R + ' ' + f + '/>';
+  if (kind === 'inner') sh += '<g clip-path="url(#' + id + ')"><circle ' + R + ' ' + f + '/></g>';
+  // region labels: words on separate lines so long names fit inside their region
+  const lab = (x, t) => { const w = String(t).split(' '); return '<text x="' + x + '" y="' + (70 - (w.length - 1) * 5) + '" class="vt" text-anchor="middle">' + w.map((p, i) => '<tspan x="' + x + '" dy="' + (i ? 11 : 0) + '">' + _h(p) + '</tspan>').join('') + '</text>'; };
+  const labs = vl ? lab(66, vl[0]) + lab(130, vl[1]) + lab(194, vl[2]) : '';
+  return '<svg class="venn" viewBox="0 0 260 150" role="img" aria-label="' + _h(kind) + ' join: ' + _h(a) + ' left, ' + _h(b) + ' right"><defs><clipPath id="' + id + '"><circle ' + L + '/></clipPath></defs>' + sh +
+    '<circle ' + L + ' class="vo"/><circle ' + R + ' class="vo"/>' + labs +
+    '<text x="70" y="140" class="vn" text-anchor="middle">⬅ ' + _h(a) + ' (LEFT)</text><text x="190" y="140" class="vn" text-anchor="middle">' + _h(b) + ' (RIGHT) ➡</text></svg>';
+}
+// which table is LEFT / RIGHT: only the written order decides
+function lrFig(a, b) {
+  return '<div class="lrf"><div class="lrr"><code>FROM ' + _h(a) + '</code><span class="farr">→</span><b>LEFT</b><span class="muted small">written first</span></div>' +
+    '<div class="lrr"><code>JOIN ' + _h(b) + '</code><span class="farr">→</span><b>RIGHT</b><span class="muted small">written second</span></div>' +
+    '<div class="lrr sw">⇄ <code>FROM ' + _h(b) + ' … JOIN ' + _h(a) + '</code> → now <b>' + _h(b) + '</b> is LEFT</div></div>';
+}
+// row chips: inputs → outputs, coloured like the rows (shows grouping, filtering, stacking)
+function flowFig(ins, out) {
+  const chip = m => '<i class="fc mk-' + (m || 'm') + '"></i>';
+  const inN = ins.reduce((s, x) => s + x.rows, 0);
+  return '<div class="flow" aria-hidden="true"><div class="fcol">' + ins.map(x => '<div class="fstack">' + Array.from({ length: x.rows }, (_, i) => chip(x.m && x.m[i])).join('') + '</div>').join('') + '</div><div class="farr">→</div><div class="fcol"><div class="fstack">' +
+    (out && out.r ? out.r.map((_, i) => chip(out.m && out.m[i])).join('') : out && out.err ? '<b class="bad">✕ error</b>' : '') + '</div></div><div class="fcnt">' + inN + ' row' + (inN === 1 ? '' : 's') + ' in → ' + (out && out.r ? out.r.length + ' row' + (out.r.length === 1 ? '' : 's') + ' out' : 'refused') + '</div></div>';
+}
+function illTab(L, x) { return x.tab || (L && L.tables[x.t]); }
+// the whole figure for a scene: BEFORE tables (written order) → query → diagram → AFTER table → legend
+function illFigHTML(sc, L, run) {
+  const ins = (sc.ins || []).map(x => x.raw ? '<div class="ill-t"><div class="ill-role">' + (x.role || 'Input') + '</div><pre class="qy raw">' + _h(x.raw) + '</pre></div>' : illTable(illTab(L, x), x.m, { role: x.role }));
+  const used = new Set(); (sc.ins || []).forEach(x => (x.m || []).forEach(k => used.add(k))); ((sc.out && sc.out.m) || []).forEach(k => used.add(k));
+  const lg = Object.assign({}, ILL_LG, sc.lg || {}); const lgs = []; ['m', 'u', 'x', 'd', 'n'].forEach(k => { if (used.has(k)) lgs.push('<span class="lg mk-' + k + '">' + lg[k] + '</span>'); });
+  if ([...used].some(k => /^g/.test(k))) lgs.push('<span class="lg">' + lg.g + '</span>');
+  let fig = '';
+  if (/^venn-/.test(sc.fig || '')) { const a = illTab(L, sc.ins[0]), b = illTab(L, sc.ins[1]); fig = vennSVG(sc.fig.slice(5), a.n, b.n, sc.vl); }
+  else if (sc.fig === 'lr') fig = lrFig(illTab(L, sc.ins[0]).n, illTab(L, sc.ins[1]).n);
+  else if (sc.fig === 'flow') fig = flowFig((sc.ins || []).map(x => ({ rows: x.raw ? 1 : illTab(L, x).r.length, m: x.m })), sc.out);
+  const outH = !sc.out ? '' : sc.out.err ? '<div class="ill-t"><div class="ill-role">After</div><div class="ill-err">✕ Error: ' + _h(sc.out.err) + '</div></div>'
+    : illTable({ n: 'result', c: sc.out.c, r: sc.out.r }, sc.out.m, { role: 'After: the result', nc: sc.out.nc, name: false }) + '<div class="muted small">' + sc.out.r.length + ' row' + (sc.out.r.length === 1 ? '' : 's') + (sc.out.nc && sc.out.nc.length ? ' · <span class="newc-k">highlighted column</span> = added by the query' : '') + '</div>';
+  return '<div class="ill">' + '<div class="ill-step">1 · Before</div><div class="ill-ins' + ((sc.ins || []).length === 2 ? ' two' : '') + '">' + ins.join('') + '</div>' +
+    (sc.sql || sc.code ? '<div class="ill-step">2 · ' + (sc.sql ? 'Query' : 'Code') + '</div>' + QY(sc.sql || sc.code) : '') +
+    (fig ? '<div class="ill-fig">' + fig + '</div>' : '') +
+    (outH ? '<div class="ill-step">3 · After</div>' + outH : '') +
+    (lgs.length ? '<div class="ill-lg">' + lgs.join('') + '</div>' : '') +
+    (run ? '<div class="ill-run"><div class="lab">▶ Run in the app (real SQLite on these tables)</div>' + run + '</div>' : '') + '</div>';
+}
+
+/* ---------- illustration state (additive: T.vis in deLearn.terms) ---------- */
+function visState(lid) { if (!T.vis || typeof T.vis !== 'object') T.vis = {}; return T.vis[lid] || (T.vis[lid] = { seen: null, q: {} }); }
+function visSeen(lid) { return !ILLUS[lid] || !!(T.vis && T.vis[lid] && T.vis[lid].seen); }
+// illustration scenes + visual questions for one lesson, in teaching order
+function illusSteps(lid, maxQ) {
+  const L = ILLUS[lid]; if (!L) return [];
+  const s = L.scenes.map((_, i) => ({ type: 'illus', lesson: lid, sc: i }));
+  const q = L.qs.map((_, i) => ({ type: 'vq', lesson: lid, qi: i })).slice(0, maxQ == null ? 99 : maxQ);
+  return s.concat(q);
+}
+// existing learners: one lesson a day whose illustration they have not seen yet (theory read or placed),
+// lessons with terms already in progress first, then curriculum order
+function catchUpIllus() {
+  const cands = []; orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (ILLUS[l.id] && !visSeen(l.id) && S.theory[l.id]) cands.push(l); }));
+  const busy = l => l.itemIds.some(id => T.terms[id] && T.terms[id].st !== 'done');
+  return cands.find(busy) || cands[0] || null;
+}
+async function runIll(sql, lid) {
+  const SQL = await getSQL(); const db = new SQL.Database();
+  try { db.exec(illSetupSQL(ILLUS[lid])); const r = db.exec(sql); return r.length ? r[r.length - 1] : { columns: [], values: [] }; } finally { db.close(); }
+}
+function illSetupSQL(L) {
+  const lit = v => v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'";
+  return Object.values(L.tables).map(t => (t.ddl || 'CREATE TABLE ' + t.n + ' (' + t.c.join(', ') + ');') + (t.r.length ? '\nINSERT INTO ' + t.n + ' VALUES ' + t.r.map(r => '(' + r.map(lit).join(', ') + ')').join(', ') + ';' : '')).join('\n');
+}
+function viewIllus(step) {
+  const L = ILLUS[step.lesson], sc = L.scenes[step.sc], l = LESSONS[step.lesson];
+  if (!F || F.stepIndex !== SESSION.i) F = { stepIndex: SESSION.i, illus: true, run: null };
+  const run = sc.sql && !sc.norun ? (F.run || '<button class="btn" data-act="illRun">▶ Run this query</button>') : '';
+  return '<div class="kicker">🔍 See it first · ' + _h(l.title) + ' · picture ' + (step.sc + 1) + '/' + L.scenes.length + '</div><h2>' + _h(sc.h) + '</h2>' +
+    (sc.say ? '<p>' + sc.say + '</p>' : '') + illFigHTML(sc, L, run) + (sc.note ? '<p class="muted small">' + sc.note + '</p>' : '') +
+    '<div class="actions"><button class="btn primary big" data-act="illNext" data-autofocus>' + (step.sc + 1 < L.scenes.length ? 'Next picture →' : 'Got it → questions') + '</button></div>';
+}
+function initVQ(step) {
+  const q = ILLUS[step.lesson].qs[step.qi];
+  const f = { stepIndex: SESSION.i, vq: true, q, sel: [], done: false, ok: null, vals: [] };
+  if (q.k === 'mc') f.opts = shuffle(q.o.map((x, i) => ({ x, i })));
+  if (q.k === 'run') f.code = q.code;
+  return f;
+}
+function viewVQ(step) {
+  const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
+  if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
+  const f = F, q = f.q; let h = '<div class="kicker">🔍 Picture question · ' + _h(l.title) + '</div><h2 class="q">' + q.q + '</h2>';
+  const tabs = Object.values(L.tables); if (q.k !== 'tap' && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
+  if (q.sql) h += QY(q.sql);
+  if (q.k === 'tap') {
+    const others = tabs.filter(t => t.n !== q.t);
+    if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
+    h += illTable(L.tables[q.t], null, { tap: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap rows to select them' });
+    if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
+  } else if (q.k === 'mc') {
+    h += '<div class="opts">' + f.opts.map((o, k) => '<button class="opt' + (f.done ? (o.i === 0 ? ' ok' : f.pick === k ? ' bad' : '') : '') + '" data-act="vqPick" data-k="' + k + '"' + (f.done ? ' disabled' : '') + '>' + o.x + '</button>').join('') + '</div>';
+  } else if (q.k === 'run') {
+    h += '<textarea id="vqCode" class="mono editor" rows="6" spellcheck="false" autocapitalize="off"' + (f.done ? ' readonly' : '') + '>' + esc(f.code) + '</textarea>' +
+      (f.out ? '<div class="out">' + f.out + '</div>' : '') +
+      (!f.done ? '<div class="actions three"><button class="btn" data-act="vqRun">▶ Run</button><button class="btn primary" data-act="vqCheck">✓ Check</button></div>' : '');
+  }
+  if (!f.done) h += '<button class="btn ghost" data-act="vqIdk">I don\'t know: show me</button>';
+  else h += '<div class="feedback ' + (f.ok ? 'good' : 'badfb') + '">' + (f.ok ? '✅ Correct' : '↩️ Not quite. You\'ll see it again.' + (f.msg ? ' ' + esc(f.msg) : '')) + '</div><div class="hintbox">💡 ' + q.why + '</div>' +
+    (q.k === 'run' && !f.ok ? '<div class="lab">A correct query</div>' + QY(q.sol) : '') +
+    '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button></div>';
+  return h;
+}
+function finishVQ(ok, msg) {
+  const step = SESSION.steps[SESSION.i]; const vs = visState(step.lesson); const t = today();
+  const r = vs.q[step.qi] || (vs.q[step.qi] = { n: 0, ok: null, miss: null }); r.n++; if (ok) r.ok = t; else r.miss = t;
+  F.done = true; F.ok = ok; F.msg = msg || '';
+  if (ok) { SESSION.stats.right++; addXP(5); } else { SESSION.stats.wrong++; const key = 'vq' + step.lesson + step.qi; if (!step.retry && !SESSION.requeued[key]) { SESSION.requeued[key] = true; SESSION.steps.push(Object.assign({}, step, { retry: true })); } }
+  saveTerms(); save();
+}
+
+
 const GROUND = {
   row: { name: 'row', tip: 'one line of a table: one record',
     teach: 'A <b>row</b> is one line across a table. It holds one record, here one song with its title, artist and streams.' + SCENE,
@@ -1819,7 +2238,7 @@ const GROUND = {
     qs: [{ q: 'Tap the expression that <b>calculates</b> a new value.', inline: true, tap: [['SELECT ', null], ['title', 0], [', ', null], ['streams * 2', 1], [' AS doubled FROM ', null], ['songs', 0], [';', null]], why: 'streams * 2 computes a value for each row. title is a plain column; songs is a table.' },
       { q: 'Which of these can be <b>expressions</b>: price, price * qty, the table name orders?', o: ['price and price * qty', 'only price * qty', 'price, price * qty and orders', 'only orders'], why: 'A column is the simplest expression (it gives a value per row). A table name gives no value, so it is not one.' }] },
   condition: { name: 'condition', tip: 'a test that is TRUE or FALSE for each row',
-    teach: 'A <b>condition</b> is a test such as <code>streams &gt; 800</code>. It is checked for each row and gives TRUE or FALSE (or UNKNOWN with NULL).' + SCENE,
+    teach: 'A <b>condition</b> is a test such as <code>streams &gt; 800</code>. It is checked for each row and gives TRUE or FALSE (or UNKNOWN with NULL).' + illFigHTML(ILL_COND, null),
     qs: [{ q: 'Tap the <b>condition</b>.', inline: true, tap: [['SELECT ', null], ['title', 0], [' FROM ', null], ['songs', 0], [' WHERE ', null], ['streams > 800', 1], [' ORDER BY ', null], ['streams DESC', 0]], why: 'streams > 800 is the test; WHERE uses it to keep rows.' },
       { q: 'For the row Essence (700 streams), what is <code>streams &gt; 800</code>?', show: SC_SONGS, o: ['FALSE', 'TRUE', 'UNKNOWN', '700'], why: '700 is not greater than 800, so the test is FALSE for that row and WHERE drops it.' }] },
   clause: { name: 'clause', tip: 'one part of a query that starts with a keyword',
@@ -2271,7 +2690,7 @@ function ivlLabel(c, g) { const n = sm2(c, g); return g === 0 ? 'again today' : 
 function gradeCard(id, g) { S.cards[id] = sm2(S.cards[id], g); addXP(g === 0 ? 1 : 4); save(); }
 
 /* ---------- session builder ---------- */
-const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5, biteQ: 0.45 };
+const COST = { card: 0.35, fade: 1, fadeHi: 1.5, newItem: 1.6, theory: 3, problem: 5, biteQ: 0.45, illus: 0.5 };
 function orderedReadyModules() { const f = S.settings.focus; return READY.slice().sort((a, b) => (b.id === f) - (a.id === f)); }
 const codeIds = l => l.itemIds.filter(x => ITEMS[x].kind !== 'term');
 // v4: a lesson counts as started from its code/Q&A items only, so slow terms never hold lessons back
@@ -2310,12 +2729,15 @@ function buildDailySession() {
   let fadeN = 0;
   for (const id of fades) { const c = S.items[id].lvl >= 3 ? COST.fadeHi : COST.fade; if (fadeN && mins + c > fadeCap) break; other.push({ type: 'fade', id }); mins += c; fadeN++; }
   const inProgress = Object.keys(S.items).filter(id => notTerm(id) && !S.items[id].mastered).length;
-  let lesson = null, newN = 0, theory = false;
+  let lesson = null, newN = 0, theory = false, illus = [];
   if (inProgress <= 30 && budget - mins - COST.problem >= 3) {
     lesson = nextLesson();
     if (lesson) {
       let rem = budget - mins - COST.problem;
-      if (!S.theory[lesson.id]) { other.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
+      // v6 rule: a lesson that changes the shape of data is SHOWN first (before/after tables), then
+      // asked about with visual questions, and only then explained (theory) and drilled (terms).
+      if (!S.theory[lesson.id]) { if (ILLUS[lesson.id] && !visSeen(lesson.id)) { illus = illusSteps(lesson.id); illus.forEach(x => other.push(x)); mins += illus.length * COST.illus; rem -= illus.length * COST.illus; }
+        other.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
       const newIds = lesson.itemIds.filter(id => !S.items[id] && notTerm(id));
       const k = Math.min(newIds.length, S.settings.newPerDay, 12, Math.max(3, Math.floor(rem / COST.newItem)));
       newIds.slice(0, k).forEach(id => { other.push({ type: 'fade', id, isNew: true }); mins += COST.newItem; newN++; });
@@ -2323,12 +2745,16 @@ function buildDailySession() {
   }
   const prob = pickProblem(lesson);
   if (prob) { other.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
-  const tp = planTerms(other.length, theory && lesson ? lesson.id : null);
-  const steps = (T.helpSeen ? [] : [{ type: 'help' }]).concat(tp.open, other, tp.close);
+  // catch-up for learners who read lessons before v6: at most one unseen illustration a day (not on a day a new one is shown)
+  const cu = illus.length ? null : catchUpIllus(); const cuSteps = cu ? illusSteps(cu.id) : [];
+  mins += cuSteps.length * COST.illus;
+  // illustration/visual-question steps are not "other practice": they don't enlarge the term budget
+  const tp = planTerms(other.length - illus.length, theory && lesson ? lesson.id : null);
+  const steps = (T.helpSeen ? [] : [{ type: 'help' }]).concat(cuSteps, tp.open, other, tp.close);
   mins += (tp.open.length + tp.close.length) * 0.6;
   const names = [...new Set(tp.open.map(s => s.id))].map(id => ITEMS[id].front);
   return { steps, mins: Math.max(1, Math.round(mins)), terms: tp, pace: tp.pace, mode: 'daily',
-    counts: { cards: cardIds.length, fades: fadeN, newN, theory, lesson, problem: prob, tOpen: tp.open.length, tClose: tp.close.length, ground: tp.open.filter(s => s.k === 'ground').length, names, other: other.length, waiting: tp.waiting } };
+    counts: { cards: cardIds.length, fades: fadeN, newN, theory, lesson, problem: prob, tOpen: tp.open.length, tClose: tp.close.length, ground: tp.open.filter(s => s.k === 'ground').length, names, other: other.length, waiting: tp.waiting, illus: illus.length, catchUp: cu ? cu.id : null, catchUpN: cuSteps.length } };
 }
 function lessonTermStep(id) {
   const ts = T.terms[id], t = today();
@@ -2341,15 +2767,16 @@ function lessonTermStep(id) {
   return { type: 'term', k: 'practice', id };
 }
 function buildLessonSession(lid) {
-  const l = LESSONS[lid]; const steps = [{ type: 'theory', lesson: lid }]; const termSteps = [];
+  // v6: illustrated lessons start with the pictures + visual questions, then theory, then practice
+  const l = LESSONS[lid]; const pre = illusSteps(lid); const steps = [{ type: 'theory', lesson: lid }]; const termSteps = [];
   l.itemIds.forEach(id => {
     if (ITEMS[id].kind === 'term') { const s = lessonTermStep(id); if (s) termSteps.push(s); else if (S.cards[id]) termSteps.push({ type: 'card', id }); return; }
     if (S.items[id] && S.items[id].mastered) { if (S.cards[id]) steps.push({ type: 'card', id }); return; }
     steps.push({ type: 'fade', id, isNew: !S.items[id] });
   });
   const cap = Math.max(2, Math.round((steps.length - 1 + l.problems.length) / 2));
-  const all = steps.concat(termSteps.slice(0, cap)); l.problems.forEach(p => all.push({ type: 'problem', id: p.id }));
-  return { steps: all, mins: Math.round(COST.theory + l.itemIds.length * 1.3 + l.problems.length * COST.problem), mode: 'lesson', lesson: l };
+  const all = pre.concat(steps, termSteps.slice(0, cap)); l.problems.forEach(p => all.push({ type: 'problem', id: p.id }));
+  return { steps: all, mins: Math.round(pre.length * COST.illus + COST.theory + l.itemIds.length * 1.3 + l.problems.length * COST.problem), mode: 'lesson', lesson: l };
 }
 function buildCardSession() {
   const t = today(); const ids = Object.keys(S.cards).filter(id => ITEMS[id] && S.cards[id].due <= t);
@@ -2429,13 +2856,14 @@ function viewHome() {
   const plan = buildDailySession(); UI.plan = plan;
   const lv = levelInfo(), st = currentStreak(), t = today(); const done = S.days[t] && S.days[t].session;
   const c = plan.counts; const li = [];
+  if (c.catchUp) li.push('<li>🔍 Pictures first: <b>' + esc(LESSONS[c.catchUp].title) + '</b> (' + c.catchUpN + ' quick steps: see the tables, then tap/predict)</li>');
   if (c.tOpen) li.push('<li>🧩 <b>' + c.tOpen + '</b> term question' + (c.tOpen > 1 ? 's' : '') + ' first' + (c.ground ? ' (' + c.ground + ' building block' + (c.ground > 1 ? 's' : '') + ')' : '') + (c.names.length ? ': ' + c.names.map(esc).join(', ') : '') + '</li>');
   if (c.cards) li.push('<li>🃏 <b>' + c.cards + '</b> code flashcard' + (c.cards > 1 ? 's' : '') + '</li>');
   if (c.fades) li.push('<li>🔁 <b>' + c.fades + '</b> code / interview review' + (c.fades > 1 ? 's' : '') + '</li>');
-  if (c.lesson) li.push('<li>📘 ' + (c.theory ? 'New lesson: ' : 'Continue: ') + '<b>' + esc(c.lesson.title) + '</b>' + (c.newN ? ' · ' + c.newN + ' new items' : '') + '</li>');
+  if (c.lesson) li.push('<li>📘 ' + (c.theory ? 'New lesson: ' : 'Continue: ') + '<b>' + esc(c.lesson.title) + '</b>' + (c.newN ? ' · ' + c.newN + ' new items' : '') + (c.illus ? ' · 🔍 starts with ' + c.illus + ' picture steps' : '') + '</li>');
   if (c.problem) li.push('<li>🧩 Problem: <b>' + esc(c.problem.title) + '</b></li>');
   if (c.tClose) li.push('<li>🔂 <b>' + c.tClose + '</b> quick term review' + (c.tClose > 1 ? 's' : '') + ' at the end</li>');
-  if (c.tOpen + c.tClose) li.push('<li class="split">⚖️ Split: <b>' + (c.tOpen + c.tClose) + '</b> term · <b>' + c.other + '</b> code &amp; problem items (about 1/3 : 2/3)</li>');
+  if (c.tOpen + c.tClose) li.push('<li class="split">⚖️ Split: <b>' + (c.tOpen + c.tClose) + '</b> term · <b>' + (c.other - (c.illus || 0)) + '</b> code &amp; problem items (about 1/3 : 2/3)</li>');
   if (!li.length) li.push('<li>🎉 Everything is up to date. Use Roadmap to drill any lesson.</li>');
   let week = '';
   for (let i = 6; i >= 0; i--) { const d = addDays(t, -i); const on = S.days[d] && S.days[d].xp > 0; week += '<div class="day ' + (on ? 'on' : '') + (i === 0 ? ' today' : '') + '"><i></i><span>' + 'SMTWTFS'[new Date(d + 'T12:00:00').getDay()] + '</span></div>'; }
@@ -2508,6 +2936,8 @@ function viewSession() {
   else if (step.type === 'problem') body = viewProblem(step);
   else if (step.type === 'term') body = viewTerm(step);
   else if (step.type === 'help') body = viewHelpStep();
+  else if (step.type === 'illus') body = viewIllus(step);
+  else if (step.type === 'vq') body = viewVQ(step);
   return head + '<main class="step">' + body + '</main>';
 }
 
@@ -2773,7 +3203,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v5.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v6.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -2801,7 +3231,7 @@ function importData(txt) {
   const ext = o._ext; delete o._ext; const terms = o._terms; delete o._terms;
   const d = defaultState(); S = migrate(Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }));
   E = Object.assign(defaultExt(), ext && typeof ext === 'object' ? ext : {}); ['bites', 'placed'].forEach(k => { if (!E[k] || typeof E[k] !== 'object') E[k] = {}; }); if (!E.pace || !Array.isArray(E.pace.log)) E.pace = { log: [], day: null };
-  T = Object.assign(defaultTerms(), terms && typeof terms === 'object' ? terms : {}); ['ground', 'terms'].forEach(k => { if (!T[k] || typeof T[k] !== 'object') T[k] = {}; }); if (!Array.isArray(T.log)) T.log = [];
+  T = Object.assign(defaultTerms(), terms && typeof terms === 'object' ? terms : {}); ['ground', 'terms', 'vis'].forEach(k => { if (!T[k] || typeof T[k] !== 'object') T[k] = {}; }); if (!Array.isArray(T.log)) T.log = [];
   migrateExt(); migrateTerms(); save(); toast('Backup imported ✓'); go('home');
 }
 
@@ -3138,12 +3568,12 @@ const TERMS_KEY = 'deLearn.terms';
 const FORMS = ['pick', 'type', 'spot'];
 const TIER_NAMES = ['beginner', 'intermediate', 'advanced'];
 const TIER_WAIT_DAYS = 7;
-function defaultTerms() { return { v: 1, ground: {}, terms: {}, log: [], day: null, lastFill: null, helpSeen: null, migratedAt: null, daily: {}, fast: { on: false, since: null, off: null, why: null } }; }
+function defaultTerms() { return { v: 1, ground: {}, terms: {}, log: [], day: null, lastFill: null, helpSeen: null, migratedAt: null, daily: {}, fast: { on: false, since: null, off: null, why: null }, vis: {} }; }
 function loadTerms() {
   const d = defaultTerms(); let raw = null;
   try { raw = localStorage.getItem(TERMS_KEY); } catch (e) {}
   if (!raw) return d;
-  try { const o = JSON.parse(raw); const r = Object.assign(d, o); ['ground', 'terms'].forEach(k => { if (!r[k] || typeof r[k] !== 'object') r[k] = {}; }); if (!Array.isArray(r.log)) r.log = []; return r; }
+  try { const o = JSON.parse(raw); const r = Object.assign(d, o); ['ground', 'terms', 'vis'].forEach(k => { if (!r[k] || typeof r[k] !== 'object') r[k] = {}; }); if (!Array.isArray(r.log)) r.log = []; return r; }
   catch (e) { return d; }
 }
 function saveTerms() { try { localStorage.setItem(TERMS_KEY, JSON.stringify(T)); } catch (e) {} }
@@ -3331,7 +3761,7 @@ function paceInfo4base() {
 function termBudget(other) { return Math.max(2, Math.min(10, Math.round(other / 2))); }
 function newTermQueue(extraLesson) {
   const out = [];
-  orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (!(S.theory[l.id] || l.id === extraLesson)) return; l.itemIds.forEach(id => { if (T4[id] && !T.terms[id] && !(S.items[id] && S.items[id].mastered) && !S.cards[id]) out.push(id); }); }));
+  orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (!((S.theory[l.id] || l.id === extraLesson) && visSeen(l.id))) return; /* v6: illustrated lessons' terms wait until the pictures were seen */ l.itemIds.forEach(id => { if (T4[id] && !T.terms[id] && !(S.items[id] && S.items[id].mastered) && !S.cards[id]) out.push(id); }); }));
   return out;
 }
 function tierUpQueue() {
@@ -3590,6 +4020,7 @@ function wholeCheck(input, tr) { return tr.ph.map(p => p.a.some(a => coverage(in
 /* ---------- "How learning works" (More screen + once in the first session after the update) ---------- */
 function learnHowHTML() {
   return '<ul class="plan learn">' +
+    '<li><b>🔍 See it first.</b> Anything that changes the shape of data (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) starts with pictures: the input tables, the query, and the result table, with kept rows ✓, rows with no match ◐ (their NULLs shown), dropped rows ✕ and duplicates ⧉. You can run each query for real. Then visual questions (tap the rows that survive, predict the row count, explain a NULL, run it yourself), and only then the theory, building blocks and definition phrases. Terms of an illustrated lesson start after you have seen its pictures. If you read a lesson before pictures existed, one lesson\'s pictures are added per day.</li>' +
     '<li><b>🧱 Building blocks first.</b> Words like row, column, result rows, expression and condition are learned once with a real mini table, query and output (tap the actual thing). A term\'s definition starts only after its building blocks are grounded (right on 2 different days).</li>' +
     '<li><b>🧩 One phrase at a time.</b> Each definition is split into short phrases. The next phrase starts only after the current one is fully mastered.</li>' +
     '<li><b>✋ Pick → ⌨️ Type → 🔎 Spot.</b> A phrase is mastered when you have: picked it from options, typed it without options, and spotted it in a real query, table or scenario, each right on a <b>different day</b>. A term moves at most one step a day. A miss drops one step. After all phrases, you write the whole definition on another day.</li>' +
@@ -3619,6 +4050,27 @@ const ACT = {
   startCards: () => { const p = buildCardSession(); if (p.steps.length) startSession(p); },
   quit: () => { if (confirm('End the session now? Everything you answered is already saved.')) { SESSION.stats.quit = true; endSession(); } },
   next: () => nextStep(),
+  /* v6 illustration steps */
+  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } saveTerms(); save(); } nextStep(); },
+  illRun: async () => { const st = SESSION.steps[SESSION.i]; const sc = ILLUS[st.lesson].scenes[st.sc];
+    try { F.run = tableHTML(await runIll(sc.sql, st.lesson), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
+    render(); },
+  vqTap: el => { if (F.done) return; const i = +el.dataset.r; const k = F.sel.indexOf(i); if (k >= 0) F.sel.splice(k, 1); else F.sel.push(i); render(); },
+  vqPick: el => { if (F.done) return; F.pick = +el.dataset.k; finishVQ(F.opts[F.pick].i === 0); render(); },
+  vqRun: async () => { const st = SESSION.steps[SESSION.i]; F.code = document.getElementById('vqCode').value;
+    try { F.out = tableHTML(await runIll(F.code, st.lesson), 20); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; } render(); },
+  vqCheck: async () => {
+    const st = SESSION.steps[SESSION.i]; const q = F.q;
+    if (q.k === 'tap') { if (!F.sel.length) { toast('Tap at least one row'); return; } const ok = F.sel.length === q.ans.length && q.ans.every(i => F.sel.includes(i)); finishVQ(ok); render(); return; }
+    F.code = document.getElementById('vqCode').value; if (/____/.test(F.code)) { toast('Fill in the ____ blanks first'); return; }
+    try {
+      const u = await runIll(F.code, st.lesson), e = await runIll(q.sol, st.lesson); F.out = tableHTML(u, 20);
+      const c = compareResults(u, e, false); const bad = q.forbid && new RegExp(q.forbid, 'i').test(F.code);
+      finishVQ(c.ok && !bad, bad ? 'Right rows, but this question asks you to do it without that keyword.' : c.ok ? '' : c.msg);
+    } catch (err) { F.out = '<div class="bad small">SQL error: ' + esc(err.message) + '</div>'; finishVQ(false, 'The query has an error.'); }
+    render();
+  },
+  vqIdk: () => { if (F.q.k === 'tap') F.sel = F.q.ans.slice(); if (F.q.k === 'mc') F.pick = -1; finishVQ(false); render(); },
   theoryDone: () => { const st = SESSION.steps[SESSION.i]; const first = !S.theory[st.lesson]; S.theory[st.lesson] = S.theory[st.lesson] || today(); addXP(first ? 10 : 3); SESSION.stats.theory++; nextStep(); },
   chip: el => { const i = +el.dataset.i; const slot = F.chosen.indexOf(null); if (slot < 0 || F.used[i]) return; F.chosen[slot] = i; F.used[i] = true; render(); },
   unslot: el => { if (F.checked) return; const s = +el.dataset.i; const v = F.chosen[s]; if (v == null) return; F.used[v] = false; F.chosen[s] = null; render(); },
