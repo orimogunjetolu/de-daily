@@ -118,6 +118,18 @@ table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px va
 .lrf{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}.lrr{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lrr.sw{font-size:.85rem}
 .ill-ins.two{flex-wrap:nowrap;gap:6px}.ill-ins.two>.ill-t{flex:0 1 auto}.ill-ins.two table.mini.ill{font-size:11px;width:min-content}.ill-ins.two table.mini.ill td,.ill-ins.two table.mini.ill th{padding:2px 4px}.ill-ins.two table.mini.ill th{white-space:normal}.ill-ins.two table.mini.ill td.mk{padding:2px 2px}
 .ill-ins.two .ill-role,.ill-ins.two .ill-name{width:0;min-width:100%}
+.erd{width:100%;max-width:400px;height:auto}.erd .ebr{fill:var(--card);stroke:var(--ink);stroke-width:1.2}.erd .ebh{fill:var(--chip);stroke:var(--ink);stroke-width:1.2}.erd .eb.hl .ebr,.erd .eb.hl .ebh{stroke:var(--pri);stroke-width:1.8}
+.erd .ebn{font:700 11px system-ui,sans-serif;fill:var(--ink)}.erd .ebs{font-weight:400;font-style:italic;fill:var(--muted)}.erd .ebc{font:11px ui-monospace,monospace;fill:var(--ink)}.erd .ebc.k{font-weight:700}
+.erd .ebk{font:700 9px system-ui,sans-serif}.erd .ebk.pk{fill:#b45309}.erd .ebk.fk,.erd .ebk.pk.fk{fill:var(--pri)}
+.erd .el{fill:none;stroke:var(--ink);stroke-width:1.4}.erd .el.hl{stroke:var(--pri);stroke-width:2.2}.erd .el.dim{opacity:.35}.erd .elab{font:600 9px system-ui,sans-serif;fill:var(--muted)}
+.bip{width:100%;max-width:320px;height:auto}.bip .bl{stroke:var(--pri);stroke-width:2}.bip .bl.dash{stroke-dasharray:5 4}.bip .bd{fill:var(--ink)}.bip .bt{font:11px system-ui,sans-serif;fill:var(--ink)}.bip .bt.lone{fill:var(--muted);font-style:italic}.bip .bh{font:700 11px system-ui,sans-serif;fill:var(--muted)}
+.figcap{font-size:.8rem;color:var(--muted);text-align:left;margin:4px 2px 8px}.kind{border:1px dashed var(--line);border-radius:10px;padding:6px 8px;margin:6px 0}.kh{font-weight:700;text-align:left}
+.entf{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.entc{flex:1 1 90px;max-width:120px;border:1.5px solid var(--ink);border-radius:10px;padding:6px;background:var(--card)}.entc .ei{font-size:1.4rem}.pk{font-size:.7rem;font-weight:700;color:#b45309}
+.stf{text-align:left}.stw{font-weight:700;margin-bottom:4px}.stl{display:flex;align-items:center;gap:8px}.sts{flex:1;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.sts.now{border:2px solid var(--pri)}.sts.old{opacity:.75}.stt{font-size:.75rem;color:var(--muted)}.stv{font-weight:700;font-family:ui-monospace,monospace}
+.evf{position:relative;text-align:left;padding-left:4px}.evr{display:grid;grid-template-columns:42px 14px 1fr auto;align-items:center;gap:6px;margin:4px 0}.evt{font:600 .8rem ui-monospace,monospace}.evd{width:10px;height:10px;border-radius:50%;background:var(--pri);box-shadow:0 -14px 0 -4px var(--line)}.evx{font-size:.85rem}.evn{font-size:.72rem;padding:1px 6px;border-radius:99px;background:#dbeafe;color:#1d4ed8}
+.cls{display:flex;flex-direction:column;gap:8px;margin:8px 0}.cls-i{border:1px solid var(--line);border-radius:10px;padding:8px}.cls-i.good{background:var(--okbg)}.cls-i.wrong{background:var(--badbg)}.cls-q{font-weight:600;margin-bottom:6px}.cls-b{display:flex;flex-wrap:wrap;gap:6px}
+.chipb{font:inherit;font-size:.85rem;padding:5px 10px;border-radius:99px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}.chipb.on{border-color:var(--pri);background:var(--chip);font-weight:700}.chipb.ans{outline:2px solid var(--ok)}
+th.tapc{cursor:pointer;text-decoration:underline dotted}th.tapc.on{outline:2.5px solid var(--pri);outline-offset:-2px;background:var(--chip)}th.tapc.good{background:var(--okbg)}th.tapc.wrong{background:var(--badbg);outline:2.5px solid var(--bad);outline-offset:-2px}
 @media (max-width:330px){.ill-ins.two{flex-wrap:wrap}}pre.qy.raw{white-space:pre-wrap;font-size:12px}
 tr.tapr{cursor:pointer}tr.tapr td{border-color:var(--line)}tr.tapr.on{outline:2.5px solid var(--pri);outline-offset:-2px;background:var(--chip)}tr.tapr.good{background:var(--okbg)}tr.tapr.wrong{background:var(--badbg);outline:2.5px solid var(--bad);outline-offset:-2px}
 .ill-ref summary{cursor:pointer;color:var(--pri);font-size:.9rem;margin:6px 0}
@@ -384,12 +396,47 @@ INSERT INTO chart_entries VALUES
  ('2026-10-17',4,11,79000),('2026-10-17',5,4,76000),('2026-10-17',6,5,65000),
  ('2026-10-17',7,6,61000),('2026-10-17',8,7,57000),('2026-10-17',9,8,50000),
  ('2026-10-17',10,9,48000);
+
+CREATE TABLE listeners (
+  listener_id INTEGER PRIMARY KEY,
+  name        TEXT NOT NULL,
+  city        TEXT
+);
+INSERT INTO listeners VALUES
+ (1,'Ada','Lagos'),(2,'Tunde','Ibadan'),(3,'Zainab','Kano'),(4,'Chidi','Enugu');
+
+CREATE TABLE streams (
+  stream_id   INTEGER PRIMARY KEY,
+  listener_id INTEGER REFERENCES listeners(listener_id),
+  song_id     INTEGER REFERENCES songs(song_id),
+  streamed_at TEXT
+);
+INSERT INTO streams VALUES
+ (1,1,14,'2026-10-17 21:14'),(2,1,8,'2026-10-17 21:18'),(3,2,14,'2026-10-17 22:02'),
+ (4,2,1,'2026-10-18 07:30'),(5,4,14,'2026-10-18 08:05'),(6,1,14,'2026-10-18 09:12');
+
+CREATE TABLE playlists (
+  playlist_id INTEGER PRIMARY KEY,
+  name        TEXT NOT NULL
+);
+INSERT INTO playlists VALUES (1,'Naija Hits'),(2,'Chill Vibes');
+
+CREATE TABLE playlist_songs (
+  playlist_id INTEGER REFERENCES playlists(playlist_id),
+  song_id     INTEGER REFERENCES songs(song_id),
+  PRIMARY KEY (playlist_id, song_id)
+);
+INSERT INTO playlist_songs VALUES (1,14),(1,8),(1,2),(2,7),(2,14),(2,13);
 `;
 
 const DATASET_SCHEMA = [
   ['artists', 'artist_id (PK), name, genre: 14 rows (Tems has a NULL genre)'],
   ['songs', 'song_id (PK), title, artist_id (FK → artists), duration_sec: 14 rows'],
-  ['chart_entries', 'chart_date, position, song_id (FK → songs), streams: 30 rows (top 10 for 2026-10-15/16/17; one NULL stream count)']
+  ['chart_entries', 'chart_date, position, song_id (FK → songs), streams: 30 rows (top 10 for 2026-10-15/16/17; one NULL stream count)'],
+  ['listeners', 'listener_id (PK), name, city: 4 rows (Zainab has never streamed)'],
+  ['streams', 'stream_id (PK), listener_id (FK → listeners), song_id (FK → songs), streamed_at: 6 events'],
+  ['playlists', 'playlist_id (PK), name: 2 rows'],
+  ['playlist_songs', 'playlist_id (FK → playlists), song_id (FK → songs), PK (playlist_id, song_id): linking table, 6 rows']
 ];
 
 const SQL_LESSONS_A = [
@@ -545,10 +592,47 @@ const SQL_LESSONS_A = [
 ];
 
 const SQL_LESSONS_B = [
+{ id:'sqlr', title:'Entities, events & relationships', added:7,
+  theory:{
+    why:'Joins only make sense once you know <i>why</i> data is split into tables and <i>what</i> links them. If <code>songs.artist_id = artists.artist_id</code> looks like magic syntax, you will guess at joins. If you can see "a song belongs to an artist" and "a stream links a listener to a song", you know which table connects to which, and which pairs cannot be connected at all.',
+    body:[
+      'One big table repeats facts: the artist\'s name and label are copied onto every song. Change a label and you must update every copy, and if you miss one the data disagrees with itself. Mistype a name once ("Burna Boi") and you have invented a new artist. So we <b>split</b> the data so that each fact is stored <b>once</b>, in the table it describes.',
+      '<b>Entity</b>: a thing that exists on its own and that we store facts about, such as an artist, a song or a listener. Each entity gets its own table and its own ID (the primary key).',
+      '<b>State</b>: a current, changeable fact about an entity, such as an artist\'s current label or a song\'s chart position today. It is usually a column. An UPDATE overwrites it, so the old value is lost unless you keep history on purpose (a history table, or a slowly changing dimension later in the course).',
+      '<b>Event</b>: something that happened at a moment, such as "Ada streamed Last Last at 21:14". It did not exist until it happened, and it never changes afterwards. Each event is a <b>new row</b> holding a timestamp and the IDs of the entities involved (listener_id, song_id).',
+      '<b>Relationship</b>: how entities connect. Some relationships are fixed facts stored as a foreign key: a song belongs to an artist (<code>songs.artist_id → artists.artist_id</code>). Others are <b>created by events</b>: a listener and a song have no link until a stream happens, and the stream row <i>is</i> the link. Entities exist first. Events, and the links they create, come later.',
+      'There are three kinds of relationship. <b>One-to-many</b>: an artist has many songs, and the foreign key sits on the "many" side. <b>One-to-one</b>: an artist has one profile. <b>Many-to-many</b>: listeners and songs, or songs and playlists. A many-to-many relationship needs a <b>linking (junction) table</b> that holds pairs of IDs. An <b>ERD</b> (entity-relationship diagram) draws the tables as boxes and the relationships as lines between their keys.',
+      'Tables connect only through <b>shared IDs</b>. listeners and artists share no column, so you cannot join them directly. Instead you follow the arrows: listeners → streams → songs → artists. If no shared ID, event table or linking table connects two tables, a join between them has no meaning.'
+    ],
+    pro:'"I start from the ERD. Entities like artists and songs are linked by foreign keys. Events like streams are rows that carry the listener\'s and the song\'s IDs, so that is the path I join along."',
+    q:{ q:'You need each listener\'s favourite artist, but listeners and artists share no column. Is it possible, and how?', a:'Yes, by following the relationships: listeners → streams (listener_id) → songs (song_id) → artists (artist_id). The stream events connect listeners to songs, and songs.artist_id connects songs to artists. Count streams per listener and artist, then keep the top one for each listener.' }
+  },
+  terms:[
+    { id:'sqlr-t1', term:'Entity', def:'A [[thing]] that exists on its own and that we store facts about, with its own [[table]] and [[ID]].' },
+    { id:'sqlr-t2', term:'State', def:'A [[current]], changeable fact about an entity, usually a column. An UPDATE [[overwrites]] the old value.' },
+    { id:'sqlr-t3', term:'Event (data modelling)', def:'Something that [[happened]] at a moment. It is stored as a [[new row]] with a timestamp and the IDs involved, and is never changed.' },
+    { id:'sqlr-t4', term:'Relationship', def:'How entities [[connect]]: either a fixed fact stored as a [[foreign key]], or a link [[created by events]].' },
+    { id:'sqlr-t5', term:'One-to-many', def:'One row on one side matches [[many]] rows on the other. The foreign key sits on the [[many side]].' },
+    { id:'sqlr-t6', term:'ERD', def:'An [[entity-relationship diagram]]: tables drawn as [[boxes]] and relationships as [[lines]] between their keys.' }
+  ],
+  code:[
+    { id:'sqlr-c1', task:'Follow the arrow by hand. Song 14 (Calm Down) has artist_id 14. Look up that artist\'s name.', lang:'sql', code:'SELECT name\nFROM [[artists]]\nWHERE [[artist_id]] = 14;' },
+    { id:'sqlr-c2', task:'One-to-many: list every song that belongs to artist 1 (Ayra Starr).', lang:'sql', code:'SELECT title\nFROM songs\nWHERE [[artist_id]] = 1;' },
+    { id:'sqlr-c3', task:'Events: list listener 1\'s streams, oldest first.', lang:'sql', code:'SELECT song_id, streamed_at\nFROM [[streams]]\nWHERE listener_id = 1\nORDER BY [[streamed_at]];' }
+  ],
+  problems:[
+    { id:'sqlr-p1', kind:'sql', ordered:true, title:'Count the events',
+      scenario:'streams is an event table with one row per play. Return each song_id and its number of plays (call it plays), most played first, with ties broken by song_id.',
+      hint:'One row per event, so COUNT(*) per song_id counts the plays.',
+      solution:'SELECT song_id, COUNT(*) AS plays\nFROM streams\nGROUP BY song_id\nORDER BY plays DESC, song_id;',
+      explain:'Every play is a new row, so counting rows counts events. Song 14 (Calm Down) has 4 plays: Ada played it twice, and each play is its own row. That is the difference between an event (a new row each time) and state (one value that gets overwritten).' }
+  ]
+},
 { id:'sql5', title:'JOINs',
   theory:{
     why:'Good database design <b>normalizes</b> data: artists, songs and chart entries live in separate tables so each fact is stored once. Questions, though, cut across tables ("which <i>artist</i> had the most <i>streams</i>?"). A JOIN puts the pieces back together at query time by matching keys.',
     body:[
+      'A join <b>follows the arrow</b> you met in <i>Entities, events & relationships</i>: a foreign key (<code>songs.artist_id</code>) points at a primary key (<code>artists.artist_id</code>), and the join brings the related rows back together. Look at the ERD first, and join only along its lines.',
       '<code>FROM chart_entries c JOIN songs s ON s.song_id = c.song_id</code> pairs every chart row with the song row that has the same key. <code>c</code> and <code>s</code> are <b>table aliases</b>.',
       '<b>INNER JOIN</b> (plain <code>JOIN</code>) keeps only rows that match on both sides. <b>LEFT JOIN</b> keeps <i>every</i> row from the left table, and when there is no match the right-side columns are NULL. Use it when you must not lose rows, such as "all artists, even those with no chart entries".',
       '<b>Anti-join</b>: to find rows with no match, LEFT JOIN and then <code>WHERE right.key IS NULL</code> (or use NOT EXISTS). Example: songs that never charted.',
@@ -585,6 +669,35 @@ const SQL_LESSONS_B = [
   ]
 },
 
+{ id:'sqlm', title:'Many-to-many: two joins', added:7,
+  theory:{
+    why:'Listeners stream many songs, and each song is streamed by many listeners. No single foreign key can hold that, because a column holds one value per row. The answer is a linking table (streams, playlist_songs) with one row per pair, plus a query that joins through it twice.',
+    body:[
+      '<b>Many-to-many</b>: each row on either side can relate to many rows on the other. You cannot store this as a column in either table: a <code>listeners.song_id</code> column could hold only one song.',
+      'A <b>linking table</b> (also called a junction, bridge or associative table) has one row per pair, for example <code>playlist_songs(playlist_id, song_id)</code>. Its primary key is often the pair itself, so the same song cannot be added to the same playlist twice. When the link is an <b>event</b> (streams), the table also has a timestamp, and the same pair can repeat: Ada can stream Calm Down twice.',
+      'Query it with <b>two joins</b>, starting from the linking table: <code>FROM streams st JOIN listeners l ON l.listener_id = st.listener_id JOIN songs s ON s.song_id = st.song_id</code>. Each join follows one arrow in the ERD.',
+      'Grain: the result has one row per linking row (one per stream), not one per listener. Keep that in mind when you count or aggregate. INNER JOINs drop listeners with no streams. To keep them, start FROM listeners and use LEFT JOINs.'
+    ],
+    pro:'"listeners and songs are many-to-many, so I joined through the streams fact table (one row per play): streams to listeners on listener_id, and streams to songs on song_id. Then I aggregated at the grain I needed."',
+    q:{ q:'A product manager wants to add a song_ids column to playlists holding text like "10,12,14". Why is that a bad idea, and what would you do instead?', a:'A comma-separated list breaks keys and joins. You cannot join on it, you cannot enforce that each ID exists or stop duplicates, and changing one song means rewriting the text. Use a linking table, playlist_songs(playlist_id, song_id), with one row per pair and a composite primary key.' }
+  },
+  terms:[
+    { id:'sqlm-t1', term:'Many-to-many relationship', def:'Each row on [[either side]] can relate to [[many]] rows on the other, so it needs a [[linking table]].' },
+    { id:'sqlm-t2', term:'Junction (linking) table', def:'A table with [[one row per pair]] of related IDs, where each ID is a [[foreign key]] to one side.' }
+  ],
+  code:[
+    { id:'sqlm-c1', task:'Show each stream as the listener\'s name and the song title (two joins).', lang:'sql', code:'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.[[listener_id]]\nJOIN [[songs]] s ON s.song_id = st.song_id;' },
+    { id:'sqlm-c2', task:'List the songs on the playlist Naija Hits.', lang:'sql', code:'SELECT s.title\nFROM playlist_songs ps\nJOIN playlists p ON p.playlist_id = ps.[[playlist_id]]\nJOIN songs s ON s.song_id = ps.[[song_id]]\nWHERE p.name = \'Naija Hits\';' },
+    { id:'sqlm-c3', task:'How many different listeners streamed each song?', lang:'sql', code:'SELECT s.title, COUNT([[DISTINCT]] st.listener_id) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\n[[GROUP BY]] s.title;' }
+  ],
+  problems:[
+    { id:'sqlm-p1', kind:'sql', title:'Who listens to which artist',
+      scenario:'For each listener and artist, return the listener\'s name (call it listener), the artist\'s name (artist) and the number of streams (plays). listeners and artists share no column, so follow the arrows.',
+      hint:'streams → listeners on listener_id, streams → songs on song_id, songs → artists on artist_id. Then GROUP BY listener and artist.',
+      solution:'SELECT l.name AS listener, a.name AS artist, COUNT(*) AS plays\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id\nJOIN artists a   ON a.artist_id = s.artist_id\nGROUP BY l.name, a.name;',
+      explain:'The listener–artist link is not stored anywhere. It exists only because of stream events plus the fixed song → artist foreign key. Ada → Rema shows 2 plays because she streamed Calm Down twice. Zainab is missing: she has no stream events, so she has no link to any artist.' }
+  ]
+},
 { id:'sql6', title:'Subqueries',
   theory:{
     why:'Some questions need a value you have to <b>compute first</b>. "Songs longer than <i>average</i>" means you need the average before you can compare. A subquery is a query inside another query, and its result feeds the outer one, like a function call.',
@@ -1751,7 +1864,7 @@ const TERM_BITES = {
 const PLACE_LEVELS = [
   { n:0, name:'Start from lesson 1', lessons:[] },
   { n:1, name:'SQL basics', lessons:['sql1','sql2','sql3'] },
-  { n:2, name:'Aggregation & JOINs', lessons:['sql4','sql5'] },
+  { n:2, name:'Aggregation, relationships & JOINs', lessons:['sql4','sqlr','sql5','sqlm'] },
   { n:3, name:'Intermediate SQL', lessons:['sql6','sql7','sql8','sql9'] },
   { n:4, name:'ETL fundamentals', lessons:['etl1','etl2','etl3','etl4','etl5'] },
   { n:5, name:'Pipeline in practice (Project 1 concepts)', lessons:['pj1','pj2','pj3','pj4','pj5','pj6','pj7','pj8'] }
@@ -1769,6 +1882,7 @@ const PLACE_BANK = [
   { id:'p2c', lv:2, kind:'mcq', q:'You want only artists whose total streams exceed 200,000. Where does that condition go?', o:['HAVING SUM(streams) > 200000','WHERE SUM(streams) > 200000','WHERE streams > 200000','ORDER BY SUM(streams) > 200000'], why:'WHERE filters rows before grouping and cannot use aggregates; HAVING filters groups.' },
   { id:'p2d', lv:2, kind:'sql', q:'Return each <b>chart_date</b> with its <b>total streams</b> (one row per date).', sol:"SELECT chart_date, SUM(streams) FROM chart_entries GROUP BY chart_date;" },
   { id:'p2e', lv:2, kind:'mcq', q:'You join orders (one row per order) to order_items (many rows per order), then SUM(orders.shipping_fee). The total is far too high. Why?', o:['Fan-out: each order row is repeated once per item','SUM skips NULL values','You need SELECT DISTINCT','INNER JOIN drops rows'], why:'A one-to-many join multiplies the "one" side rows.' },
+  { id:'p2f', lv:2, kind:'mcq', q:'<code>listeners</code> and <code>artists</code> share no column. <code>streams(listener_id, song_id)</code> and <code>songs(song_id, artist_id)</code> exist. How do you get each listener\'s artists?', o:['Join listeners → streams → songs → artists, following the foreign keys','Join listeners to artists on name','You cannot: there is no shared column','CROSS JOIN listeners and artists'], why:'Tables connect through shared IDs. The stream events link listeners to songs, and songs.artist_id links songs to artists.' },
   // ---- Level 3
   { id:'p3a', lv:3, kind:'sql', q:'For every row in <code>chart_entries</code>, return <b>chart_date, song_id, position</b> and the song\'s <b>previous position</b> (its position on its previous chart date, NULL if none).', sol:"SELECT chart_date, song_id, position, LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) FROM chart_entries;" },
   { id:'p3b', lv:3, kind:'sql', q:'Return the <b>title</b> of every song that has <b>never</b> appeared in <code>chart_entries</code>.', sol:"SELECT title FROM songs s WHERE NOT EXISTS (SELECT 1 FROM chart_entries c WHERE c.song_id = s.song_id);" },
@@ -2067,6 +2181,225 @@ const ILL_COND = { h: '', fig: 'flow', sql: 'SELECT title, streams\nFROM songs\n
   ins: [{ tab: ILT('songs', ['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700]]), m: ['m', 'm', 'x'], role: 'Before: table songs' }],
   out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 1200]], m: ['m', 'm'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
 
+/* v7: entities, state, events, relationships (before joins) and many-to-many (after joins) */
+const ERD_ART = { n: 'artists', cols: [['artist_id', 'PK'], ['name'], ['label']] };
+const ERD_SNG = { n: 'songs', cols: [['song_id', 'PK'], ['title'], ['artist_id', 'FK']] };
+const ERD_LIS = { n: 'listeners', cols: [['listener_id', 'PK'], ['name']] };
+const ERD_STR = { n: 'streams', sub: 'events', cols: [['stream_id', 'PK'], ['listener_id', 'FK'], ['song_id', 'FK'], ['streamed_at']] };
+const ERD_L_SA = { f: ['songs', 'artist_id'], t: ['artists', 'artist_id'] };
+const ERD_L_SL = { f: ['streams', 'listener_id'], t: ['listeners', 'listener_id'] };
+const ERD_L_SS = { f: ['streams', 'song_id'], t: ['songs', 'song_id'] };
+const erdAt = (o, x, y, more) => Object.assign({}, o, { x, y }, more || {});
+ILLUS.sqlr = {
+  tables: {
+    songs_flat: ILT('songs_flat', ['title', 'artist', 'label'], [['Last Last', 'Burna Boy', 'Spaceship'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship'], ['Free Mind', 'Tems', 'RCA'], ['Me & U', 'Tems', 'RCA']]),
+    artists: ILT('artists', ['artist_id', 'name', 'label'], [[1, 'Burna Boy', 'Spaceship'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']]),
+    songs: ILT('songs', ['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2], [12, 'Joha', 3], [13, 'City Boys', 1]]),
+    listeners: ILT('listeners', ['listener_id', 'name'], [[100, 'Ada'], [101, 'Tunde'], [102, 'Zainab']]),
+    streams: ILT('streams', ['stream_id', 'listener_id', 'song_id', 'streamed_at'], [[1, 100, 10, '21:14'], [2, 100, 11, '21:18'], [3, 101, 10, '22:02']])
+  },
+  scenes: [
+    { h: 'One big table repeats itself',
+      say: 'Imagine keeping everything in one table. Each row is a song, but it also <b>copies</b> the artist\u2019s name and label. Burna Boy\u2019s label is written 3 times and Tems\u2019 twice. Every copy is a chance for the data to disagree.',
+      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'one big table' }], lg: { d: 'artist + label copied again' },
+      note: 'Look closely at row 3: "Burna Boi". The next two pictures show why copies hurt.' },
+    { h: 'Problem 1: an update misses copies',
+      say: 'Burna Boy moves to Atlantic. Someone updates <b>one</b> row. The other copies still say Spaceship, so the table now gives two different answers to "what is Burna Boy\u2019s label?".',
+      sql: "UPDATE songs_flat SET label = 'Atlantic'\nWHERE title = 'Last Last';\nSELECT title, artist, label FROM songs_flat\nWHERE artist LIKE 'Bur%';",
+      ins: [{ t: 'songs_flat', m: ['n', 'u', 'u'], role: 'one big table' }],
+      out: { c: ['title', 'artist', 'label'], r: [['Last Last', 'Burna Boy', 'Atlantic'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship']], m: ['n', 'u', 'u'] },
+      lg: { n: 'updated', u: 'missed copy: now the data disagrees' } },
+    { h: 'Problem 2: a typo invents an artist',
+      say: 'Ask for the distinct artists. Because the name is typed on every row, one typo ("Burna Boi") creates an artist who does not exist.',
+      sql: 'SELECT DISTINCT artist, label\nFROM songs_flat;',
+      ins: [{ t: 'songs_flat', m: ['m', 'm', 'u', 'm', 'm'], role: 'one big table' }],
+      out: { c: ['artist', 'label'], r: [['Burna Boy', 'Spaceship'], ['Burna Boi', 'Spaceship'], ['Tems', 'RCA']], m: ['m', 'u', 'm'] },
+      lg: { m: 'real artist', u: 'typo = a fake extra artist' } },
+    { h: 'The fix: split it so each fact lives once',
+      say: 'Put artists in their own table, one row each, with an ID. Songs keep only the artist\u2019s <b>ID</b>. The repetition disappears. A label change is now <b>one</b> UPDATE, and a song cannot point at "Burna Boi" because it stores the number 1, not a name.',
+      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'before: copies everywhere' }],
+      after: [{ t: 'artists', m: ['n', 'n', 'n'], role: 'artists: each label stored once' }, { t: 'songs', role: 'songs: point at the artist by ID' }],
+      lg: { d: 'copied fact', n: 'stored once' } },
+    { h: 'Entities: things that exist on their own', fig: 'ent',
+      say: 'An <b>entity</b> is a thing that exists by itself and that we store facts about. Artists, songs and listeners exist whether or not anything happens today. Each entity gets <b>its own table</b> and <b>its own ID</b> (the primary key).' },
+    { h: 'State: a fact that changes and gets overwritten', fig: 'state', fp: { who: 'Burna Boy · label', vals: [['last week', 'Spaceship'], ['today', 'Atlantic']] },
+      say: '<b>State</b> is a current fact about an entity, such as an artist\u2019s label or a song\u2019s chart position today. It lives in a column. When it changes we UPDATE, and the old value is <b>gone</b> unless we deliberately keep history.',
+      sql: "UPDATE artists SET label = 'Atlantic'\nWHERE artist_id = 1;\nSELECT * FROM artists;",
+      ins: [{ t: 'artists', m: ['n'], role: 'before' }],
+      out: { c: ['artist_id', 'name', 'label'], r: [[1, 'Burna Boy', 'Atlantic'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']], m: ['n', '', ''] },
+      lg: { n: 'same row, value overwritten ("Spaceship" is lost)' } },
+    { h: 'Events: things that happen, one new row each', fig: 'events', fp: [['21:14', '🎧 Ada ▶ Last Last'], ['21:18', '🎧 Ada ▶ Free Mind'], ['22:02', '🎧 Tunde ▶ Last Last']],
+      say: 'An <b>event</b> happens at a moment. It did not exist before, and once it has happened it never changes. Each event becomes a <b>new row</b> holding a time plus the IDs of the entities involved (who listened, to which song).',
+      sql: 'SELECT * FROM streams\nORDER BY streamed_at;', ordered: true,
+      out: { c: ['stream_id', 'listener_id', 'song_id', 'streamed_at'], r: [[1, 100, 10, '21:14'], [2, 100, 11, '21:18'], [3, 101, 10, '22:02']], m: ['n', 'n', 'n'] },
+      lg: { n: 'one new row per event' } },
+    { h: 'Relationships: fixed, or created by events', fig: 'bip',
+      fp: { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde', 'Zainab'], r: ['Last Last', 'Free Mind', 'Joha'], e: [[0, 0, 'd'], [0, 1, 'd'], [1, 0, 'd']],
+        cap: 'Dashed lines exist <b>only because a stream happened</b>. Each one is a row in <code>streams</code>. Zainab has streamed nothing, so she has <b>no link</b> to any song yet. Compare: "Last Last belongs to Burna Boy" is a <b>fixed</b> fact, stored once in <code>songs.artist_id</code>.' },
+      say: 'A <b>relationship</b> is how entities connect. Some are <b>fixed facts</b>: a song belongs to one artist, stored as a foreign key. Others are <b>created by events</b>: a listener and a song are unrelated until a stream happens, and then the stream row <i>is</i> the link.' },
+    { h: 'Keys: the arrow from one table to another', fig: 'erd',
+      fp: { boxes: [erdAt(ERD_ART, 6, 6), erdAt(ERD_SNG, 214, 6)], links: [ERD_L_SA], label: 'songs.artist_id points to artists.artist_id' },
+      say: 'The <b>primary key</b> (PK) identifies each row in its own table: <code>artists.artist_id</code>. A <b>foreign key</b> (FK) is a column that holds another table\u2019s PK: <code>songs.artist_id</code>. Draw it as an arrow from the FK to the PK. Following the arrow by hand looks like this:',
+      sql: "SELECT name FROM artists\nWHERE artist_id = 1;  -- Last Last's artist_id",
+      out: { c: ['name'], r: [['Burna Boy']], m: ['m'] }, lg: { m: 'the row the arrow points at' } },
+    { h: 'Three kinds of relationship', fig: 'kinds',
+      say: 'Count how many rows can sit at each end of a line. That count tells you where the key goes.' },
+    { h: 'The ERD: what can join to what', fig: 'erd',
+      fp: { boxes: [erdAt(ERD_ART, 6, 6, { hl: 1 }), erdAt(ERD_SNG, 214, 6, { hl: 1 }), erdAt(ERD_LIS, 6, 102, { hl: 1 }), erdAt(ERD_STR, 214, 102, { hl: 1 })],
+        links: [Object.assign({ hl: 1 }, ERD_L_SA), Object.assign({ hl: 1 }, ERD_L_SL), Object.assign({ hl: 1 }, ERD_L_SS)], label: 'ERD of artists, songs, listeners and streams',
+        cap: 'Path from a listener to an artist: <b>listeners → streams → songs → artists</b>. There is <b>no line</b> between listeners and artists (no shared ID), so they cannot be joined directly.' },
+      say: 'An <b>ERD</b> (entity-relationship diagram) draws every table as a box and every FK → PK link as a line. The crow\u2019s foot marks the <b>many</b> end. Tables connect only along these lines: shared IDs are what make a connection meaningful.' }
+  ],
+  qs: [
+    { k: 'cls', q: 'Sort each one: entity, state, event or relationship?', cats: ['Entity', 'State', 'Event', 'Relationship'],
+      items: [['Burna Boy (an artist)', 0], ['Calm Down is #1 on today\u2019s chart', 1], ['Ada streamed Last Last at 21:14', 2], ['Last Last belongs to Burna Boy', 3], ['Tems is signed to RCA (for now)', 1], ['a listener', 0]],
+      why: 'Artists and listeners exist on their own (entities). Chart position and current label are changeable facts (state). A stream happened at a moment (event). "Belongs to" connects two entities (relationship).' },
+    { k: 'mc', q: 'Which tables connect <b>listeners</b> to <b>artists</b>?', o: ['streams, then songs', 'none: join listeners to artists directly', 'playlists only', 'artists already has a listener_id'],
+      why: 'listeners → streams (listener_id) → songs (song_id) → artists (artist_id). listeners and artists share no column.' },
+    { k: 'tapc', q: 'Tap the <b>foreign key</b> column in songs.', t: 'songs', ans: [2],
+      why: '<code>songs.artist_id</code> holds values of another table\u2019s primary key (<code>artists.artist_id</code>). <code>song_id</code> is songs\u2019 own primary key.' },
+    { k: 'mc', q: 'An artist has many songs, and each song has one artist. Which kind of relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'],
+      why: 'One artist row, many song rows. The FK sits on the many side (songs).' },
+    { k: 'mc', q: 'Which pair can <b>not</b> be joined directly?', o: ['listeners and artists', 'songs and artists', 'streams and songs', 'streams and listeners'],
+      why: 'listeners and artists share no ID and no line joins them in the ERD. You have to go through streams and songs.' },
+    { k: 'mc', q: 'What goes wrong with the one big table?', o: ['a change must be repeated on every copy, and one typo creates a fake artist', 'nothing: one table is always best', 'SQL cannot read tables with text', 'it can only hold 5 rows'],
+      why: 'Repeated facts give update problems (missed copies) and typo problems (Burna Boi). Splitting stores each fact once.' },
+    { k: 'tap', q: 'Tap the listeners who are linked to at least one song.', t: 'listeners', ans: [0, 1],
+      why: 'Ada and Tunde have stream rows. Zainab has none, so no link exists yet.' },
+    { k: 'mc', q: 'Zainab has never streamed anything. Is she related to any song?', o: ['No: the link only appears when a stream event is stored', 'Yes, to every song', 'Yes, through artists', 'Yes, through a listener_id in songs'],
+      why: 'Listener–song links are created by events. No stream row means no link.' },
+    { k: 'mc', q: 'Ada streams Last Last again tomorrow. What happens in streams?', o: ['a new row is added and old rows stay unchanged', 'row 1 gets the new time', 'nothing: she already has that link', 'the songs row is updated'],
+      why: 'Every play is a new event row. Events are never edited, which is why Ada can appear with the same song many times.' },
+    { k: 'mc', q: 'After <code>UPDATE artists SET label = \'Atlantic\' WHERE artist_id = 1</code>, where is "Spaceship"?', o: ['gone, unless history was kept on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the label column next to Atlantic'],
+      why: 'State is overwritten. To keep the old value you need a history table (or a slowly changing dimension).' },
+    { k: 'run', q: 'Follow the arrow: song 12 (Joha) has artist_id 3. Fill in the ____ to get its artist\u2019s name.', code: 'SELECT name FROM artists\nWHERE artist_id = ____;', sol: 'SELECT name FROM artists WHERE artist_id = 3;',
+      why: 'A foreign key is just the other table\u2019s ID. Looking it up by hand is exactly what a JOIN does for every row at once.' }
+  ]
+};
+ILLUS.sqlm = {
+  tables: {
+    listeners: ILT('listeners', ['listener_id', 'name'], [[100, 'Ada'], [101, 'Tunde'], [102, 'Zainab']]),
+    streams: ILT('streams', ['stream_id', 'listener_id', 'song_id'], [[1, 100, 10], [2, 100, 11], [3, 101, 10], [4, 101, 12]]),
+    songs: ILT('songs', ['song_id', 'title'], [[10, 'Last Last'], [11, 'Free Mind'], [12, 'Joha']]),
+    playlists: ILT('playlists', ['playlist_id', 'name'], [[1, 'Naija Hits'], [2, 'Chill']]),
+    playlist_songs: ILT('playlist_songs', ['playlist_id', 'song_id'], [[1, 10], [1, 12], [2, 11], [2, 10]])
+  },
+  scenes: [
+    { h: 'Many on both sides: no single FK fits', fig: 'bip',
+      fp: { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde', 'Zainab'], r: ['Last Last', 'Free Mind', 'Joha'], e: [[0, 0], [0, 1], [1, 0], [1, 2]],
+        cap: 'Ada has 2 songs, and Last Last has 2 listeners. A column <code>listeners.song_id</code> could hold only <b>one</b> song, so the pairs get their own table.' },
+      say: 'Listeners and songs are <b>many-to-many</b>. Every line in the picture becomes <b>one row</b> in a linking table, here <code>streams</code>.',
+      ins: [{ t: 'streams', role: 'streams: one row per line above' }] },
+    { h: 'Join 1: streams → listeners', fig: 'flow',
+      say: 'Start from the linking table and follow one arrow: <code>streams.listener_id → listeners</code>. Each stream picks up its listener\u2019s name. Zainab has no stream rows, so nothing points at her.',
+      sql: 'SELECT st.stream_id, l.name, st.song_id\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;',
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g1', 'g1'], role: 'linking table (FROM)' }, { t: 'listeners', m: ['g0', 'g1', 'x'], role: 'JOIN ➡' }],
+      out: { c: ['stream_id', 'name', 'song_id'], r: [[1, 'Ada', 10], [2, 'Ada', 11], [3, 'Tunde', 10], [4, 'Tunde', 12]], m: ['g0', 'g0', 'g1', 'g1'] },
+      lg: { g: 'colour = same listener', x: 'no stream points here' } },
+    { h: 'Join 2: … → songs. Two joins, one per arrow', fig: 'flow',
+      say: 'Add the second arrow: <code>streams.song_id → songs</code>. Now each row reads "listener played song". The result has <b>one row per stream</b>, not one per listener.',
+      sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;',
+      ins: [{ t: 'listeners', m: ['g0', 'g1', 'x'], role: 'listeners' }, { t: 'streams', m: ['g0', 'g0', 'g1', 'g1'], role: 'streams (the link)' }, { t: 'songs', m: ['m', 'm', 'm'], role: 'songs' }],
+      out: { c: ['name', 'title'], r: [['Ada', 'Last Last'], ['Ada', 'Free Mind'], ['Tunde', 'Last Last'], ['Tunde', 'Joha']], m: ['g0', 'g0', 'g1', 'g1'] },
+      lg: { g: 'colour = same listener', x: 'no streams: dropped by INNER JOIN' } },
+    { h: 'Read it the other way round', fig: 'flow',
+      say: 'The same linking table also answers "who played this song?". Group the streams by song: Last Last has 2 listeners, the others have 1.',
+      sql: 'SELECT s.title, COUNT(*) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\nGROUP BY s.title;',
+      ins: [{ t: 'streams', m: ['g0', 'g1', 'g0', 'g2'], role: 'streams' }, { t: 'songs', m: ['g0', 'g1', 'g2'], role: 'songs' }],
+      out: { c: ['title', 'listeners'], r: [['Last Last', 2], ['Free Mind', 1], ['Joha', 1]], m: ['g0', 'g1', 'g2'], nc: [1] },
+      lg: { g: 'colour = same song' } },
+    { h: 'Same pattern: songs on playlists', fig: 'erd',
+      fp: { boxes: [{ n: 'playlists', x: 6, y: 6, cols: [['playlist_id', 'PK'], ['name']] }, { n: 'playlist_songs', sub: 'link', x: 214, y: 6, cols: [['playlist_id', 'PK FK'], ['song_id', 'PK FK']] }, { n: 'songs', x: 6, y: 80, cols: [['song_id', 'PK'], ['title']] }],
+        links: [{ f: ['playlist_songs', 'playlist_id'], t: ['playlists', 'playlist_id'] }, { f: ['playlist_songs', 'song_id'], t: ['songs', 'song_id'] }], label: 'playlists and songs through playlist_songs' },
+      say: 'A song can be on many playlists, and a playlist holds many songs. The linking table <code>playlist_songs</code> holds one row per pair. Its primary key is the pair itself, so the same song cannot be added to a playlist twice.',
+      sql: "SELECT p.name AS playlist, s.title\nFROM playlist_songs ps\nJOIN playlists p ON p.playlist_id = ps.playlist_id\nJOIN songs s     ON s.song_id = ps.song_id\nWHERE p.name = 'Naija Hits';",
+      ins: [{ t: 'playlist_songs', m: ['m', 'm', 'x', 'x'], role: 'the link' }],
+      out: { c: ['playlist', 'title'], r: [['Naija Hits', 'Last Last'], ['Naija Hits', 'Joha']], m: ['m', 'm'] },
+      lg: { m: 'pair on Naija Hits', x: 'other playlist' } }
+  ],
+  qs: [
+    { k: 'mc', q: 'How many rows does the two-join query return?', sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;',
+      o: ['4: one per stream', '3: one per listener', '3: one per song', '9: every listener × every song'], why: 'The grain is the linking table: one row per stream. There are 4 streams.' },
+    { k: 'tap', q: 'Tap the listeners who appear in that two-join result.', t: 'listeners', ans: [0, 1], why: 'Ada and Tunde have streams. Zainab has none, so the INNER JOIN drops her.' },
+    { k: 'mc', q: 'Why is Zainab missing?', o: ['she has no stream rows, so INNER JOIN drops her (a LEFT JOIN from listeners would keep her with NULLs)', 'her name is too long', 'listeners is the wrong table', 'songs has no Zainab column'],
+      why: 'No event, no link. Start FROM listeners and LEFT JOIN if you need everyone.' },
+    { k: 'mc', q: 'Where is "Joha is on Naija Hits" stored?', o: ['a row (1, 12) in the linking table playlist_songs', 'a playlist column in songs', 'a song column in playlists', 'nowhere'],
+      why: 'Many-to-many pairs live in the linking table, one row per pair.' },
+    { k: 'run', q: 'Fill in the second join so each stream shows its song title.', code: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s ON s.song_id = ____;',
+      sol: 'SELECT l.name, s.title FROM streams st JOIN listeners l ON l.listener_id = st.listener_id JOIN songs s ON s.song_id = st.song_id;', why: 'The arrow runs from <code>streams.song_id</code> (FK) to <code>songs.song_id</code> (PK).' },
+    { k: 'run', q: 'List the titles of the songs on the playlist Chill.', code: "SELECT s.title\nFROM playlist_songs ps\nJOIN playlists p ON p.playlist_id = ps.playlist_id\nJOIN songs s ON s.song_id = ____\nWHERE p.name = 'Chill';",
+      sol: "SELECT s.title FROM playlist_songs ps JOIN playlists p ON p.playlist_id = ps.playlist_id JOIN songs s ON s.song_id = ps.song_id WHERE p.name = 'Chill';", why: 'Two joins through the linking table: one to playlists, one to songs. Chill has Free Mind and Last Last.' },
+    { k: 'mc', q: 'What is the primary key of playlist_songs usually?', o: ['the pair (playlist_id, song_id)', 'playlist_id alone', 'song_id alone', 'the song title'],
+      why: 'The pair is unique, so a song cannot be added to the same playlist twice. playlist_id alone would allow only one song per playlist.' }
+  ]
+};
+ILLUS.sql5.scenes.unshift({ h: 'Joins follow the arrow', fig: 'erd',
+  fp: { boxes: [erdAt(ERD_ART, 6, 6), erdAt(ERD_SNG, 214, 6)], links: [ERD_L_SA], label: 'songs.artist_id points to artists.artist_id' },
+  say: 'You met this arrow in <i>Entities, events & relationships</i>: <code>songs.artist_id</code> (foreign key) points at <code>artists.artist_id</code> (primary key). A <b>JOIN follows that arrow</b> for every row at once, bringing each song back together with its artist. The ON clause is the arrow written in SQL:',
+  sql: 'SELECT s.title, a.name\nFROM songs s\nJOIN artists a\n  ON s.artist_id = a.artist_id;  -- the arrow', norun: true,
+  note: 'No arrow, no join: two tables with no shared ID (like listeners and artists) are joined by going through tables that do share IDs.' });
+
+/* ---------- v7 custom figures: entities, state, events, relationships, ERD ---------- */
+// ERD: boxes = tables (header + columns tagged PK/FK), lines = FK → PK (crow's foot "many" at the FK end, bar + arrow "1" at the PK end)
+function erdSVG(fp) {
+  const W = 150, HH = 20, RH = 16, bx = {};
+  fp.boxes.forEach(b => { bx[b.n] = Object.assign({ h: HH + b.cols.length * RH }, b); });
+  const ry = (b, c) => b.y + HH + b.cols.findIndex(x => x[0] === c) * RH + RH / 2;
+  let maxX = 0, maxY = 0; Object.values(bx).forEach(b => { maxX = Math.max(maxX, b.x + W); maxY = Math.max(maxY, b.y + b.h); });
+  let lines = '';
+  let padR = 18;
+  (fp.links || []).forEach(k => {
+    const f = bx[k.f[0]], t = bx[k.t[0]]; const y1 = ry(f, k.f[1]), y2 = ry(t, k.t[1]); const cls = 'el' + (k.hl ? ' hl' : '') + (k.dim ? ' dim' : '');
+    let d, fx, tx, fdir, tdir;
+    if (f.x === t.x) { padR = 48; fx = f.x + W; tx = t.x + W; const xr = fx + 14; d = 'M' + fx + ',' + y1 + ' H' + xr + ' V' + y2 + ' H' + tx; fdir = 1; tdir = 1; }
+    else if (f.x > t.x) { fx = f.x; tx = t.x + W; const mid = (fx + tx) / 2; d = 'M' + fx + ',' + y1 + ' H' + mid + ' V' + y2 + ' H' + tx; fdir = -1; tdir = 1; }
+    else { fx = f.x + W; tx = t.x; const mid = (fx + tx) / 2; d = 'M' + fx + ',' + y1 + ' H' + mid + ' V' + y2 + ' H' + tx; fdir = 1; tdir = -1; }
+    // crow's foot at the FK (many) end, arrow + bar at the PK (one) end
+    const cf = 'M' + (fx + fdir * 10) + ',' + y1 + ' L' + fx + ',' + (y1 - 5) + ' M' + (fx + fdir * 10) + ',' + y1 + ' L' + fx + ',' + (y1 + 5);
+    const ar = 'M' + (tx + tdir * 7) + ',' + (y2 - 4) + ' L' + tx + ',' + y2 + ' L' + (tx + tdir * 7) + ',' + (y2 + 4) + ' M' + (tx + tdir * 11) + ',' + (y2 - 5) + ' V' + (y2 + 5);
+    const lab = (x, y, s, a) => '<text x="' + x + '" y="' + y + '" class="elab" text-anchor="' + a + '">' + s + '</text>';
+    lines += '<path d="' + d + '" class="' + cls + '"/><path d="' + cf + ' ' + ar + '" class="' + cls + ' end"/>' +
+      (f.x === t.x ? lab(fx + 17, y1 + 3, 'many', 'start') : lab(fx + fdir * 3, y1 - 7, 'many', fdir > 0 ? 'start' : 'end')) + lab(tx + tdir * 3, y2 - 7, '1', tdir > 0 ? 'start' : 'end');
+  });
+  const boxes = Object.values(bx).map(b => '<g class="eb' + (b.hl ? ' hl' : '') + (b.dim ? ' dim' : '') + '"><rect x="' + b.x + '" y="' + b.y + '" width="' + W + '" height="' + b.h + '" rx="5" class="ebr"/><rect x="' + b.x + '" y="' + b.y + '" width="' + W + '" height="' + HH + '" rx="5" class="ebh"/>' +
+    '<text x="' + (b.x + 8) + '" y="' + (b.y + 14) + '" class="ebn">' + _h(b.n) + (b.sub ? ' <tspan class="ebs">' + _h(b.sub) + '</tspan>' : '') + '</text>' +
+    b.cols.map((c, i) => { const y = b.y + HH + i * RH + 12; return '<text x="' + (b.x + 8) + '" y="' + y + '" class="ebc' + (c[1] ? ' k' : '') + '">' + _h(c[0]) + '</text>' + (c[1] ? '<text x="' + (b.x + W - 8) + '" y="' + y + '" class="ebk ' + c[1].toLowerCase() + '" text-anchor="end">' + c[1] + (c[2] ? ' → ' + _h(c[2]) : '') + '</text>' : ''); }).join('') + '</g>').join('');
+  return '<svg class="erd" viewBox="0 0 ' + (maxX + padR) + ' ' + (maxY + 6) + '" role="img" aria-label="' + _h(fp.label || 'entity-relationship diagram') + '">' + boxes + lines + '</svg>' +
+    (fp.cap ? '<div class="figcap">' + fp.cap + '</div>' : '');
+}
+// two columns of dots joined by lines: who is linked to whom (solid = stored fact, dashed = created by an event)
+function bipSVG(fp) {
+  const n = Math.max(fp.l.length, fp.r.length), RH = 24, H = 26 + n * RH;
+  const ly = i => 34 + i * RH, LX = 96, RX = 204;
+  const e = (fp.e || []).map(x => '<line x1="' + LX + '" y1="' + ly(x[0]) + '" x2="' + RX + '" y2="' + ly(x[1]) + '" class="bl' + (x[2] === 'd' ? ' dash' : '') + '"/>').join('');
+  const lonely = i => !(fp.e || []).some(x => x[0] === i);
+  return '<svg class="bip" viewBox="0 0 300 ' + H + '" role="img" aria-label="' + _h(fp.lt + ' to ' + fp.rt) + '"><text x="' + LX + '" y="14" class="bh" text-anchor="end">' + _h(fp.lt) + '</text><text x="' + RX + '" y="14" class="bh">' + _h(fp.rt) + '</text>' + e +
+    fp.l.map((s, i) => '<circle cx="' + LX + '" cy="' + ly(i) + '" r="4" class="bd"/><text x="' + (LX - 8) + '" y="' + (ly(i) + 4) + '" class="bt' + (lonely(i) ? ' lone' : '') + '" text-anchor="end">' + _h(s) + '</text>').join('') +
+    fp.r.map((s, i) => '<circle cx="' + RX + '" cy="' + ly(i) + '" r="4" class="bd"/><text x="' + (RX + 8) + '" y="' + (ly(i) + 4) + '" class="bt">' + _h(s) + '</text>').join('') + '</svg>' +
+    (fp.cap ? '<div class="figcap">' + fp.cap + '</div>' : '');
+}
+const ILL_FIGS = {
+  erd: sc => erdSVG(sc.fp),
+  bip: sc => bipSVG(sc.fp),
+  // entities: things that exist on their own, each with a table and an ID
+  ent: () => '<div class="entf">' + [['🎤', 'artist', 'artists', 'artist_id'], ['🎵', 'song', 'songs', 'song_id'], ['🎧', 'listener', 'listeners', 'listener_id']].map(x =>
+      '<div class="entc"><div class="ei">' + x[0] + '</div><b>' + x[1] + '</b><div class="muted small">table <code>' + x[2] + '</code></div><div class="small">ID <code>' + x[3] + '</code> <span class="pk">PK</span></div></div>').join('') + '</div>' +
+    '<div class="figcap">Exist on their own, even if nothing ever happens. <b>Not</b> entities: <i>a play at 21:14</i> (an event) or <i>today\u2019s chart position</i> (a state).</div>',
+  // state: one value per entity, overwritten over time
+  state: sc => { const f = sc.fp; return '<div class="stf"><div class="stw">' + _h(f.who) + '</div><div class="stl">' + f.vals.map((v, i) => {
+      const last = i === f.vals.length - 1; return '<div class="sts' + (last ? ' now' : ' old') + '"><div class="stt">' + _h(v[0]) + '</div><div class="stv">' + (last ? '' : '<s>') + _h(v[1]) + (last ? '' : '</s>') + '</div><div class="muted small">' + (last ? 'current value' : 'overwritten: lost') + '</div></div>' + (last ? '' : '<div class="farr">→<div class="small muted">UPDATE</div></div>'); }).join('') + '</div></div>' +
+    '<div class="figcap">Still <b>one</b> row for the artist. The column holds only the latest value.</div>'; },
+  // events: rows appearing along a time line, never changed afterwards
+  events: sc => '<div class="evf">' + sc.fp.map((e, i) => '<div class="evr"><div class="evt">' + _h(e[0]) + '</div><div class="evd"></div><div class="evx">' + e[1] + '</div><div class="evn">+ row ' + (i + 1) + '</div></div>').join('') + '</div>' +
+    '<div class="figcap">Each happening adds a <b>new row</b> with its time and the IDs involved. Old rows are never edited.</div>',
+  // the three kinds of relationship
+  kinds: () => [
+    ['One-to-many', { lt: 'artists', rt: 'songs', l: ['Burna Boy', 'Tems'], r: ['Last Last', 'City Boys', 'Free Mind'], e: [[0, 0], [0, 1], [1, 2]] }, 'Each song has exactly one artist; an artist has many songs. The FK sits on the <b>many</b> side: <code>songs.artist_id</code>.'],
+    ['One-to-one', { lt: 'artists', rt: 'profiles', l: ['Burna Boy', 'Tems'], r: ['profile 1', 'profile 2'], e: [[0, 0], [1, 1]] }, 'Each artist has one profile. <code>profiles.artist_id</code> is unique (often the profile\u2019s own PK).'],
+    ['Many-to-many', { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde'], r: ['Last Last', 'Free Mind'], e: [[0, 0], [0, 1], [1, 0]] }, 'Many on <b>both</b> sides. No single FK column can hold it: it needs a <b>linking table</b> of pairs (streams; for playlists, playlist_songs).']
+  ].map(k => '<div class="kind"><div class="kh">' + k[0] + '</div>' + bipSVG(k[1]) + '<div class="figcap">' + k[2] + '</div></div>').join('')
+};
+
 /* ---------- v6 illustration rendering (before → query → after) ---------- */
 const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '⧉ duplicate', n: '＋ new or changed', g: '🎨 same colour = same group' };
 const ILL_ICON = { m: '✓', u: '◐', x: '✕', d: '⧉', n: '＋' };
@@ -2080,13 +2413,15 @@ function illTable(t, m, o) {
   o = o || {}; m = m || []; const nc = o.nc || [];
   const hasMk = m.some(x => x && ILL_ICON[x]);
   return '<div class="ill-t">' + (o.role ? '<div class="ill-role">' + o.role + '</div>' : '') + (o.name !== false ? '<div class="ill-name"><code>' + _h(t.n) + '</code> · ' + t.r.length + ' row' + (t.r.length === 1 ? '' : 's') + '</div>' : '') +
-    '<div class="ill-scroll"><table class="mini ill"><tr>' + (hasMk ? '<th class="mk"></th>' : '') + t.c.map((c, i) => '<th' + (nc.includes(i) ? ' class="newc"' : '') + '>' + _h(c).replace(/_/g, '_<wbr>') + '</th>').join('') + '</tr>' +
+    '<div class="ill-scroll"><table class="mini ill"><tr>' + (hasMk ? '<th class="mk"></th>' : '') + t.c.map((c, i) => '<th' + (o.tapc ? illThTap(o.tapc, i) : nc.includes(i) ? ' class="newc"' : '') + '>' + _h(c).replace(/_/g, '_<wbr>') + '</th>').join('') + '</tr>' +
     t.r.map((r, i) => {
       const mk = m[i] || ''; let cls = mk ? 'mk-' + mk : ''; let attr = '';
       if (o.tap) { const on = o.tap.sel.includes(i); cls += ' tapr' + (on ? ' on' : ''); if (o.tap.done) { const want = o.tap.ans.includes(i); cls += want === on ? (want ? ' good' : '') : ' wrong'; } else attr = ' data-act="vqTap" data-r="' + i + '" tabindex="0" role="button" aria-pressed="' + on + '"'; }
       return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>';
     }).join('') + '</table></div></div>';
 }
+function illThTap(tc, i) { const on = tc.sel.includes(i); let c = 'tapc' + (on ? ' on' : ''); if (tc.done) { const want = tc.ans.includes(i); c += want === on ? (want ? ' good' : '') : ' wrong'; return ' class="' + c + '"'; }
+  return ' class="' + c + '" data-act="vqTapC" data-c="' + i + '" tabindex="0" role="button" aria-pressed="' + on + '"'; }
 function vennSVG(kind, a, b, vl) {
   vennSVG.n = (vennSVG.n || 0) + 1; const id = 'vc' + vennSVG.n; const f = 'class="vf"';
   const L = 'cx="95" cy="66" r="56"', R = 'cx="165" cy="66" r="56"';
@@ -2118,19 +2453,22 @@ function illTab(L, x) { return x.tab || (L && L.tables[x.t]); }
 // the whole figure for a scene: BEFORE tables (written order) → query → diagram → AFTER table → legend
 function illFigHTML(sc, L, run) {
   const ins = (sc.ins || []).map(x => x.raw ? '<div class="ill-t"><div class="ill-role">' + (x.role || 'Input') + '</div><pre class="qy raw">' + _h(x.raw) + '</pre></div>' : illTable(illTab(L, x), x.m, { role: x.role }));
-  const used = new Set(); (sc.ins || []).forEach(x => (x.m || []).forEach(k => used.add(k))); ((sc.out && sc.out.m) || []).forEach(k => used.add(k));
+  const used = new Set(); (sc.ins || []).forEach(x => (x.m || []).forEach(k => used.add(k))); ((sc.out && sc.out.m) || []).forEach(k => used.add(k)); (sc.after || []).forEach(x => (x.m || []).forEach(k => used.add(k)));
   const lg = Object.assign({}, ILL_LG, sc.lg || {}); const lgs = []; ['m', 'u', 'x', 'd', 'n'].forEach(k => { if (used.has(k)) lgs.push('<span class="lg mk-' + k + '">' + lg[k] + '</span>'); });
   if ([...used].some(k => /^g/.test(k))) lgs.push('<span class="lg">' + lg.g + '</span>');
   let fig = '';
   if (/^venn-/.test(sc.fig || '')) { const a = illTab(L, sc.ins[0]), b = illTab(L, sc.ins[1]); fig = vennSVG(sc.fig.slice(5), a.n, b.n, sc.vl); }
   else if (sc.fig === 'lr') fig = lrFig(illTab(L, sc.ins[0]).n, illTab(L, sc.ins[1]).n);
+  else if (ILL_FIGS[sc.fig]) fig = ILL_FIGS[sc.fig](sc, L);
   else if (sc.fig === 'flow') fig = flowFig((sc.ins || []).map(x => ({ rows: x.raw ? 1 : illTab(L, x).r.length, m: x.m })), sc.out);
   const outH = !sc.out ? '' : sc.out.err ? '<div class="ill-t"><div class="ill-role">After</div><div class="ill-err">✕ Error: ' + _h(sc.out.err) + '</div></div>'
     : illTable({ n: 'result', c: sc.out.c, r: sc.out.r }, sc.out.m, { role: 'After: the result', nc: sc.out.nc, name: false }) + '<div class="muted small">' + sc.out.r.length + ' row' + (sc.out.r.length === 1 ? '' : 's') + (sc.out.nc && sc.out.nc.length ? ' · <span class="newc-k">highlighted column</span> = added by the query' : '') + '</div>';
-  return '<div class="ill">' + '<div class="ill-step">1 · Before</div><div class="ill-ins' + ((sc.ins || []).length === 2 ? ' two' : '') + '">' + ins.join('') + '</div>' +
-    (sc.sql || sc.code ? '<div class="ill-step">2 · ' + (sc.sql ? 'Query' : 'Code') + '</div>' + QY(sc.sql || sc.code) : '') +
+  const aft = sc.after ? '<div class="ill-ins' + (sc.after.length === 2 ? ' two' : '') + '">' + sc.after.map(x => illTable(illTab(L, x), x.m, { role: x.role })).join('') + '</div>' : '';
+  let n = 0; const stp = t => '<div class="ill-step">' + (++n) + ' · ' + t + '</div>';
+  return '<div class="ill">' + (ins.length ? stp('Before') + '<div class="ill-ins' + (ins.length === 2 ? ' two' : '') + '">' + ins.join('') + '</div>' : '') +
+    (sc.sql || sc.code ? stp(sc.sql ? 'Query' : 'Code') + QY(sc.sql || sc.code) : '') +
     (fig ? '<div class="ill-fig">' + fig + '</div>' : '') +
-    (outH ? '<div class="ill-step">3 · After</div>' + outH : '') +
+    (outH || aft ? stp('After') + outH + aft : '') +
     (lgs.length ? '<div class="ill-lg">' + lgs.join('') + '</div>' : '') +
     (run ? '<div class="ill-run"><div class="lab">▶ Run in the app (real SQLite on these tables)</div>' + run + '</div>' : '') + '</div>';
 }
@@ -2173,18 +2511,28 @@ function initVQ(step) {
   const f = { stepIndex: SESSION.i, vq: true, q, sel: [], done: false, ok: null, vals: [] };
   if (q.k === 'mc') f.opts = shuffle(q.o.map((x, i) => ({ x, i })));
   if (q.k === 'run') f.code = q.code;
+  if (q.k === 'cls') f.vals = q.items.map(() => null);
   return f;
 }
 function viewVQ(step) {
   const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
   const f = F, q = f.q; let h = '<div class="kicker">🔍 Picture question · ' + _h(l.title) + '</div><h2 class="q">' + q.q + '</h2>';
-  const tabs = Object.values(L.tables); if (q.k !== 'tap' && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
+  const tabs = Object.values(L.tables); if (q.k !== 'tap' && q.k !== 'tapc' && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
   if (q.sql) h += QY(q.sql);
   if (q.k === 'tap') {
     const others = tabs.filter(t => t.n !== q.t);
     if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
     h += illTable(L.tables[q.t], null, { tap: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap rows to select them' });
+    if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
+  } else if (q.k === 'tapc') {
+    const others = tabs.filter(t => t.n !== q.t);
+    if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
+    h += illTable(L.tables[q.t], null, { tapc: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap a column header' });
+    if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
+  } else if (q.k === 'cls') {
+    h += '<div class="cls">' + q.items.map((it, i) => '<div class="cls-i' + (f.done ? (f.vals[i] === it[1] ? ' good' : ' wrong') : '') + '"><div class="cls-q">' + it[0] + '</div><div class="cls-b">' +
+      q.cats.map((c, k) => '<button class="chipb' + (f.vals[i] === k ? ' on' : '') + (f.done && k === it[1] ? ' ans' : '') + '" data-act="vqCls" data-i="' + i + '" data-c="' + k + '"' + (f.done ? ' disabled' : '') + ' aria-pressed="' + (f.vals[i] === k) + '">' + c + '</button>').join('') + '</div></div>').join('') + '</div>';
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'mc') {
     h += '<div class="opts">' + f.opts.map((o, k) => '<button class="opt' + (f.done ? (o.i === 0 ? ' ok' : f.pick === k ? ' bad' : '') : '') + '" data-act="vqPick" data-k="' + k + '"' + (f.done ? ' disabled' : '') + '>' + o.x + '</button>').join('') + '</div>';
@@ -2277,6 +2625,10 @@ const GROUND = {
     teach: 'A table split by a column (e.g. <code>chart_date</code>) has one <b>partition</b> per value: all rows of 10-16, all rows of 10-17 …' + SC_CHART,
     qs: [{ q: 'The table is split by chart_date. Which rows form one partition?', show: SC_CHART, o: ['all rows with chart_date 10-17', 'the first row', 'the streams column', 'every row in the table'], why: 'One partition = all rows that share one value of the split column.' },
       { q: 'Reloading only today\u2019s partition means…', o: ['only today\u2019s rows are replaced; other days are untouched', 'the whole table is replaced', 'a new column is added', 'today\u2019s rows are duplicated'], why: 'Partitions let a job touch only the part it needs.' }] },
+  entity: { name: 'entity', tip: 'a thing that exists on its own, with its own table and ID',
+    teach: 'An <b>entity</b> is a thing that exists on its own and that we store facts about: an artist, a song, a listener. Each one gets its own table, one row per thing, with its own ID.' + '<div class="scene">' + LAB('artists (an entity table)', MT(['artist_id', 'name'], [[1, 'Burna Boy'], [2, 'Tems']])) + '</div>',
+    qs: [{ q: 'Which is an <b>entity</b>?', o: ['a song', 'a song\u2019s chart position today', 'a play at 21:14', '"song belongs to artist"'], why: 'A song exists on its own. A chart position is a changing fact (state), a play is an event, and "belongs to" is a relationship.' },
+      { q: 'Tap the table that stores an <b>entity</b>.', tap: [[LAB('artists', MT(['artist_id', 'name'], [[1, 'Burna Boy'], [2, 'Tems']])), 1], [LAB('streams', MT(['listener_id', 'song_id', 'streamed_at'], [[100, 10, '21:14'], [101, 10, '22:02']])), 0]], why: 'artists describes things that exist on their own. streams records events (plays).' }] },
   event: { name: 'event', tip: 'a small record that something happened, with a time',
     teach: 'An <b>event</b> is a small record that something happened at a time: "user 42 played Rush at 07:03:12".',
     qs: [{ q: 'Which is an <b>event</b>?', o: ['"user 42 played Rush at 07:03:12"', 'the songs table', 'a SELECT query', 'a CSV header'], why: 'An event records one thing that happened, with its time.' },
@@ -2292,6 +2644,8 @@ const GROUND = {
 };
 
 const TERM_BLOCKS = {
+  'sqlr-t1': ['table', 'row', 'key'], 'sqlr-t2': ['entity', 'column', 'value'], 'sqlr-t3': ['entity', 'row', 'event'], 'sqlr-t4': ['entity', 'key'], 'sqlr-t5': ['entity', 'row', 'key'], 'sqlr-t6': ['entity', 'table', 'key'],
+  'sqlm-t1': ['entity', 'row', 'key'], 'sqlm-t2': ['table', 'key', 'row'],
   'sql1-t1': ['row', 'column'], 'sql1-t2': ['column', 'row', 'value'], 'sql1-t3': ['column', 'key', 'table'], 'sql1-t4': ['query', 'result'], 'sql1-t5': ['table', 'column', 'datatype'],
   'sql2-t1': ['condition', 'row', 'clause'], 'sql2-t2': ['value', 'column'], 'sql2-t3': ['condition', 'value'], 'sql2-t4': ['value', 'condition', 'query'], 'sql2-t5': ['value', 'condition'],
   'sql3-t1': ['result', 'expression'], 'sql3-t2': ['result', 'row'], 'sql3-t3': ['result', 'row', 'column'], 'sql3-t4': ['clause', 'query'], 'sql3-t5': ['table', 'row'],
@@ -2319,6 +2673,53 @@ const TERM_BLOCKS = {
 
 const SC_GENRE = MT(['name', 'genre'], [['Burna Boy', 'Afrobeats'], ['Tems', null], ['Rema', 'Afrobeats']]);
 const TERMS4 = {
+  // ---- v7: entities, state, events, relationships, many-to-many
+  'sqlr-t1': { t1: { def: 'An entity is {a thing that exists on its own} {that we store facts about}, {with its own table and ID}.', ph: [
+    { a: ['something that exists by itself', 'a thing that exists independently'], d: [['a thing that only exists when something happens', 'That is an event. An entity (an artist) exists whether or not anything happens.'], ['a column that changes over time', 'That is state: a fact about an entity, not the entity itself.'], ['a link between two tables', 'That is a relationship.']],
+      spot: { q: 'Which of these is an <b>entity</b>?', o: ['a listener', 'a stream at 21:14', 'an artist\u2019s current label', '"song belongs to artist"'], why: 'A listener exists on its own. The stream is an event, the label is state, and "belongs to" is a relationship.' } },
+    { a: ['that we keep facts about', 'that we record facts about'], d: [['that we delete facts about', 'We store facts about it. Deleting is not the point.'], ['that we store queries about', 'We store facts (data), not queries.'], ['that stores no facts', 'An entity is exactly what the facts (columns) describe.']],
+      spot: { q: 'In <code>artists(artist_id, name, label)</code>, what are name and label?', o: ['facts about the artist entity', 'other entities', 'events', 'relationships'], why: 'Columns hold facts about the entity the row stands for.' } },
+    { a: ['with its own table and primary key', 'with its own table and its own ID'], d: [['with its own column and ID', 'An entity gets a whole table. One column is just a fact.'], ['sharing a table with every other entity', 'Each entity has its own table, so each fact is stored once.'], ['with its own table but no ID', 'The ID (primary key) is how other tables point at it.']],
+      spot: { q: 'Listeners are a new entity. What do you create?', o: ['a listeners table with a listener_id primary key', 'a listener column in songs', 'a new row in artists', 'nothing: listeners are events'], why: 'A new entity gets its own table and its own ID.' } }] } },
+  'sqlr-t2': { t1: { def: 'State is {a current fact about an entity that can change}; {an UPDATE overwrites the old value}.', ph: [
+    { a: ['a current, changeable fact about an entity', 'a fact about an entity that can change'], d: [['a fact about an entity that never changes', 'State changes: labels, chart positions, cities.'], ['something that happened at a moment', 'That is an event: recorded once and never changed.'], ['a thing that exists on its own', 'That is an entity. State is a fact ABOUT an entity.']],
+      spot: { q: 'Which is <b>state</b>?', o: ['Calm Down is #1 on today\u2019s chart', 'Ada streamed Calm Down at 21:14', 'Rema (an artist)', 'songs.artist_id points at artists'], why: 'Chart position is a current fact that will change. The stream is an event, Rema is an entity, and the pointer is a relationship.' } },
+    { a: ['an UPDATE replaces the old value', 'updating overwrites the previous value'], d: [['an UPDATE adds a new row', 'Adding a new row each time is how events are stored. UPDATE changes the existing row.'], ['an UPDATE keeps the old value automatically', 'The old value is lost unless you keep history on purpose.'], ['an INSERT overwrites the old value', 'INSERT adds rows. UPDATE overwrites values.']],
+      spot: { q: 'Burna Boy moves from Spaceship to Atlantic and we run <code>UPDATE artists SET label = \'Atlantic\' WHERE artist_id = 1</code>. Where is "Spaceship" now?', o: ['gone, unless we kept history on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the label column'], why: 'UPDATE overwrites. To keep the old value you need a history table (or a slowly changing dimension).' } }] } },
+  'sqlr-t3': { t1: { def: 'An event is {something that happened at a moment}; {it is stored as a new row with a timestamp} {and never changes}.', ph: [
+    { a: ['something that happened at a point in time', 'an occurrence at a specific moment'], d: [['something that exists on its own', 'That is an entity.'], ['a current fact that can change', 'That is state.'], ['something that will happen later', 'Events are recorded after they happen.']],
+      spot: { q: 'Which is an <b>event</b>?', o: ['Ada streamed Last Last at 21:14', 'Ada (a listener)', 'Last Last\u2019s current chart position', 'Last Last belongs to Burna Boy'], why: 'Only the stream happened at a moment.' } },
+    { a: ['each one is a new row with a timestamp', 'it is recorded as a new row with its time'], d: [['it is stored by updating a row', 'Events add rows. Updating would erase the earlier event.'], ['it is stored as a new column', 'Each event is a row, not a column.'], ['it is stored as a new table', 'There is one events table with one row per event.']],
+      spot: { q: 'Ada streams Last Last again tomorrow. What happens in <code>streams</code>?', show: MT(['stream_id', 'listener_id', 'song_id', 'streamed_at'], [[1, 100, 10, '21:14']]), o: ['a new row is added', 'row 1 is updated with the new time', 'nothing: she already streamed it', 'a new column is added'], why: 'Every play is a new event row, and old events are never changed.' } },
+    { a: ['and is never updated', 'and is not changed afterwards'], d: [['and is updated when facts change', 'That describes state. An event stays as it happened.'], ['and is deleted after a day', 'Events are kept: they are the history.'], ['and changes when the entity changes', 'The event records what happened then. It does not follow later changes.']],
+      spot: { q: 'Tems changes her label next year. What happens to this year\u2019s stream rows for her songs?', o: ['nothing: past events stay as they were', 'they are updated to the new label', 'they are deleted', 'they move to a new table'], why: 'Events record what happened at that moment and do not change.' } }] } },
+  'sqlr-t4': { t1: { def: 'A relationship is {how entities connect}: {a fixed fact stored as a foreign key}, {or a link created by an event}.', ph: [
+    { a: ['how entities are connected', 'the way entities link to each other'], d: [['how columns are sorted', 'Sorting is ORDER BY.'], ['how one entity changes over time', 'That is state changing.'], ['how tables are stored on disk', 'Storage is not the logical link.']],
+      spot: { q: 'Which is a <b>relationship</b>?', o: ['Last Last belongs to Burna Boy', 'Burna Boy (an artist)', 'Burna Boy\u2019s current label', 'a stream at 21:14'], why: '"Belongs to" connects two entities. The others are an entity, state and an event.' } },
+    { a: ['a fixed fact stored in a foreign key', 'a permanent link held by a foreign key'], d: [['a fixed fact stored in a primary key', 'The primary key identifies the row itself. The link is the foreign key that points at another table.'], ['a fixed fact stored in a comment', 'It is stored as data, in a foreign key column.'], ['a fixed fact copied into every column', 'It is stored once, in one foreign key column.']],
+      spot: { q: 'Where is "song belongs to artist" stored?', show: MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2]]), o: ['songs.artist_id', 'songs.song_id', 'songs.title', 'nowhere'], why: 'The foreign key column songs.artist_id stores which artist each song belongs to.' } },
+    { a: ['or a link that an event creates', 'or a connection made by events'], d: [['or a link that exists before anything happens', 'Listener–song links do not exist until a stream happens.'], ['or a link created by a query', 'Queries read links. They do not create them in the data.'], ['or a link created by sorting', 'Sorting creates nothing.']],
+      spot: { q: 'Zainab has never streamed anything. How is she related to songs?', o: ['not at all yet: the link appears when a stream event is stored', 'through listeners.song_id', 'through artists', 'every listener is linked to every song'], why: 'Listener–song links are created by events. No stream row means no link.' } }] } },
+  'sqlr-t5': { t1: { def: 'One-to-many means {one row on one side matches many rows on the other}; {the foreign key sits on the many side}.', ph: [
+    { a: ['one row relates to many rows in the other table', 'one row on one side links to many on the other'], d: [['many rows on each side match many on the other', 'That is many-to-many.'], ['one row matches exactly one row', 'That is one-to-one.'], ['one column matches many columns', 'Relationships are between rows, not columns.']],
+      spot: { q: 'An artist has many songs, and each song has one artist. Which relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'], why: 'One artist row → many song rows.' } },
+    { a: ['the foreign key is on the many side', 'the many side holds the foreign key'], d: [['the foreign key sits on the one side', 'An artists row cannot hold one song_id per song. Each song holds its artist_id.'], ['the foreign key sits in both tables', 'One foreign key on the many side is enough.'], ['the primary key sits on the many side', 'Both tables have primary keys. The point is where the FOREIGN key goes.']],
+      spot: { q: 'Artist 1 has songs 10 and 13. Where is that link stored?', o: ['songs.artist_id, on each song row', 'artists.song_id', 'in a list inside artists.name', 'nowhere'], why: 'The many side (songs) holds the foreign key.' } }] } },
+  'sqlr-t6': { t1: { def: 'An ERD is {a diagram of entities and their relationships}: {tables as boxes, relationships as lines}.', ph: [
+    { a: ['an entity-relationship diagram', 'a diagram of tables and how they relate'], d: [['a list of queries', 'An ERD draws structure, not queries.'], ['a chart of query results', 'It is about the schema, not results.'], ['a diagram of pipeline steps', 'That is a pipeline (DAG) diagram.']],
+      spot: { q: 'Before writing a join across 4 tables, what shows you which keys connect them?', o: ['the ERD', 'the result of SELECT *', 'the ORDER BY clause', 'the row count'], why: 'The ERD shows the tables and the key lines between them.' } },
+    { a: ['boxes for tables, lines for relationships', 'tables drawn as boxes joined by lines'], d: [['boxes for rows, lines for columns', 'Boxes are tables (entities), not single rows.'], ['boxes for queries, lines for results', 'An ERD has no queries.'], ['lines for tables, boxes for relationships', 'It is the other way round.']],
+      spot: { q: 'In an ERD, a line runs from songs.artist_id to artists.artist_id. What does it mean?', o: ['songs.artist_id is a foreign key pointing at artists', 'songs and artists have the same rows', 'artists is sorted by songs', 'both tables must be deleted together'], why: 'Lines connect a foreign key to the primary key it references.' } }] } },
+  'sqlm-t1': { t1: { def: 'Many-to-many means {each row on either side can relate to many rows on the other}; {it needs a linking table}.', ph: [
+    { a: ['rows on both sides can each relate to many rows', 'each side can have many matches on the other'], d: [['each row on one side relates to many on the other', 'That is one-to-many. Many-to-many goes both ways.'], ['each row relates to exactly one row', 'That is one-to-one.'], ['each column relates to many columns', 'It is about rows.']],
+      spot: { q: 'A listener streams many songs, and a song is streamed by many listeners. Which relationship is that?', o: ['many-to-many', 'one-to-many', 'one-to-one', 'none'], why: 'There are many on both sides.' } },
+    { a: ['it is stored in a linking table', 'it needs a junction table'], d: [['it needs a foreign key in one of the two tables', 'One column holds one value per row, so it cannot list many songs.'], ['it needs a bigger primary key', 'Key size is not the problem. You need a table of pairs.'], ['it cannot be stored in SQL', 'It can, with a linking table.']],
+      spot: { q: 'Where do you store "Last Last is on both Naija Hits and Chill Vibes"?', o: ['in a playlist_songs table, one row per pair', 'in a playlist column of songs, as "Naija Hits, Chill Vibes"', 'in two copies of the songs row', 'in the playlists name column'], why: 'One row per (playlist, song) pair in a linking table.' } }] } },
+  'sqlm-t2': { t1: { def: 'A junction table {has one row per pair of related IDs}; {each ID is a foreign key to one side}.', ph: [
+    { a: ['holds one row for each related pair', 'has a row for every linked pair'], d: [['has one row per entity', 'Entity tables have one row per entity. The junction has one row per pair.'], ['has one column per pair', 'Pairs are rows, not columns.'], ['has one row per table', 'It has one row per linked pair.']],
+      spot: { q: 'playlist_songs has rows (1,10), (1,12), (2,10). What does each row mean?', show: MT(['playlist_id', 'song_id'], [[1, 10], [1, 12], [2, 10]]), o: ['one song on one playlist', 'one playlist', 'one song', 'one listener'], why: 'Each row is one pair: this song is on this playlist.' } },
+    { a: ['each ID is a foreign key to one of the tables', 'each column points to one side'], d: [['each ID is a primary key only, pointing nowhere', 'They point outward to the two entity tables as foreign keys. Together they often also form the junction\u2019s own key.'], ['each ID points to the same table', 'One points to each side.'], ['each ID is a copied name', 'They are IDs, not names.']],
+      spot: { q: 'In playlist_songs, what does song_id point to?', o: ['songs.song_id', 'playlists.playlist_id', 'playlist_songs itself', 'nothing'], why: 'It is a foreign key to the songs table.' } }] } },
   'sql1-t1': { t1: { def: 'A table is {a named set of rows and columns}; {each row is one record}.', ph: [
     { a: ['a named collection of rows and columns', 'named rows and columns'], d: [['a named set of rows', 'A table has rows AND columns: columns name the fields, rows hold the records.'], ['a named list of columns', 'Columns alone are only the structure; the rows hold the data.'], ['a named set of files', 'A table lives inside the database; it is not a set of files.']],
       spot: { q: 'Tap the <b>table</b>.', tap: [[QY('SELECT title FROM songs;'), 0], [SC_SONGS, 1], ['Rush', 0]], why: 'The table is the stored grid of rows and columns. The query only reads it; Rush is one value.' } },
@@ -2581,7 +2982,11 @@ function lessonProgress(l) {
   const ps = l.problems || []; const pp = ps.length ? ps.filter(p => S.problems[p.id] && S.problems[p.id].solved).length / ps.length : 1;
   return ip * 0.85 + pp * 0.15 * (ip > 0 ? 1 : 0);
 }
-function moduleProgress(m) { if (m.status !== 'ready') return 0; return m.lessons.reduce((a, l) => a + lessonProgress(l), 0) / m.lessons.length; }
+function moduleProgress(m) {
+  if (m.status !== 'ready') return 0; const avg = ls => ls.length ? ls.reduce((a, l) => a + lessonProgress(l), 0) / ls.length : 0;
+  // v7: lessons added by an update (l.added) can only raise the module %, never lower what learners already had
+  const orig = m.lessons.filter(l => !l.added); return Math.max(avg(m.lessons), orig.length < m.lessons.length ? avg(orig) : 0);
+}
 
 /* ---------- fade parsing ---------- */
 function plain(text) { return text.replace(/\{\{|\}\}/g, '').replace(/\[\[(.+?)\]\]/g, (m, a) => a.split('|')[0]); }
@@ -2696,7 +3101,16 @@ const codeIds = l => l.itemIds.filter(x => ITEMS[x].kind !== 'term');
 // v4: a lesson counts as started from its code/Q&A items only, so slow terms never hold lessons back
 function lessonStarted(id) { const l = LESSONS[id]; return !!(l && ((S.theory[id] && codeIds(l).every(x => S.items[x])) || (E && E.placed[id]))); }
 function moduleUnlocked(m) { return !m.requires || m.requires.every(lessonStarted); }
+function lessonOpen(l) { return !E.placed[l.id] && (!S.theory[l.id] || codeIds(l).some(id => !S.items[id])); }
+// v7: a lesson added by an update (l.added) before one the learner already started ("gap" lesson) is offered first, one a day in the normal
+// new-lesson slot. It is never locked; fresh learners simply meet it in curriculum order.
+function gapLesson() {
+  for (const m of orderedReadyModules()) if (moduleUnlocked(m)) { const ls = m.lessons;
+    for (let i = 0; i < ls.length; i++) if (ls[i].added && !S.theory[ls[i].id] && lessonOpen(ls[i]) && ls.slice(i + 1).some(x => S.theory[x.id] || E.placed[x.id])) return ls[i]; }
+  return null;
+}
 function nextLesson() {
+  const g = gapLesson(); if (g) return g;
   for (const m of orderedReadyModules()) if (moduleUnlocked(m)) for (const l of m.lessons) {
     if (E.placed[l.id]) continue;
     if (!S.theory[l.id] || codeIds(l).some(id => !S.items[id])) return l;
@@ -3122,7 +3536,7 @@ function viewRoadmap() {
       (m.repo ? '<div class="small">Repo: <a href="' + m.repo + '" target="_blank" rel="noopener">' + esc(m.repo.replace('https://', '')) + '</a></div>' : '');
     if (ready) {
       h += bar(p) + (S.settings.focus === m.id ? '<div class="small ok">★ Current focus: new lessons come from here first</div>' : '<button class="btn small" data-act="focus" data-m="' + m.id + '">Make this my focus</button>');
-      h += '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + (E.placed[l.id] ? ' <small class="ok">✓ tested out</small>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>';
+      h += '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + (E.placed[l.id] ? ' <small class="ok">✓ tested out</small>' : '') + (l.added && !S.theory[l.id] && !E.placed[l.id] && !(nl && nl.id === l.id) ? ' <b class="new">NEW</b>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>';
     } else h += '<ol class="lessons soon">' + m.lessons.map(l => '<li><span>' + esc(l.title) + '</span></li>').join('') + '</ol>';
     return h + '</section>';
   }).join('');
@@ -3203,7 +3617,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v6.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v7.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -3868,6 +4282,10 @@ function phraseDistractors(id, ti, pi, n) {
     Object.keys(T4).forEach(o => { if (o !== id && ITEMS[o].lesson === it.lesson) T4[o].tiers[0].ph.forEach(p => pool.push({ t: p.t, d: Math.abs(p.t.split(/\s+/).length - wc), f: ITEMS[o].front })); });
     shuffle(pool).sort((a, b) => a.d - b.d).forEach(p => add(p.t, 'That phrase belongs to "' + p.f + '".'));
   }
+  if (out.length < n) { // v7: short lessons (2 terms) borrow from the lesson just before in the same module
+    const L = LESSONS[ITEMS[id].lesson]; const m = CURRICULUM.modules.find(x => x.lessons.includes(L)); const prev = m && m.lessons[m.lessons.indexOf(L) - 1];
+    if (prev) Object.keys(T4).forEach(o => { if (ITEMS[o].lesson === prev.id) T4[o].tiers[0].ph.forEach(p => add(p.t, 'That phrase belongs to "' + ITEMS[o].front + '".')); });
+  }
   return out.slice(0, n);
 }
 function spotQuestion(id, ti, pi) {
@@ -4021,6 +4439,7 @@ function wholeCheck(input, tr) { return tr.ph.map(p => p.a.some(a => coverage(in
 function learnHowHTML() {
   return '<ul class="plan learn">' +
     '<li><b>🔍 See it first.</b> Anything that changes the shape of data (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) starts with pictures: the input tables, the query, and the result table, with kept rows ✓, rows with no match ◐ (their NULLs shown), dropped rows ✕ and duplicates ⧉. You can run each query for real. Then visual questions (tap the rows that survive, predict the row count, explain a NULL, run it yourself), and only then the theory, building blocks and definition phrases. Terms of an illustrated lesson start after you have seen its pictures. If you read a lesson before pictures existed, one lesson\'s pictures are added per day.</li>' +
+    '<li><b>🖼 Every abstract idea, from several angles.</b> Not just SQL: entities and relationships, pipelines, orchestration, cloud and data modelling are each shown as pictures (tables, diagrams, timelines, arrows) from more than one angle before any definition. Example: before joins you see why data is split, what an entity, state, event and relationship are, and an ERD of what can join to what.</li>' +
     '<li><b>🧱 Building blocks first.</b> Words like row, column, result rows, expression and condition are learned once with a real mini table, query and output (tap the actual thing). A term\'s definition starts only after its building blocks are grounded (right on 2 different days).</li>' +
     '<li><b>🧩 One phrase at a time.</b> Each definition is split into short phrases. The next phrase starts only after the current one is fully mastered.</li>' +
     '<li><b>✋ Pick → ⌨️ Type → 🔎 Spot.</b> A phrase is mastered when you have: picked it from options, typed it without options, and spotted it in a real query, table or scenario, each right on a <b>different day</b>. A term moves at most one step a day. A miss drops one step. After all phrases, you write the whole definition on another day.</li>' +
@@ -4056,11 +4475,15 @@ const ACT = {
     try { F.run = tableHTML(await runIll(sc.sql, st.lesson), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
     render(); },
   vqTap: el => { if (F.done) return; const i = +el.dataset.r; const k = F.sel.indexOf(i); if (k >= 0) F.sel.splice(k, 1); else F.sel.push(i); render(); },
+  vqTapC: el => { if (F.done) return; F.sel = [+el.dataset.c]; render(); },
+  vqCls: el => { if (F.done) return; F.vals[+el.dataset.i] = +el.dataset.c; render(); },
   vqPick: el => { if (F.done) return; F.pick = +el.dataset.k; finishVQ(F.opts[F.pick].i === 0); render(); },
   vqRun: async () => { const st = SESSION.steps[SESSION.i]; F.code = document.getElementById('vqCode').value;
     try { F.out = tableHTML(await runIll(F.code, st.lesson), 20); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; } render(); },
   vqCheck: async () => {
     const st = SESSION.steps[SESSION.i]; const q = F.q;
+    if (q.k === 'tapc') { if (!F.sel.length) { toast('Tap a column header'); return; } finishVQ(F.sel[0] === q.ans[0]); render(); return; }
+    if (q.k === 'cls') { if (F.vals.some(v => v == null)) { toast('Sort every item first'); return; } const bad = q.items.filter((it, i) => F.vals[i] !== it[1]).length; finishVQ(!bad, bad ? bad + ' of ' + q.items.length + ' in the wrong group.' : ''); render(); return; }
     if (q.k === 'tap') { if (!F.sel.length) { toast('Tap at least one row'); return; } const ok = F.sel.length === q.ans.length && q.ans.every(i => F.sel.includes(i)); finishVQ(ok); render(); return; }
     F.code = document.getElementById('vqCode').value; if (/____/.test(F.code)) { toast('Fill in the ____ blanks first'); return; }
     try {
@@ -4070,7 +4493,7 @@ const ACT = {
     } catch (err) { F.out = '<div class="bad small">SQL error: ' + esc(err.message) + '</div>'; finishVQ(false, 'The query has an error.'); }
     render();
   },
-  vqIdk: () => { if (F.q.k === 'tap') F.sel = F.q.ans.slice(); if (F.q.k === 'mc') F.pick = -1; finishVQ(false); render(); },
+  vqIdk: () => { if (F.q.k === 'tap' || F.q.k === 'tapc') F.sel = F.q.ans.slice(); if (F.q.k === 'cls') F.vals = F.q.items.map(it => it[1]); if (F.q.k === 'mc') F.pick = -1; finishVQ(false); render(); },
   theoryDone: () => { const st = SESSION.steps[SESSION.i]; const first = !S.theory[st.lesson]; S.theory[st.lesson] = S.theory[st.lesson] || today(); addXP(first ? 10 : 3); SESSION.stats.theory++; nextStep(); },
   chip: el => { const i = +el.dataset.i; const slot = F.chosen.indexOf(null); if (slot < 0 || F.used[i]) return; F.chosen[slot] = i; F.used[i] = true; render(); },
   unslot: el => { if (F.checked) return; const s = +el.dataset.i; const v = F.chosen[s]; if (v == null) return; F.used[v] = false; F.chosen[s] = null; render(); },

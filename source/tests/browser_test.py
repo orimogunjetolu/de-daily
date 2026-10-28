@@ -6,13 +6,14 @@ It builds a scratch web root in source/tests/.www with
   v3/  = index.html of commit 371b94a (v3: deLearn.v1 + deLearn.ext)
   v4/  = index.html of commit c35b2c9 (v4: + deLearn.terms)
   v5/  = index.html of commit 051a0fb (v5: + fast lane fields in deLearn.terms)
+  v6/  = index.html of commit f5aa839 (v6: + deLearn.terms.vis, picture-first lessons)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -70,6 +71,12 @@ def drive(page, maxsteps=300, wrong_every=4):
                 n += 1; wrong = wrong_every and n % wrong_every == 0; seen.add('vq')
                 q = page.evaluate("({ k: F.q.k, ok: F.opts ? F.opts.findIndex(o => o.i === 0) : -1, ans: F.q.ans || [], sol: F.q.sol || '' })")
                 if q['k'] == 'mc': c(f'[data-act="vqPick"][data-k="{(q["ok"] + (1 if wrong else 0)) % page.locator("[data-act=vqPick]").count()}"]')
+                elif q['k'] == 'cls':
+                    its = page.evaluate("F.q.items.map(it => it[1])")
+                    for i, cat in enumerate(its): c(f'[data-act="vqCls"][data-i="{i}"][data-c="{(cat + (1 if wrong and i == 0 else 0)) % 4}"]')
+                    c('[data-act="vqCheck"]')
+                elif q['k'] == 'tapc':
+                    c(f'[data-act="vqTapC"][data-c="{(q["ans"][0] + (1 if wrong else 0)) % 3}"]'); c('[data-act="vqCheck"]')
                 elif q['k'] == 'tap':
                     for r in (q['ans'] if not wrong else q['ans'][:1] + [x for x in range(9) if x not in q['ans']][:1]): c(f'[data-act="vqTap"][data-r="{r}"]')
                     c('[data-act="vqCheck"]')
@@ -188,15 +195,89 @@ def joins_390(br):
         ov = page.evaluate("document.documentElement.scrollWidth"); check(ov <= 390, f'joins picture {k}: no horizontal page overflow at 390px (scrollWidth {ov})')
         if page.locator('[data-act="illRun"]').count():
             page.click('[data-act="illRun"]'); page.wait_for_selector('.ill-run table, .ill-run .ill-err', timeout=8000); ran += 1
-        if SHOTS: page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{SHOTS}/v6-joins-{k}.png', full_page=True)
-        if k == 3: check('NULL' in h and 'Asake' in h, 'LEFT JOIN picture shows Asake with a visible NULL')
+        if SHOTS: page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{SHOTS}/v7-joins-{k}.png', full_page=True)
+        if k == 1: check(page.locator('svg.erd').count() == 1 and 'follow' in h.lower(), 'joins open with the ERD arrow ("joins follow the arrow")')
+        if k == 4: check('NULL' in h and 'Asake' in h, 'LEFT JOIN picture shows Asake with a visible NULL')
         page.click('[data-act="illNext"]')
-    check(k == 6 and ran >= 4, f'joins lesson: 6 pictures, real queries run in the app ({ran})')
+    check(k == 7 and ran >= 4, f'joins lesson: 7 pictures, real queries run in the app ({ran})')
     txt = page.inner_text('main'); check('Tap' in txt and page.locator('[data-act="vqTap"]').count() == 3, 'first visual question: tap the artists rows')
     if SHOTS: page.screenshot(path=f'{SHOTS}/v6-joins-tap.png', full_page=True)
     n, seen = drive(page, wrong_every=3); check(n > 0 and 'vq' in seen, f'joins lesson completes ({n} steps)')
     check(json.loads(get(page, 'deLearn.terms'))['vis']['sql5']['seen'] is not None, 'pictures marked seen in deLearn.terms.vis')
     check(not errs, 'no JS errors (joins 390px): ' + '; '.join(errs[:5])); ctx.close()
+
+def lesson_390(br, lid, nscenes, shot):
+    # a v7 lesson at phone width: every picture renders, nothing overflows, every query runs, all question kinds work
+    ctx = br.new_context(service_workers='block', viewport={'width': 390, 'height': 844}, device_scale_factor=2); page = ctx.new_page(); errs = []
+    page.on('pageerror', lambda e: errs.append(str(e))); page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    page.evaluate(f"startSession(buildLessonSession('{lid}'))")
+    k = 0; ran = 0; figs = set()
+    while page.locator('[data-act="illNext"]').count():
+        k += 1
+        ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
+        wide = page.evaluate("[...document.querySelectorAll('main svg, main .ill-ins, main .entf, main .stl, main .evf, main .cls')].filter(e => e.getBoundingClientRect().right > 390.5).length")
+        check(ov <= 390 and wide == 0, f'{lid} picture {k}: no overflow at 390px (scrollWidth {ov}, wide parts {wide})')
+        for f in ['svg.erd', 'svg.bip', '.entf', '.stf', '.evf']:
+            if page.locator(f).count(): figs.add(f)
+        if page.locator('[data-act="illRun"]').count():
+            page.click('[data-act="illRun"]'); page.wait_for_selector('.ill-run table, .ill-run .ill-err', timeout=8000); ran += 1
+            check(page.locator('.ill-run .ill-err').count() == 0, f'{lid} picture {k}: query runs in the app')
+        if SHOTS: page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{SHOTS}/{shot}-{k}.png', full_page=True)
+        page.click('[data-act="illNext"]')
+    check(k == nscenes, f'{lid}: {nscenes} pictures ({k}), {ran} real queries run; figures {sorted(figs)}')
+    kinds = set(); qn = 0
+    while page.locator('[data-act="vqCheck"], [data-act="vqPick"]').count():
+        qn += 1; q = page.evaluate("F.q.k"); kinds.add(q)
+        if SHOTS and q in ('cls', 'tapc'): page.screenshot(path=f'{SHOTS}/{shot}-q-{q}.png', full_page=True)
+        ov = page.evaluate("document.documentElement.scrollWidth"); check(ov <= 390, f'{lid} question {qn} ({q}): no overflow ({ov})')
+        n, _ = drive(page, maxsteps=1, wrong_every=0)
+        fb = page.inner_text('main'); check('Correct' in fb, f'{lid} question {qn} ({q}) answered correctly is marked correct')
+        if SHOTS and q == 'cls': page.screenshot(path=f'{SHOTS}/{shot}-q-cls-done.png', full_page=True)
+        page.click('[data-act="next"]')
+    print(f'  [{lid}] question kinds:', sorted(kinds))
+    n, seen = drive(page, wrong_every=3); check(n > 0, f'{lid} lesson completes ({qn} picture questions, {n} more steps)')
+    check(json.loads(get(page, 'deLearn.terms'))['vis'][lid]['seen'] is not None, f'{lid} pictures marked seen')
+    check(not errs, f'no JS errors ({lid} 390px): ' + '; '.join(errs[:5])); ctx.close()
+    return kinds
+
+def preserve_v6(br):
+    # real v6 state: crafted v1, v3/v4/v5 sessions, a v6 daily session and the v6 joins lesson (so the learner is past joins); then load v7
+    ctx, page, errs = ctxpage(br); label = 'from v6 f5aa839'
+    page.goto(f'{BASE}/v3/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v4/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v5/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v6/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.evaluate("startSession(buildLessonSession('sql5'))"); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    v1, ext, t6 = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), json.loads(get(page, 'deLearn.terms')); oldprog = page.evaluate(PROG)
+    oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    check(get(page, 'deLearn.v1') == v1 and get(page, 'deLearn.ext') == ext, f'[{label}] deLearn.v1 and deLearn.ext byte-identical after loading v7')
+    t7 = json.loads(get(page, 'deLearn.terms'))
+    same = all(k in t7['terms'] and [p['s'] for p in t7['terms'][k]['ph']] == [p['s'] for p in v['ph']] and t7['terms'][k]['st'] == v['st'] for k, v in t6['terms'].items()) and all(t7.get(k) == t6.get(k) for k in ['ground', 'log', 'daily', 'fast', 'vis'])
+    check(same, f'[{label}] deLearn.terms kept (terms, phrase steps, blocks, log, daily, fast lane, pictures seen)')
+    newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
+    newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
+    check(not lowm, f'[{label}] no module % lowered by the new lessons ' + str(lowm))
+    nl = page.evaluate("nextLesson().id"); check(nl == 'sqlr', f'[{label}] learner past joins: next lesson is Entities, events & relationships ({nl})')
+    page.click('nav [data-to="roadmap"]'); rm = page.inner_text('main')
+    check('Entities, events & relationships' in rm and 'Many-to-many' in rm, f'[{label}] roadmap lists both new lessons')
+    li_r = page.inner_text('li[data-l="sqlr"]'); li_m = page.inner_text('li[data-l="sqlm"]')
+    check('NEXT' in li_r and 'NEW' in li_m and '🔒' not in li_r + li_m, f'[{label}] new lessons shown as NEXT / NEW, not locked')
+    if SHOTS: page.screenshot(path=f'{SHOTS}/v7-roadmap-existing.png', full_page=True)
+    page.click('li[data-l="sqlm"]'); check(page.locator('[data-act="startLesson"]').count() == 1, f'[{label}] many-to-many lesson opens (unlocked)')
+    page.evaluate("go('home')"); page.click('#startBtn'); n, seen = drive(page)
+    check(n > 0 and 'illNext' in seen, f'[{label}] v7 daily session with the new lesson\'s pictures completes ({n} steps)')
+    t7b = json.loads(get(page, 'deLearn.terms')); check(t7b['vis'].get('sqlr', {}).get('seen') and not t7b['vis'].get('sqlm', {}).get('seen'), f'[{label}] one new lesson a day: sqlr pictures seen, sqlm waits')
+    after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1)
+    check(after['xp'] >= old['xp'] and all(k in after['theory'] for k in old['theory']), f'[{label}] XP {old["xp"]}→{after["xp"]}, theory marks kept')
+    lowt = [k for k, v in t6['terms'].items() if k in t7b['terms'] and t7b['terms'][k].get('tier', 0) == v.get('tier', 0) and any(a['s'] < b['s'] for a, b in zip(t7b['terms'][k]['ph'], v['ph']))]
+    check(not lowt, f'[{label}] no term phrase step lowered after a v7 session ' + str(lowt[:5]))
+    check(get(page, 'deLearn.ext') == ext or json.loads(get(page, 'deLearn.ext'))['placed'] == json.loads(ext)['placed'], f'[{label}] placement record unchanged')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
 def fast_lane_ui(br):
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -216,7 +297,7 @@ with sync_playwright() as p:
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn'); page.click('[data-act="startFresh"]')
     page.click('#startBtn'); check(page.locator('[data-act="helpDone"]').count() == 1, 'first session after the update opens with "How learning works"')
     txt = page.inner_text('main')
-    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'Fast lane', 'See it first', 'pacing', 'Placement', 'never reset']), 'help covers every rule')
+    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'Fast lane', 'See it first', 'Every abstract idea', 'pacing', 'Placement', 'never reset']), 'help covers every rule')
     if SHOTS: page.screenshot(path=f'{SHOTS}/v4-help.png', full_page=True)
     n, seen = drive(page); check(n > 0 and 'term:ground:None' in seen, f'fresh session completes with grounding ({n} steps; {sorted(seen)})')
     page.click('main.summary [data-to="home"]'); page.click('#startBtn')
@@ -227,7 +308,10 @@ with sync_playwright() as p:
     if SHOTS: page.screenshot(path=f'{SHOTS}/v4-learn.png', full_page=True)
     preserve_v4(br)
     preserve_v5(br)
+    preserve_v6(br)
     joins_390(br)
+    k1 = lesson_390(br, 'sqlr', 11, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
+    lesson_390(br, 'sqlm', 5, 'v7-sqlm')
     fast_lane_ui(br)
     # simulate following days by moving the clock forward
     forms = set()
@@ -248,7 +332,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v6' in caches, 'service worker cache de-daily-v6: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v7' in caches, 'service worker cache de-daily-v7: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()

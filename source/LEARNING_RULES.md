@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v6)
+# DE Daily: learning rules (v7)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -43,6 +43,23 @@ Data lives in `ILLUS` in `app.js` (block "v6 ILLUSTRATIONS", just before `GROUND
 - For scenes with no SQL (e.g. raw JSON in pj3), use `ins: [{raw, role}]` and `code` instead of `sql`.
 - Questions: `{k:'mc', q, o:[correct first, …], why}` (options are shuffled), `{k:'tap', t, ans:[row idx], why}`, `{k:'run', code: '… ____ …', sol, forbid?, why}`. `run` is checked by comparing the result with `sol` on the lesson's tables. `forbid` is a regex that marks a correct-looking answer wrong when it uses a banned keyword (e.g. "without RIGHT JOIN").
 - Order scenes from the simplest to the most surprising, and put the definition words in `say` only *after* the picture shows the behaviour.
+
+## 0a. STANDING RULE (v7): every abstract concept is taught visually, from several angles
+
+This applies to **every module**, not only SQL: data modelling, pipelines, orchestration, cloud, streaming, testing, and anything added later. A beginner cannot learn an abstract idea from a definition alone. Before any definition phrase, show the idea as pictures from **at least two angles**, for example:
+
+- the data itself (before/after tables, with marked rows);
+- a diagram of the structure (an ERD, a DAG, an architecture box-and-arrow diagram);
+- change over time (a timeline of events, a value being overwritten, a schedule);
+- a counter-example: what goes wrong without the idea (the messy single table, a duplicated load, a missed dependency).
+
+Then ask visual questions on the same pictures (tap, classify, pick, run), and only then teach the theory and terms. A lesson that introduces an abstract concept without an `ILLUS[lessonId]` entry is incomplete. Figures available in the engine: before/after tables (`ins`/`out`/`after`), Venn, LEFT/RIGHT, row flow, `erd` (boxes + FK→PK lines with crow's feet), `bip` (who links to whom; dashed = created by an event), `ent`, `state`, `events`, `kinds`. Add a new figure function to `ILL_FIGS` when a module needs one (for example a DAG for orchestration).
+
+Question kinds: `mc`, `tap` (rows), `tapc` (tap a column header, `ans: [colIdx]`), `cls` (sort items into categories, `cats`, `items: [[html, catIdx]]`), `run` (fill the ____ and run).
+
+**v7 lessons.** *Entities, events & relationships* (`sqlr`, before JOINs) covers why data is split (the update and typo problems), entity / state / event / relationship (what exists on its own, and what exists only because an event happened), primary and foreign keys as arrows, one-to-many, one-to-one and many-to-many, a small ERD, and which tables can and cannot be joined. JOINs now open with "a join follows the arrow". *Many-to-many: two joins* (`sqlm`, after JOINs) covers linking tables and two-join queries. Primary key and foreign key reuse the existing sql1 terms, so they are not duplicated. New building block: `entity`.
+
+**Adding lessons for existing learners.** Mark a lesson inserted into an existing module with `added: <version>`. `gapLesson()` offers a not-started lesson that sits before one the learner has already started or tested out of first, one a day in the normal new-lesson slot. It is never locked, its pictures come first, and its terms wait for the pictures. Fresh learners meet it in curriculum order. `moduleProgress` never shows less than the average over the original lessons, so an added lesson cannot pull a module's percentage down. Placement only marks lessons as placed when a test is taken, so new placement items do not change anyone's stored placement.
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
@@ -182,6 +199,9 @@ Data lives in `ILLUS` in `app.js` (block "v6 ILLUSTRATIONS", just before `GROUND
 - Terms without `TERMS4` still work: tier 1 is the existing definition, split by `TERM_BITES` pieces or `autoPieces()`. SPOT comes from v3 aspects, otherwise "spot the accurate definition" among versions with this phrase swapped for its near-misses.
 
 ## 9. Tests
+
+v7: `node source/tests/t7_relations.js` checks lesson order, gap scheduling for existing learners, that fresh learners are unaffected, that placement and stored progress are untouched, and that every new code item and problem runs on the dataset. `t6_illus.js` also validates `cls` and `tapc` questions.
+
 - `node source/tests/t4_logic.js`: logic and data tests, including a simulated 60 days.
 - `node source/tests/t5_fastlane.js`: fast lane. It turns on only after a consistent run (a small day neither counts nor breaks the run; a counted slip resets it) and turns off at once on a slip or a rolling dip. It also checks the caps (5 active, 2 new a day), the term budget, one step a day, identical code, and that paused terms keep their credit.
 - `node source/tests/t6_illus.js`: illustrations. Every scene's SQL runs on real sql.js and must match the drawn result. Every visual question's answer is checked (tap indexes, unique mc options, `run` solutions run and respect `forbid`). It also checks the flow: pictures → questions → theory in lesson and daily sessions, no terms from a lesson on the day its pictures are first shown, and terms starting once the pictures are seen. For existing learners it checks one catch-up lesson a day, terms in progress first, catch-up before term practice, and no progress lowered.

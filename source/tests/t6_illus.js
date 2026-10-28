@@ -26,6 +26,8 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
       if (q.k === 'mc') good = q.o.length >= 3 && new Set(q.o).size === q.o.length;
       else if (q.k === 'tap') { const t = L.tables[q.t]; good = !!t && q.ans.length > 0 && q.ans.every(k => k < t.r.length);
         if (good && q.sql && /^\s*(SELECT|WITH)/i.test(q.sql) && !/____/.test(q.sql)) { try { const r = await runIll(q.sql, lid); why = norm(r.values); } catch (e) { good = false; why = q.sql + ' :: ' + e.message; } } }
+      else if (q.k === 'cls') good = q.cats.length >= 2 && q.items.length >= 3 && q.items.every(it => it[1] >= 0 && it[1] < q.cats.length) && q.cats.every((_, c) => q.items.some(it => it[1] === c));
+      else if (q.k === 'tapc') { const t = L.tables[q.t]; good = !!t && q.ans.length === 1 && q.ans[0] < t.c.length; }
       else if (q.k === 'run') { try { const s = await runIll(q.sol, lid); good = s.values.length > 0 && !(q.forbid && new RegExp(q.forbid, 'i').test(q.sol)) && /____/.test(q.code);
           if (q.forbid) { const alt = q.alt ? await runIll(q.alt, lid) : null; if (alt) good = good && compareResults(alt, s, false).ok; } } catch (e) { why = e.message; } }
       out.qs.push([lid + ' q' + i + ' ' + q.k, good, why]); } }
