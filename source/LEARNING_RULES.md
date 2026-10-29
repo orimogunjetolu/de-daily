@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v7)
+# DE Daily: learning rules (v8)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -59,7 +59,25 @@ Question kinds: `mc`, `tap` (rows), `tapc` (tap a column header, `ans: [colIdx]`
 
 **v7 lessons.** *Entities, events & relationships* (`sqlr`, before JOINs) covers why data is split (the update and typo problems), entity / state / event / relationship (what exists on its own, and what exists only because an event happened), primary and foreign keys as arrows, one-to-many, one-to-one and many-to-many, a small ERD, and which tables can and cannot be joined. JOINs now open with "a join follows the arrow". *Many-to-many: two joins* (`sqlm`, after JOINs) covers linking tables and two-join queries. Primary key and foreign key reuse the existing sql1 terms, so they are not duplicated. New building block: `entity`.
 
-**Adding lessons for existing learners.** Mark a lesson inserted into an existing module with `added: <version>`. `gapLesson()` offers a not-started lesson that sits before one the learner has already started or tested out of first, one a day in the normal new-lesson slot. It is never locked, its pictures come first, and its terms wait for the pictures. Fresh learners meet it in curriculum order. `moduleProgress` never shows less than the average over the original lessons, so an added lesson cannot pull a module's percentage down. Placement only marks lessons as placed when a test is taken, so new placement items do not change anyone's stored placement.
+**Adding lessons for existing learners.** Mark a lesson inserted into an existing module with `added: <version>`. `gapLesson()` offers a not-started lesson that sits before one the learner has already started or tested out of first, one a day in the normal new-lesson slot. It is never locked, its pictures come first, and its terms wait for the pictures. Fresh learners meet it in curriculum order. `moduleProgress` never shows less than the average over the original lessons, so an added lesson cannot pull a module's percentage down. Placement only marks lessons as placed when a test is taken, so new placement items do not change anyone's stored placement. (v8: the floor is kept for every release. For each `added` version v, the average over the lessons that existed before v is a floor, so a v7 learner who started the v7 lessons never sees the module % drop when v8 adds a lesson.)
+
+## 0b. STANDING RULES (v8): inside a table before between tables; assess by transfer
+
+**Table anatomy comes before relationships.** A learner must be able to picture what is *inside* one table before learning how tables connect. Lesson `sqlt` *What's inside a table* (added in v8, between *Grain* `sql4` and *Entities, events & relationships* `sqlr`) teaches, in pictures first:
+- the parts of a table on the real `songs` table, with numbered pins: table name, column, row (record), cell, data type, primary key, foreign key; then the same table as its `CREATE TABLE` blueprint (the schema), and a real `pragma_table_info` query;
+- the grain: one row = one what (proved with a GROUP BY that returns one row per chart day);
+- how to decide where a column goes: ask *what does this fact describe?* and *does it exist only because something happened?* A before/after shows one wide chart table (artist name and genre copied on every row = redundancy) split into `artists`, `songs` and `chart_entries`; a counter-example shows what happens when an event fact (position) is put on an entity (it gets overwritten and the history is lost);
+- where the ID goes: the foreign key sits on the **many** side (a song has one artist → `songs.artist_id`, never a list of song IDs in `artists`), and an event table carries the IDs of everything involved (`streams.song_id`, `streams.listener_id`);
+- a blueprint card for every practice table (`artists`, `songs`, `listeners`, `playlists`, `chart_entries`, `streams`, `playlist_songs`): entity / event / link, the grain, every column with its type, PK/FK tag and the reason it lives there, and a real sample row. `t8_tables.js` fails if a blueprint's columns differ from the dataset.
+
+New terms (with tiers, near-miss distractors and building blocks): **Cell**, **Data type**, **Redundancy**. Table, Primary key, Foreign key, Schema and Grain are reused, not duplicated.
+
+**Assess by transfer.** Understanding is shown by applying the idea to data the learner has not seen. A lesson's visual questions must include tables from other domains, not only the music practice data. `sqlt` has 16 questions; 13 are outside music: a shop (customers, products, orders, order_items, carts), a hospital (patients, doctors, appointments), a school (students, courses, enrolments) and a bank (accounts, transactions). Question types: which table does this column belong in; entity / state / event; which table holds the linking ID; spot the badly designed table (repeated columns, a list in one cell, copied details); and what one row stands for. Every wrong answer is explained:
+- `mc` questions can carry `w: [null, why option 1 is wrong, …]` (aligned with `o`; index 0 is the correct option). After answering, the learner sees *Why the other answers are wrong*, with their own pick first and highlighted.
+- `cls` items can carry a third element, `[html, catIdx, why]`. After checking, each item shows its correct box (if it was sorted wrongly) and why.
+- `show: html` draws a table into the question itself (for "spot the problem"); `ref: false` hides the lesson's *Show the tables* block when the question is about other data.
+
+New figures in `ILL_FIGS`: `anat` (numbered table anatomy), `ddl` (CREATE TABLE with PK/FK tags), `place` (column → what it describes → table), `bp` (blueprint cards), `ask` (the three questions to ask, with a shop ERD). `state` takes `fp.thing` and `fp.lost` labels.
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
@@ -199,6 +217,8 @@ Question kinds: `mc`, `tap` (rows), `tapc` (tap a column header, `ans: [colIdx]`
 - Terms without `TERMS4` still work: tier 1 is the existing definition, split by `TERM_BITES` pieces or `autoPieces()`. SPOT comes from v3 aspects, otherwise "spot the accurate definition" among versions with this phrase swapped for its near-misses.
 
 ## 9. Tests
+
+v8: `node source/tests/t8_tables.js` checks the order sql4 → sqlt → sqlr, that a v7 learner (everything up to many-to-many read) gets sqlt as the next, unlocked gap lesson with nothing stored changed and no lesson or module % lowered, that fresh learners are unaffected, that sqlt's code and problem run on the dataset, that every blueprint matches the real table, 12+ pictures and 12+ questions with most outside music and all four transfer domains present, that every mc wrong option and every sorting item is explained, and that the new terms are fully wired. `browser_test.py` adds v7 (19df660) saved state: deLearn.v1, deLearn.ext and deLearn.terms byte-identical after loading v8, then a v8 daily session.
 
 v7: `node source/tests/t7_relations.js` checks lesson order, gap scheduling for existing learners, that fresh learners are unaffected, that placement and stored progress are untouched, and that every new code item and problem runs on the dataset. `t6_illus.js` also validates `cls` and `tapc` questions.
 

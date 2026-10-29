@@ -124,6 +124,25 @@ table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px va
 .erd .el{fill:none;stroke:var(--ink);stroke-width:1.4}.erd .el.hl{stroke:var(--pri);stroke-width:2.2}.erd .el.dim{opacity:.35}.erd .elab{font:600 9px system-ui,sans-serif;fill:var(--muted)}
 .bip{width:100%;max-width:320px;height:auto}.bip .bl{stroke:var(--pri);stroke-width:2}.bip .bl.dash{stroke-dasharray:5 4}.bip .bd{fill:var(--ink)}.bip .bt{font:11px system-ui,sans-serif;fill:var(--ink)}.bip .bt.lone{fill:var(--muted);font-style:italic}.bip .bh{font:700 11px system-ui,sans-serif;fill:var(--muted)}
 .figcap{font-size:.8rem;color:var(--muted);text-align:left;margin:4px 2px 8px}.kind{border:1px dashed var(--line);border-radius:10px;padding:6px 8px;margin:6px 0}.kh{font-weight:700;text-align:left}
+/* v8: table anatomy, schema, column placement, blueprints, transfer */
+.pin{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:99px;background:#7c3aed;color:#fff;font:700 11px system-ui,sans-serif;margin-right:4px;vertical-align:middle;flex:0 0 auto}
+.anat{text-align:left}.an-name{font-weight:700;margin:2px 0 6px}table.anat-t{font-size:11px}table.anat-t td,table.anat-t th{font-size:11px;padding:3px 4px;vertical-align:middle;white-space:normal;overflow-wrap:anywhere}
+table.anat-t .an-pk{background:#fdf3e1}table.anat-t .an-fk{background:#e3f5ec}table.anat-t .an-g{background:none;border:0;padding:1px;width:20px}
+table.anat-t tr.an-type td{font:600 10px ui-monospace,monospace;color:var(--muted);font-style:italic}table.anat-t tr.an-row td:not(.an-g){box-shadow:inset 0 2px 0 #7c3aed,inset 0 -2px 0 #7c3aed}
+table.anat-t td.an-cell{outline:2.5px solid #7c3aed;outline-offset:-3px;font-weight:700}
+@media (prefers-color-scheme:dark){table.anat-t .an-pk{background:#33280f}table.anat-t .an-fk{background:#123326}}
+.an-key,.ask{list-style:none;padding:0;margin:8px 0;display:flex;flex-direction:column;gap:5px;font-size:.86rem}.an-key li,.ask li{display:flex;gap:6px;align-items:flex-start}
+.ddl{text-align:left;background:var(--code);color:var(--codeink);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.ddl code{background:none;color:inherit;padding:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px}.ddl-t{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 0 12px}
+.tg{display:inline-block;font:700 10px system-ui,sans-serif;border-radius:99px;padding:1px 7px;background:var(--chip);color:var(--muted);border:1px solid var(--line)}.tg.pk{color:#b45309;background:#fdf3e1;border-color:#f5d8a8}.tg.fk{color:var(--pri);background:var(--okbg);border-color:#b8e4cd}
+.plc{display:flex;flex-direction:column;gap:5px;text-align:left;margin:6px 0}.plc-r{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:5px 8px;font-size:.86rem;background:var(--card)}
+.plc-r.en,.plc-k.en{border-left-color:var(--easy)}.plc-r.ev,.plc-k.ev{border-left-color:var(--meh)}.plc-k{border-left:4px solid;padding-left:4px;font-weight:600}
+.bps{display:flex;flex-direction:column;gap:8px;text-align:left}.bp{border:1.5px solid var(--line);border-left:5px solid var(--easy);border-radius:10px;padding:8px 10px;background:var(--card)}.bp.event{border-left-color:var(--meh)}.bp.link{border-left-color:#7c3aed}
+.bp-h{font-weight:700}.bp-c{display:flex;flex-direction:column;gap:3px;margin:6px 0}.bp-r{border-top:1px dashed var(--line);padding-top:3px}.ty{font:600 10px ui-monospace,monospace;color:var(--muted)}
+.whyw{text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:.88rem}.whyw ul{margin:4px 0 0;padding-left:18px}.whyw li{margin:3px 0}.whyw li.picked{background:var(--badbg);border-radius:6px;padding:2px 4px}
+.cls-w{margin-top:4px}
+@media (max-width:430px){.ill-scroll table.mini th,.ill-scroll table.mini td{padding:3px 5px;font-size:.74rem}.bp table.mini th,.bp table.mini td{padding:2px 4px;font-size:10.5px}.ill-scroll table.mini th{white-space:normal;overflow-wrap:anywhere}.ill-scroll table.mini td{white-space:normal}}
+.bad table.mini th,.bad table.mini td{font-size:11px;padding:3px 4px}.bad table.mini th{overflow-wrap:anywhere;white-space:normal}
 .entf{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}.entc{flex:1 1 90px;max-width:120px;border:1.5px solid var(--ink);border-radius:10px;padding:6px;background:var(--card)}.entc .ei{font-size:1.4rem}.pk{font-size:.7rem;font-weight:700;color:#b45309}
 .stf{text-align:left}.stw{font-weight:700;margin-bottom:4px}.stl{display:flex;align-items:center;gap:8px}.sts{flex:1;border:1px solid var(--line);border-radius:10px;padding:6px 8px}.sts.now{border:2px solid var(--pri)}.sts.old{opacity:.75}.stt{font-size:.75rem;color:var(--muted)}.stv{font-weight:700;font-family:ui-monospace,monospace}
 .evf{position:relative;text-align:left;padding-left:4px}.evr{display:grid;grid-template-columns:42px 14px 1fr auto;align-items:center;gap:6px;margin:4px 0}.evt{font:600 .8rem ui-monospace,monospace}.evd{width:10px;height:10px;border-radius:50%;background:var(--pri);box-shadow:0 -14px 0 -4px var(--line)}.evx{font-size:.85rem}.evn{font-size:.72rem;padding:1px 6px;border-radius:99px;background:#dbeafe;color:#1d4ed8}
@@ -592,6 +611,38 @@ const SQL_LESSONS_A = [
 ];
 
 const SQL_LESSONS_B = [
+{ id:'sqlt', title:'What\'s inside a table', added:8,
+  theory:{
+    why:'Before you can connect tables you must be able to read one, and to decide what belongs in it. If you cannot say why <code>artist_id</code> sits in <code>songs</code> while <code>position</code> sits in <code>chart_entries</code>, every new database (a shop, a hospital, a bank) will look like a pile of random columns. One question sorts almost every column: <i>what does this fact describe?</i>',
+    body:[
+      '<b>The parts of a table.</b> A table has a <b>name</b> (<code>songs</code>) that says what kind of thing each row is. A <b>column</b> is one named field, read downwards (<code>title</code>). A <b>row</b> (record) is one thing, read across (one song). A <b>cell</b> is the single value where one row meets one column (163 is the duration of Goodbye). Every column has a <b>data type</b> (INTEGER, TEXT, DATE), and every cell in it must fit that type. The <b>primary key</b> (<code>song_id</code>) is unique on every row and never NULL. A <b>foreign key</b> (<code>artist_id</code>) holds another table\'s primary key, so its values may repeat. The list of tables, columns, types and keys is the <b>schema</b>: the blueprint, not the data.',
+      '<b>Grain: what one row stands for.</b> Say it out loud before you add a column. <code>artists</code>: one row = one artist. <code>songs</code>: one row = one song. <code>chart_entries</code>: one row = one song on one chart day. <code>streams</code>: one row = one play.',
+      '<b>Where does a column belong?</b> Ask what the fact describes. A fact about the artist (name, genre) goes in <code>artists</code>. A fact about the song that does not change (title, duration) goes in <code>songs</code>. A fact that exists <b>only because something happened</b> (position 1 on 17 October, 108,000 streams that day) is not a fact about the song: it is a fact about that song <i>on that day</i>, so it goes in the event table <code>chart_entries</code>, one new row per day. If you put <code>position</code> in <code>songs</code>, each day would overwrite the last and the history would be lost.',
+      '<b>The wide-table trap.</b> One wide table with the artist\'s name and genre written on every chart row repeats facts (<b>redundancy</b>). A genre change must be made on every copy; miss one and the data disagrees. Splitting into <code>artists</code>, <code>songs</code> and <code>chart_entries</code> stores each fact once.',
+      '<b>Where does the ID go?</b> On the <b>many</b> side. A song has one artist and an artist has many songs, so each song row holds one <code>artist_id</code>. The other way round, <code>artists</code> would need a list of song IDs in one cell, which cannot be checked or joined. An <b>event</b> row (a chart entry, a stream, an appointment, an order) holds the IDs of <b>everything involved</b>: who, what, and when. When both sides are "many" (playlists and songs), the IDs go in a <b>linking table</b> with one row per pair.',
+      '<b>It works on any data.</b> Shop: <code>email</code> describes the customer → <code>customers</code>; <code>price</code> describes the product → <code>products</code>; <code>quantity</code> exists only because a product was put on an order → <code>order_items</code>; <code>customer_id</code> goes in <code>orders</code> (one customer, many orders). Hospital: an appointment time exists only because the appointment happened → <code>appointments</code>, which holds <code>patient_id</code> and <code>doctor_id</code>. School: a grade describes one student in one course → <code>enrolments</code>. Bank: each deposit or withdrawal is an event → one row in <code>transactions</code> with <code>account_id</code>.'
+    ],
+    pro:'"Before I add a column I state the table\'s grain and ask what the fact describes. Entity attributes live on the entity table, facts that exist only because of an event live on the event table, and the foreign key goes on the many side."',
+    q:{ q:'A shop\'s products table has a column quantity_sold_today. What is wrong with it, and where should that fact live?', a:'It is not a fact about the product: it exists only because orders happened today, and it would be overwritten every day (losing history). Store each sale as rows in order_items (order_id, product_id, quantity) and compute "sold today" with a query: SUM(quantity) for today\'s orders, grouped by product_id.' }
+  },
+  terms:[
+    { id:'sqlt-t1', term:'Cell', def:'The single [[value]] where [[one row]] meets [[one column]].' },
+    { id:'sqlt-t2', term:'Data type', def:'The [[kind of value]] a column may hold, such as INTEGER, TEXT or DATE; every value in that column must [[fit it]].' },
+    { id:'sqlt-t3', term:'Redundancy', def:'The same fact stored in [[more than one place]], so every change must be made [[in every copy]].' }
+  ],
+  code:[
+    { id:'sqlt-c1', task:'Ask the database for the blueprint (schema) of songs: each column\'s name, data type and whether it is the primary key.', lang:'sql', code:'SELECT [[name]], [[type]], pk\nFROM pragma_table_info(\'songs\');' },
+    { id:'sqlt-c2', task:'Grain check: one row of chart_entries is one song on one chart day. Show every row for song 1 (Heaven Baby).', lang:'sql', code:'SELECT chart_date, position\nFROM [[chart_entries]]\nWHERE [[song_id]] = 1;' },
+    { id:'sqlt-c3', task:'Read one cell: the duration of Calm Down (one row, one column).', lang:'sql', code:'SELECT [[duration_sec]]\nFROM songs\nWHERE [[title]] = \'Calm Down\';' }
+  ],
+  problems:[
+    { id:'sqlt-p1', kind:'sql', ordered:true, title:'Prove the grain',
+      scenario:'chart_entries is meant to hold one row per song per chart day (the top 10). Return each chart_date and how many rows it has (call it songs_on_chart), oldest date first.',
+      hint:'GROUP BY chart_date and COUNT(*). If the grain is right, every day shows 10.',
+      solution:'SELECT chart_date, COUNT(*) AS songs_on_chart\nFROM chart_entries\nGROUP BY chart_date\nORDER BY chart_date;',
+      explain:'Each day has exactly 10 rows: one per charting song. That is the grain. Position and streams live here, not in songs, because they exist only because of that day\'s chart. Heaven Baby appears on three days as three rows, and its title and duration are still stored once, in songs.' }
+  ]
+},
 { id:'sqlr', title:'Entities, events & relationships', added:7,
   theory:{
     why:'Joins only make sense once you know <i>why</i> data is split into tables and <i>what</i> links them. If <code>songs.artist_id = artists.artist_id</code> looks like magic syntax, you will guess at joins. If you can see "a song belongs to an artist" and "a stream links a listener to a song", you know which table connects to which, and which pairs cannot be connected at all.',
@@ -1864,7 +1915,7 @@ const TERM_BITES = {
 const PLACE_LEVELS = [
   { n:0, name:'Start from lesson 1', lessons:[] },
   { n:1, name:'SQL basics', lessons:['sql1','sql2','sql3'] },
-  { n:2, name:'Aggregation, relationships & JOINs', lessons:['sql4','sqlr','sql5','sqlm'] },
+  { n:2, name:'Aggregation, relationships & JOINs', lessons:['sql4','sqlt','sqlr','sql5','sqlm'] },
   { n:3, name:'Intermediate SQL', lessons:['sql6','sql7','sql8','sql9'] },
   { n:4, name:'ETL fundamentals', lessons:['etl1','etl2','etl3','etl4','etl5'] },
   { n:5, name:'Pipeline in practice (Project 1 concepts)', lessons:['pj1','pj2','pj3','pj4','pj5','pj6','pj7','pj8'] }
@@ -1883,6 +1934,7 @@ const PLACE_BANK = [
   { id:'p2d', lv:2, kind:'sql', q:'Return each <b>chart_date</b> with its <b>total streams</b> (one row per date).', sol:"SELECT chart_date, SUM(streams) FROM chart_entries GROUP BY chart_date;" },
   { id:'p2e', lv:2, kind:'mcq', q:'You join orders (one row per order) to order_items (many rows per order), then SUM(orders.shipping_fee). The total is far too high. Why?', o:['Fan-out: each order row is repeated once per item','SUM skips NULL values','You need SELECT DISTINCT','INNER JOIN drops rows'], why:'A one-to-many join multiplies the "one" side rows.' },
   { id:'p2f', lv:2, kind:'mcq', q:'<code>listeners</code> and <code>artists</code> share no column. <code>streams(listener_id, song_id)</code> and <code>songs(song_id, artist_id)</code> exist. How do you get each listener\'s artists?', o:['Join listeners → streams → songs → artists, following the foreign keys','Join listeners to artists on name','You cannot: there is no shared column','CROSS JOIN listeners and artists'], why:'Tables connect through shared IDs. The stream events link listeners to songs, and songs.artist_id links songs to artists.' },
+  { id:'p2g', lv:2, kind:'mcq', q:'A shop has <code>customers</code>, <code>products</code>, <code>orders</code> and <code>order_items</code>. Where does <code>quantity</code> (how many of a product was bought) belong?', o:['order_items: it describes one product on one order','products','customers','orders'], why:'quantity exists only because a product was put on a particular order, so it lives on the row for that product on that order.' },
   // ---- Level 3
   { id:'p3a', lv:3, kind:'sql', q:'For every row in <code>chart_entries</code>, return <b>chart_date, song_id, position</b> and the song\'s <b>previous position</b> (its position on its previous chart date, NULL if none).', sol:"SELECT chart_date, song_id, position, LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) FROM chart_entries;" },
   { id:'p3b', lv:3, kind:'sql', q:'Return the <b>title</b> of every song that has <b>never</b> appeared in <code>chart_entries</code>.', sol:"SELECT title FROM songs s WHERE NOT EXISTS (SELECT 1 FROM chart_entries c WHERE c.song_id = s.song_id);" },
@@ -2333,6 +2385,131 @@ ILLUS.sqlm = {
       why: 'The pair is unique, so a song cannot be added to the same playlist twice. playlist_id alone would allow only one song per playlist.' }
   ]
 };
+/* v8: what's inside a table (before entities & relationships): anatomy, grain, where each column belongs, where the ID goes, blueprints, transfer */
+const TBL_SONGS = ILT('songs', ['song_id', 'title', 'artist_id', 'duration_sec'], [[1, 'Heaven Baby', 1, 159], [2, 'SLICK', 2, 106], [11, 'Goodbye (Warm Up)', 1, 163]],
+  'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT NOT NULL, artist_id INTEGER REFERENCES artists(artist_id), duration_sec INTEGER);');
+// blueprint cards for every practice table: [table, kind, grain, [[column, type, tag, why]], sample row]
+const BLUEPRINTS = {
+  artists: ['entity', 'one artist', [['artist_id', 'INTEGER', 'PK', 'identifies each artist; other tables point here'], ['name', 'TEXT', '', 'describes the artist'], ['genre', 'TEXT', '', 'describes the artist (Tems has none yet: NULL)']], [1, 'Ayra Starr', 'Afrobeats']],
+  songs: ['entity', 'one song', [['song_id', 'INTEGER', 'PK', 'identifies each song'], ['title', 'TEXT', '', 'describes the song'], ['artist_id', 'INTEGER', 'FK', 'which artist: a song has one artist, an artist many songs, so the ID sits here (the many side)'], ['duration_sec', 'INTEGER', '', 'describes the song and never changes']], [14, 'Calm Down', 14, 239]],
+  listeners: ['entity', 'one listener', [['listener_id', 'INTEGER', 'PK', 'identifies each listener'], ['name', 'TEXT', '', 'describes the listener'], ['city', 'TEXT', '', 'describes the listener (state: changes if they move)']], [1, 'Ada', 'Lagos']],
+  playlists: ['entity', 'one playlist', [['playlist_id', 'INTEGER', 'PK', 'identifies each playlist'], ['name', 'TEXT', '', 'describes the playlist']], [1, 'Naija Hits']],
+  chart_entries: ['event', 'one song on one chart day', [['chart_date', 'TEXT', 'PK', 'which day (part of the key)'], ['position', 'INTEGER', '', 'exists only because of that day\u2019s chart'], ['song_id', 'INTEGER', 'PK FK', 'which song (part of the key, points at songs)'], ['streams', 'INTEGER', '', 'that song\u2019s count on that day']], ['2026-10-17', 1, 1, 108000]],
+  streams: ['event', 'one play', [['stream_id', 'INTEGER', 'PK', 'identifies each play'], ['listener_id', 'INTEGER', 'FK', 'who played (the event holds everyone involved)'], ['song_id', 'INTEGER', 'FK', 'what was played'], ['streamed_at', 'TEXT', '', 'when it happened']], [1, 1, 14, '2026-10-17 21:14']],
+  playlist_songs: ['link', 'one song on one playlist', [['playlist_id', 'INTEGER', 'PK FK', 'which playlist'], ['song_id', 'INTEGER', 'PK FK', 'which song; the pair is the key, so a song is on a playlist once']], [1, 14]]
+};
+const SHOP_ERD = { boxes: [{ n: 'customers', x: 6, y: 6, cols: [['customer_id', 'PK'], ['name'], ['email']] }, { n: 'orders', sub: 'event', x: 214, y: 6, cols: [['order_id', 'PK'], ['customer_id', 'FK'], ['ordered_at']] },
+  { n: 'products', x: 6, y: 96, cols: [['product_id', 'PK'], ['name'], ['price']] }, { n: 'order_items', sub: 'event', x: 214, y: 96, cols: [['order_id', 'PK FK'], ['product_id', 'PK FK'], ['quantity'], ['price_paid']] }],
+  links: [{ f: ['orders', 'customer_id'], t: ['customers', 'customer_id'] }, { f: ['order_items', 'order_id'], t: ['orders', 'order_id'] }, { f: ['order_items', 'product_id'], t: ['products', 'product_id'] }], label: 'shop ERD: customers, orders, order_items, products' };
+const BAD = (n, c, r) => '<div class="lab">' + n + '</div><div class="ill-scroll bad">' + MT(c, r) + '</div>';
+ILLUS.sqlt = {
+  tables: {
+    songs: TBL_SONGS,
+    chart_wide: ILT('chart_wide', ['chart_date', 'position', 'title', 'artist', 'genre'], [['10-16', 1, 'Heaven Baby', 'Ayra Starr', 'Afrobeats'], ['10-16', 2, 'SLICK', 'Victony', 'Afrobeats'], ['10-17', 1, 'Heaven Baby', 'Ayra Starr', 'Afrobeats'], ['10-17', 2, 'SLICK', 'Victony', 'Afrobeats'], ['10-17', 3, 'Goodbye (Warm Up)', 'Ayra Starr', 'Afrobeats']]),
+    artists: ILT('artists', ['artist_id', 'name', 'genre'], [[1, 'Ayra Starr', 'Afrobeats'], [2, 'Victony', 'Afrobeats']]),
+    chart_entries: ILT('chart_entries', ['chart_date', 'position', 'song_id'], [['10-16', 1, 1], ['10-16', 2, 2], ['10-17', 1, 1], ['10-17', 2, 2], ['10-17', 3, 11]]),
+    artists_bad: ILT('artists_bad', ['artist_id', 'name', 'song_ids'], [[1, 'Ayra Starr', '1, 11'], [2, 'Victony', '2']])
+  },
+  scenes: [
+    { h: 'The parts of a table', fig: 'anat',
+      say: 'Here is the real <code>songs</code> table. Each number points at one part. Read the key below the table and find each number in it.' },
+    { h: 'The same table as a blueprint (the schema)', fig: 'ddl',
+      say: 'The <b>schema</b> is the blueprint that existed before any row was added: the table name, each column\u2019s name and <b>data type</b>, and which columns are keys. This is how <code>songs</code> was created. The database can show you the blueprint itself:',
+      sql: "SELECT name, type, pk\nFROM pragma_table_info('songs');", ordered: true,
+      out: { c: ['name', 'type', 'pk'], r: [['song_id', 'INTEGER', 1], ['title', 'TEXT', 0], ['artist_id', 'INTEGER', 0], ['duration_sec', 'INTEGER', 0]], m: ['m', '', '', ''] },
+      lg: { m: 'pk = 1: the primary key' } },
+    { h: 'One row = one what? (the grain)',
+      say: 'Before adding any column, say what <b>one row</b> stands for. In <code>songs</code> one row is <b>one song</b>. In <code>chart_entries</code> one row is <b>one song on one chart day</b>, so Heaven Baby (song 1) appears once per day:',
+      sql: 'SELECT chart_date, position\nFROM chart_entries\nWHERE song_id = 1;',
+      ins: [{ t: 'songs', m: ['m', '', ''], role: 'songs: one row = one song' }, { t: 'chart_entries', m: ['m', '', 'm', '', ''], role: 'chart_entries: one row = one song on one day' }],
+      out: { c: ['chart_date', 'position'], r: [['10-16', 1], ['10-17', 1]], m: ['m', 'm'] }, lg: { m: 'Heaven Baby: once in songs, once per day in chart_entries' } },
+    { h: 'Before: one wide table',
+      say: 'Imagine one wide table for the chart. It works, but look at what is written on every row: the artist\u2019s name and genre are <b>copied</b> each time the song charts. Ayra Starr\u2019s genre is stored 3 times. If it changes, all 3 copies must change.',
+      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'one wide table' }], lg: { d: 'Ayra Starr + genre copied again' },
+      note: 'Copies of the same fact are called <b>redundancy</b>. The next picture asks one question of every column.' },
+    { h: 'Ask every column: what does it describe?', fig: 'place',
+      fp: [['chart_date', 'the chart day', 'chart_entries', 'ev'], ['position', 'that song on that day', 'chart_entries', 'ev'], ['title', 'the song', 'songs', 'en'], ['artist', 'the artist', 'artists (as name)', 'en'], ['genre', 'the artist', 'artists', 'en']],
+      say: 'Go column by column. Is it a fact about the <b>artist</b>, about the <b>song</b>, or does it exist only because of <b>that day\u2019s chart</b>? The answer is the table it belongs in.' },
+    { h: 'After: each fact lives in the table it describes',
+      say: 'Split by the answers. The artist\u2019s name and genre are stored <b>once</b> in <code>artists</code>. The title and duration are stored once in <code>songs</code>, which points at the artist by ID. <code>chart_entries</code> keeps only what belongs to the chart day: date, position and which song.',
+      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'before: facts copied on every row' }],
+      after: [{ t: 'artists', m: ['n', ''], role: 'artists: genre stored once' }, { t: 'songs', role: 'songs: title + duration once' }, { t: 'chart_entries', role: 'chart_entries: only chart-day facts + song_id' }],
+      lg: { d: 'copied fact', n: 'stored once' } },
+    { h: 'Facts that exist only because something happened', fig: 'events', fp: [['10-15', '📊 SLICK #1, Heaven Baby #2'], ['10-16', '📊 Heaven Baby #1, SLICK #2'], ['10-17', '📊 Heaven Baby #1 again']],
+      say: 'A chart position is not a fact about the song itself. "Heaven Baby is #2" was true only on 15 October. It exists because that day\u2019s chart <b>happened</b>, so it is stored with that event: a new <code>chart_entries</code> row each day, holding the date, the position and the song_id.' },
+    { h: 'What if position lived in songs?', fig: 'state', fp: { who: 'songs.position for Heaven Baby', thing: 'song', lost: 'lost', vals: [['10-15', '2'], ['10-16', '1'], ['10-17', '1']] },
+      say: 'Counter-example. Put <code>position</code> in <code>songs</code> and there is room for only <b>one</b> value per song. Every day an UPDATE overwrites yesterday, and the chart history is gone. That is the sign a column is in the wrong table: it describes an event, not the thing.' },
+    { h: 'Where does the ID go? On the many side',
+      say: 'A song has one artist; an artist has many songs. If <code>artists</code> held the songs, one cell would need a <b>list</b> ("1, 11") that cannot be checked or joined. Instead each song row holds <b>one</b> <code>artist_id</code>: the foreign key sits on the many side.',
+      ins: [{ t: 'artists_bad', m: ['x', ''], role: 'wrong: a list of IDs in one cell' }],
+      after: [{ t: 'songs', m: ['n', '', 'n'], role: 'right: one artist_id per song row' }],
+      lg: { x: '✕ list in one cell: cannot be checked or joined', n: '＋ one ID per row on the many side' } },
+    { h: 'Event tables carry the IDs of everything involved', fig: 'erd',
+      fp: { boxes: [{ n: 'chart_entries', sub: 'events', x: 6, y: 6, cols: [['chart_date', 'PK'], ['position'], ['song_id', 'PK FK']] }, { n: 'songs', x: 214, y: 60, cols: [['song_id', 'PK'], ['title'], ['artist_id', 'FK']] },
+          { n: 'streams', sub: 'events', x: 6, y: 96, cols: [['stream_id', 'PK'], ['song_id', 'FK'], ['listener_id', 'FK'], ['streamed_at']] }, { n: 'listeners', x: 214, y: 150, cols: [['listener_id', 'PK'], ['name']] }],
+        links: [{ f: ['chart_entries', 'song_id'], t: ['songs', 'song_id'] }, { f: ['streams', 'song_id'], t: ['songs', 'song_id'] }, { f: ['streams', 'listener_id'], t: ['listeners', 'listener_id'] }], label: 'events hold the IDs of what was involved',
+        cap: 'Every event row holds the IDs of what took part: a chart entry holds <b>which song</b> (and the day); a stream holds <b>who</b> (listener_id) and <b>what</b> (song_id). The arrows always start at the event or the many side.' },
+      say: 'Rule of thumb: <b>entities</b> hold facts about themselves. <b>Events</b> hold a time plus the IDs of everything involved. That is why <code>song_id</code> is in <code>chart_entries</code> and <code>streams</code>, but no stream ID is in <code>songs</code>.' },
+    { h: 'Blueprints: the entity tables', fig: 'bp', fp: ['artists', 'songs', 'listeners', 'playlists'],
+      say: 'Every practice table, with each column\u2019s type and the reason it is there. Entities first: each describes one thing and has its own ID.' },
+    { h: 'Blueprints: the event and linking tables', fig: 'bp', fp: ['chart_entries', 'streams', 'playlist_songs'],
+      say: 'Event tables hold one row per happening, with the IDs involved. The linking table holds one row per pair.' },
+    { h: 'Three questions that work on any data', fig: 'ask',
+      fp: { ex: [['email', 'the customer', 'customers'], ['price', 'the product', 'products'], ['ordered_at', 'the order (an event)', 'orders'], ['quantity', 'one product on one order', 'order_items'], ['customer_id', 'one customer, many orders', 'orders (many side)']], erd: SHOP_ERD },
+      say: 'Music was just the example. The same three questions place columns in a shop, a hospital, a school or a bank. Here they are on a shop. The questions after this picture use other kinds of data, to check you can do it on tables you have never seen.' }
+  ],
+  qs: [
+    { k: 'cls', q: 'Music: which table does each column belong in?', cats: ['artists', 'songs', 'chart_entries'],
+      items: [['genre', 0, 'Describes the artist, not a song or a day.'], ['duration_sec', 1, 'Describes the song and never changes.'], ['position on 17 Oct', 2, 'Exists only because of that day\u2019s chart (an event).'], ['streams that day', 2, 'A count for one song on one day: event table.'], ['title', 1, 'Describes the song.'], ['name of the artist', 0, 'Describes the artist; songs point at it by ID.']],
+      why: 'Ask what each fact describes: the artist → artists; the song → songs; that song on that chart day → chart_entries.' },
+    { k: 'tap', q: 'Tap every row of the wide table where Ayra Starr\u2019s genre is a <b>copy</b> of the same fact.', t: 'chart_wide', ans: [0, 2, 4],
+      why: 'Rows 1, 3 and 5 all repeat "Ayra Starr, Afrobeats". That is redundancy: one fact, three copies. In artists it is stored once.' },
+    { k: 'mc', ref: false, q: '🛒 Shop: <code>quantity</code> (how many of a product someone bought) belongs in which table?', o: ['order_items: it describes one product on one order', 'products', 'customers', 'orders'],
+      w: [null, 'products holds facts about the product itself (name, price). The same product is bought in different quantities on different orders, so quantity is not a fact about the product.', 'A customer buys different amounts on different orders; quantity is not a fact about the person.', 'One order can contain several products, each with its own quantity, so one column on orders cannot hold them all.'],
+      why: 'quantity exists only because a particular product was put on a particular order. The table whose row is "one product on one order" is order_items.' },
+    { k: 'mc', ref: false, q: '🛒 Shop: one customer places many orders; each order is placed by one customer. Where does <code>customer_id</code> go?', o: ['orders: each order row holds the one customer who placed it (the many side)', 'customers: a list of order IDs per customer', 'products', 'both customers and products'],
+      w: [null, 'A list of IDs in one cell cannot be checked or joined. The many side (orders) holds the single ID instead.', 'A product is bought by many customers; customer_id is not a fact about the product.', 'customers already has customer_id as its primary key. The link is a foreign key on orders, not a copy in products.'],
+      why: 'Foreign key on the many side: many orders → one customer, so orders.customer_id.' },
+    { k: 'cls', ref: false, q: '🛒 Shop: which table does each column belong in?', cats: ['customers', 'products', 'orders', 'order_items'],
+      items: [['email', 0, 'Describes the customer.'], ['list price', 1, 'The product\u2019s current price: a fact about the product.'], ['ordered_at', 2, 'When the order happened: a fact about the order event.'], ['quantity', 3, 'One product on one order.'], ['price_paid (the price at the time of that order)', 3, 'Exists only because of that order line; it must not change when the list price changes later.'], ['phone number', 0, 'Describes the customer.']],
+      why: 'Person facts → customers; product facts → products; when/who of the order → orders; facts about one product on one order → order_items. Note list price (products) vs price paid (order_items): one describes the product today, the other describes a past event.' },
+    { k: 'mc', ref: false, q: '🛒 Shop: a cart can hold many products and a product can sit in many carts. Where do "this product, 2 of them, in this cart" go?', o: ['cart_items(cart_id, product_id, quantity): a linking table, one row per product in a cart', 'a product_ids column in carts, like "4, 9, 12"', 'a cart_id column in products', 'a quantity column in customers'],
+      w: [null, 'A list in one cell breaks keys and joins, and has nowhere to put the quantity of each product.', 'A product sits in many carts; one cart_id column could hold only one cart.', 'Quantity belongs to one product in one cart, not to the person.'],
+      why: 'Many-to-many needs a linking table with one row per pair. The pair\u2019s own facts (quantity) live on that row.' },
+    { k: 'cls', ref: false, q: '🏥 Hospital: entity, state, event or relationship?', cats: ['Entity', 'State', 'Event', 'Relationship'],
+      items: [['a patient', 0, 'Exists on its own; gets a patients table and patient_id.'], ['a doctor', 0, 'Exists on its own; gets a doctors table and doctor_id.'], ['Dr Bello sees Ada at 10:30 on Monday', 2, 'Happened at a moment: a new row in appointments.'], ['the ward Ada is in right now', 1, 'A current fact that changes: overwritten when she moves.'], ['each appointment is with one doctor', 3, 'How two things connect: appointments.doctor_id → doctors.'], ['a blood test taken at 08:00', 2, 'Happened at a moment: one row per test.']],
+      why: 'Things that exist on their own are entities; current changeable facts are state; things that happen at a time are events; "is with / belongs to" connects them (a relationship).' },
+    { k: 'mc', ref: false, q: '🏥 Hospital: where does the appointment\u2019s date and time go?', o: ['appointments: the time exists only because the appointment happened', 'doctors', 'patients', 'a column in both doctors and patients'],
+      w: [null, 'A doctor has hundreds of appointments; one column on doctors could hold only one time, and each new one would overwrite the last.', 'Same problem: a patient has many appointments over the years.', 'Copying the time onto two tables is redundancy, and each still holds only one value.'],
+      why: 'A fact that exists because of an event goes in the event table, one row per appointment.' },
+    { k: 'mc', ref: false, q: '🏥 Hospital: which table holds <code>patient_id</code> <b>and</b> <code>doctor_id</code>?', o: ['appointments: the event holds the IDs of everyone involved', 'patients holds doctor_id', 'doctors holds patient_id', 'neither: match them by name'],
+      w: [null, 'A patient sees many doctors over time; patients.doctor_id could hold only one.', 'A doctor sees many patients; doctors.patient_id could hold only one.', 'Names repeat and get misspelt. Tables connect through IDs.'],
+      why: 'Like a stream (listener + song), an appointment row carries patient_id and doctor_id, plus the time.' },
+    { k: 'mc', ref: false, q: '🎓 School: a student takes many courses and a course has many students. Where does a student\u2019s <b>grade</b> for a course go?', o: ['enrolments(student_id, course_id, grade): it describes one student in one course', 'students', 'courses', 'a grades column in students listing every grade'],
+      w: [null, 'A student has a different grade in each course, so one column on students cannot hold it.', 'A course gives different grades to different students.', 'A list in one cell cannot be checked, sorted or joined, and you cannot tell which grade is for which course.'],
+      why: 'The grade belongs to the pair (this student, this course), so it lives on the linking row.' },
+    { k: 'mc', ref: false, q: '🎓 School: in <code>enrolments(student_id, course_id, grade)</code>, what does <b>one row</b> stand for?', o: ['one student in one course', 'one student', 'one course', 'all the students in a course'],
+      w: [null, 'A student with 5 courses has 5 rows, so a row is not one student.', 'A course with 30 students has 30 rows.', 'That would be many rows together, not one row.'],
+      why: 'The grain of a linking table is one pair. Say the grain before you add a column to it.' },
+    { k: 'mc', ref: false, q: '🏦 Bank: what is wrong with this table?', show: BAD('accounts', ['account_id', 'owner', 'balance', 'txn1', 'txn2', 'txn3'], [[501, 'Ada', 7000, 5000, -2000, 4000], [502, 'Tunde', 300, 300, null, null]]),
+      o: ['transactions are events: each needs its own row in a transactions table (account_id, amount, time)', 'nothing: it is fine', 'balance should be removed', 'owner should be the primary key'],
+      w: [null, 'A 4th transaction needs a new column, most cells are NULL, and you cannot SUM or sort them as rows.', 'Balance is legitimate state: the current value, updated after each transaction.', 'Names repeat (two people called Ada). account_id is the right key.'],
+      why: 'Repeated columns (txn1, txn2, txn3) are events squeezed into one row. Each deposit or withdrawal is a new row in transactions, with account_id pointing at accounts.' },
+    { k: 'mc', ref: false, q: '🏦 Bank: an account\u2019s <code>balance</code> is…', o: ['state: a current value that changes after each transaction', 'an event', 'an entity', 'a relationship'],
+      w: [null, 'An event happens at a moment and never changes. The balance changes all the time; each transaction is the event.', 'The account is the entity. The balance is a fact about it.', 'It does not connect two things; it describes one account.'],
+      why: 'Transactions (events) are kept forever as rows; the balance (state) is the current result of them, stored on accounts or computed with SUM(amount).' },
+    { k: 'mc', ref: false, q: '🎓 School: spot the problem.', show: BAD('students', ['student_id', 'name', 'courses'], [[1, 'Zainab', 'Maths, Physics'], [2, 'Chidi', 'Maths']]),
+      o: ['courses holds a list in one cell: use an enrolments table with one row per student and course', 'nothing: it is fine', 'name should be split into two tables', 'student_id should be TEXT'],
+      w: [null, 'You cannot count students per course, join to courses, or add a grade to one course without rewriting the text.', 'name describes the student; it is in the right place.', 'The data type of the key is not the problem. The list in one cell is.'],
+      why: 'A cell holds one value. Many-to-many (students ↔ courses) needs a linking table.' },
+    { k: 'mc', ref: false, q: '🏥 Hospital: spot the problem.', show: BAD('appointments', ['appt_id', 'patient_name', 'patient_phone', 'doctor_name', 'starts_at'], [[1, 'Ada', '0803…', 'Dr Bello', 'Mon 10:30'], [2, 'Ada', '0803…', 'Dr Okafor', 'Tue 09:00'], [3, 'Ada', '0813…', 'Dr Bello', 'Fri 14:00']]),
+      o: ['patient and doctor details are copied on every appointment: store patient_id and doctor_id, and keep the details in patients and doctors', 'nothing: it is fine', 'starts_at should move to patients', 'every appointment needs its own table'],
+      w: [null, 'Ada\u2019s phone is already different on row 3: a copy was updated and the others were not (redundancy).', 'A patient has many appointments; one column on patients cannot hold every time.', 'Appointments are rows in one table, not one table each.'],
+      why: 'Events hold the IDs of who was involved, not copies of their details. Facts about Ada belong once in patients.' },
+    { k: 'run', q: 'Ayra Starr\u2019s genre now lives once, in the table it describes. Fill in ____ to read it.', code: "SELECT genre\nFROM ____\nWHERE name = 'Ayra Starr';", sol: "SELECT genre FROM artists WHERE name = 'Ayra Starr';",
+      why: 'genre describes the artist, so it is in artists. Read it from there: one row, one cell.' }
+  ]
+};
 ILLUS.sql5.scenes.unshift({ h: 'Joins follow the arrow', fig: 'erd',
   fp: { boxes: [erdAt(ERD_ART, 6, 6), erdAt(ERD_SNG, 214, 6)], links: [ERD_L_SA], label: 'songs.artist_id points to artists.artist_id' },
   say: 'You met this arrow in <i>Entities, events & relationships</i>: <code>songs.artist_id</code> (foreign key) points at <code>artists.artist_id</code> (primary key). A <b>JOIN follows that arrow</b> for every row at once, bringing each song back together with its artist. The ON clause is the arrow written in SQL:',
@@ -2387,8 +2564,8 @@ const ILL_FIGS = {
     '<div class="figcap">Exist on their own, even if nothing ever happens. <b>Not</b> entities: <i>a play at 21:14</i> (an event) or <i>today\u2019s chart position</i> (a state).</div>',
   // state: one value per entity, overwritten over time
   state: sc => { const f = sc.fp; return '<div class="stf"><div class="stw">' + _h(f.who) + '</div><div class="stl">' + f.vals.map((v, i) => {
-      const last = i === f.vals.length - 1; return '<div class="sts' + (last ? ' now' : ' old') + '"><div class="stt">' + _h(v[0]) + '</div><div class="stv">' + (last ? '' : '<s>') + _h(v[1]) + (last ? '' : '</s>') + '</div><div class="muted small">' + (last ? 'current value' : 'overwritten: lost') + '</div></div>' + (last ? '' : '<div class="farr">→<div class="small muted">UPDATE</div></div>'); }).join('') + '</div></div>' +
-    '<div class="figcap">Still <b>one</b> row for the artist. The column holds only the latest value.</div>'; },
+      const last = i === f.vals.length - 1; return '<div class="sts' + (last ? ' now' : ' old') + '"><div class="stt">' + _h(v[0]) + '</div><div class="stv">' + (last ? '' : '<s>') + _h(v[1]) + (last ? '' : '</s>') + '</div><div class="muted small">' + (last ? 'current value' : (f.lost || 'overwritten: lost')) + '</div></div>' + (last ? '' : '<div class="farr">→<div class="small muted">UPDATE</div></div>'); }).join('') + '</div></div>' +
+    '<div class="figcap">Still <b>one</b> row for the ' + (f.thing || 'artist') + '. The column holds only the latest value.</div>'; },
   // events: rows appearing along a time line, never changed afterwards
   events: sc => '<div class="evf">' + sc.fp.map((e, i) => '<div class="evr"><div class="evt">' + _h(e[0]) + '</div><div class="evd"></div><div class="evx">' + e[1] + '</div><div class="evn">+ row ' + (i + 1) + '</div></div>').join('') + '</div>' +
     '<div class="figcap">Each happening adds a <b>new row</b> with its time and the IDs involved. Old rows are never edited.</div>',
@@ -2399,6 +2576,50 @@ const ILL_FIGS = {
     ['Many-to-many', { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde'], r: ['Last Last', 'Free Mind'], e: [[0, 0], [0, 1], [1, 0]] }, 'Many on <b>both</b> sides. No single FK column can hold it: it needs a <b>linking table</b> of pairs (streams; for playlists, playlist_songs).']
   ].map(k => '<div class="kind"><div class="kh">' + k[0] + '</div>' + bipSVG(k[1]) + '<div class="figcap">' + k[2] + '</div></div>').join('')
 };
+
+/* ---------- v8 custom figures: table anatomy, schema, column placement, blueprints, transfer checklist ---------- */
+const PIN = n => '<span class="pin">' + n + '</span>';
+const ANAT_KEY = [
+  ['Table name', '<code>songs</code>: what kind of thing every row is. One table per kind of thing.'],
+  ['Column', 'one named field, read <b>downwards</b> (<code>title</code>). Every row has a value for it.'],
+  ['Row (record)', 'one thing, read <b>across</b>: here, one song (SLICK).'],
+  ['Cell', 'the single value where <b>one row</b> meets <b>one column</b>: 163 is the duration of Goodbye.'],
+  ['Data type', 'what kind of value the column may hold (INTEGER, TEXT). Every cell in the column must fit it.'],
+  ['Primary key (PK)', '<code>song_id</code>: different on every row, never NULL. It is how other tables point at a song.'],
+  ['Foreign key (FK)', '<code>artist_id</code>: holds another table\u2019s primary key (<code>artists.artist_id</code>). It may repeat: artist 1 has two songs.']
+];
+function anatFig() {
+  const t = TBL_SONGS, types = ['INTEGER', 'TEXT', 'INTEGER', 'INTEGER'];
+  const th = (c, i) => '<th class="' + (i === 0 ? 'an-pk' : i === 2 ? 'an-fk' : '') + '">' + (i === 0 ? PIN(6) : i === 1 ? PIN(2) : i === 2 ? PIN(7) : '') + _h(c).replace(/_/g, '_<wbr>') + '</th>';
+  const td = (v, i, r) => '<td class="' + (i === 0 ? 'an-pk' : i === 2 ? 'an-fk' : '') + (r === 2 && i === 3 ? ' an-cell' : '') + '">' + (r === 2 && i === 3 ? PIN(4) : '') + _h(v) + '</td>';
+  return '<div class="anat"><div class="an-name">' + PIN(1) + ' table <code>' + t.n + '</code></div><div class="ill-scroll"><table class="mini anat-t"><tr><th class="an-g"></th>' + t.c.map(th).join('') + '</tr>' +
+    '<tr class="an-type"><td class="an-g">' + PIN(5) + '</td>' + types.map((x, i) => '<td class="' + (i === 0 ? 'an-pk' : i === 2 ? 'an-fk' : '') + '">' + x + '</td>').join('') + '</tr>' +
+    t.r.map((r, k) => '<tr' + (k === 1 ? ' class="an-row"' : '') + '><td class="an-g">' + (k === 1 ? PIN(3) : '') + '</td>' + r.map((v, i) => td(v, i, k)).join('') + '</tr>').join('') + '</table></div>' +
+    '<ol class="an-key">' + ANAT_KEY.map((k, i) => '<li>' + PIN(i + 1) + '<span><b>' + k[0] + '</b>: ' + k[1] + '</span></li>').join('') + '</ol>' +
+    '<div class="figcap">Grey row = the data type of each column (part of the blueprint, not a stored row). Amber column = primary key; green column = foreign key.</div></div>';
+}
+function ddlFig() {
+  const L = [['CREATE TABLE songs (', ['table name']], ['  song_id      INTEGER PRIMARY KEY,', ['column', 'data type', 'primary key']], ['  title        TEXT NOT NULL,', ['column', 'data type', 'rule: must have a value']],
+    ['  artist_id    INTEGER REFERENCES artists(artist_id),', ['column', 'data type', 'foreign key → artists']], ['  duration_sec INTEGER', ['column', 'data type']], [');', []]];
+  return '<div class="ddl">' + L.map(x => '<div class="ddl-l"><code>' + _h(x[0]) + '</code>' + (x[1].length ? '<div class="ddl-t">' + x[1].map(t => '<span class="tg' + (/primary/.test(t) ? ' pk' : /foreign/.test(t) ? ' fk' : '') + '">' + t + '</span>').join('') + '</div>' : '') + '</div>').join('') + '</div>' +
+    '<div class="figcap">Same table, two views: the picture before showed the <b>data</b>; this is the <b>schema</b>. Columns and types are decided first; rows come later.</div>';
+}
+function placeFig(sc) {
+  return '<div class="plc">' + sc.fp.map(x => '<div class="plc-r ' + x[3] + '"><code>' + _h(x[0]) + '</code><span class="farr">→</span><span>describes <b>' + _h(x[1]) + '</b></span><span class="farr">→</span><code>' + _h(x[2]) + '</code></div>').join('') + '</div>' +
+    '<div class="figcap"><span class="plc-k en">entity fact</span> describes a thing that exists on its own. <span class="plc-k ev">event fact</span> exists only because something happened (that day\u2019s chart).</div>';
+}
+function bpFig(sc) {
+  return '<div class="bps">' + sc.fp.map(n => { const b = BLUEPRINTS[n];
+    return '<div class="bp ' + b[0] + '"><div class="bp-h"><code>' + n + '</code> <span class="tg">' + b[0] + '</span></div><div class="small muted">one row = <b>' + b[1] + '</b></div>' +
+      '<div class="bp-c">' + b[2].map(c => '<div class="bp-r"><div><code>' + c[0] + '</code> <span class="ty">' + c[1] + '</span>' + (c[2] ? c[2].split(' ').map(k => ' <span class="tg ' + k.toLowerCase() + '">' + k + '</span>').join('') : '') + '</div><div class="small muted">' + c[3] + '</div></div>').join('') + '</div>' +
+      '<div class="lab small">Sample row</div><div class="ill-scroll">' + MT(b[2].map(c => c[0]), [b[3]]) + '</div></div>'; }).join('') + '</div>';
+}
+function askFig(sc) {
+  const Q = [['What does one row stand for?', 'Say the grain: one customer, one order, one product on one order.'], ['What does this fact describe?', 'A thing on its own → that thing\u2019s table. Exists only because something happened → the event table.'], ['One or many?', 'The ID goes on the <b>many</b> side. Many on both sides → a linking table, one row per pair.']];
+  return '<ol class="ask">' + Q.map((q, i) => '<li>' + PIN(i + 1) + '<span><b>' + q[0] + '</b> ' + q[1] + '</span></li>').join('') + '</ol>' +
+    '<div class="plc">' + sc.fp.ex.map(x => '<div class="plc-r"><code>' + _h(x[0]) + '</code><span class="farr">→</span><span>' + _h(x[1]) + '</span><span class="farr">→</span><code>' + _h(x[2]) + '</code></div>').join('') + '</div>' + erdSVG(sc.fp.erd);
+}
+Object.assign(ILL_FIGS, { anat: anatFig, ddl: ddlFig, place: placeFig, bp: bpFig, ask: askFig });
 
 /* ---------- v6 illustration rendering (before → query → after) ---------- */
 const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '⧉ duplicate', n: '＋ new or changed', g: '🎨 same colour = same group' };
@@ -2518,8 +2739,9 @@ function viewVQ(step) {
   const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
   const f = F, q = f.q; let h = '<div class="kicker">🔍 Picture question · ' + _h(l.title) + '</div><h2 class="q">' + q.q + '</h2>';
-  const tabs = Object.values(L.tables); if (q.k !== 'tap' && q.k !== 'tapc' && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
+  const tabs = Object.values(L.tables); if (q.k !== 'tap' && q.k !== 'tapc' && q.ref !== false && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
   if (q.sql) h += QY(q.sql);
+  if (q.show) h += '<div class="scene">' + q.show + '</div>'; // v8: a table drawn into the question (e.g. spot the badly designed table)
   if (q.k === 'tap') {
     const others = tabs.filter(t => t.n !== q.t);
     if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
@@ -2532,7 +2754,7 @@ function viewVQ(step) {
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'cls') {
     h += '<div class="cls">' + q.items.map((it, i) => '<div class="cls-i' + (f.done ? (f.vals[i] === it[1] ? ' good' : ' wrong') : '') + '"><div class="cls-q">' + it[0] + '</div><div class="cls-b">' +
-      q.cats.map((c, k) => '<button class="chipb' + (f.vals[i] === k ? ' on' : '') + (f.done && k === it[1] ? ' ans' : '') + '" data-act="vqCls" data-i="' + i + '" data-c="' + k + '"' + (f.done ? ' disabled' : '') + ' aria-pressed="' + (f.vals[i] === k) + '">' + c + '</button>').join('') + '</div></div>').join('') + '</div>';
+      q.cats.map((c, k) => '<button class="chipb' + (f.vals[i] === k ? ' on' : '') + (f.done && k === it[1] ? ' ans' : '') + '" data-act="vqCls" data-i="' + i + '" data-c="' + k + '"' + (f.done ? ' disabled' : '') + ' aria-pressed="' + (f.vals[i] === k) + '">' + c + '</button>').join('') + '</div>' + (f.done && it[2] ? '<div class="small muted cls-w">' + (f.vals[i] === it[1] ? '' : '→ ' + q.cats[it[1]] + '. ') + it[2] + '</div>' : '') + '</div>').join('') + '</div>';
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'mc') {
     h += '<div class="opts">' + f.opts.map((o, k) => '<button class="opt' + (f.done ? (o.i === 0 ? ' ok' : f.pick === k ? ' bad' : '') : '') + '" data-act="vqPick" data-k="' + k + '"' + (f.done ? ' disabled' : '') + '>' + o.x + '</button>').join('') + '</div>';
@@ -2542,10 +2764,17 @@ function viewVQ(step) {
       (!f.done ? '<div class="actions three"><button class="btn" data-act="vqRun">▶ Run</button><button class="btn primary" data-act="vqCheck">✓ Check</button></div>' : '');
   }
   if (!f.done) h += '<button class="btn ghost" data-act="vqIdk">I don\'t know: show me</button>';
-  else h += '<div class="feedback ' + (f.ok ? 'good' : 'badfb') + '">' + (f.ok ? '✅ Correct' : '↩️ Not quite. You\'ll see it again.' + (f.msg ? ' ' + esc(f.msg) : '')) + '</div><div class="hintbox">💡 ' + q.why + '</div>' +
+  else h += '<div class="feedback ' + (f.ok ? 'good' : 'badfb') + '">' + (f.ok ? '✅ Correct' : '↩️ Not quite. You\'ll see it again.' + (f.msg ? ' ' + esc(f.msg) : '')) + '</div><div class="hintbox">💡 ' + q.why + '</div>' + vqWrongWhy(f) +
     (q.k === 'run' && !f.ok ? '<div class="lab">A correct query</div>' + QY(q.sol) : '') +
     '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button></div>';
   return h;
+}
+// v8: multiple choice can explain every wrong option (q.w[i] for option i; the option you picked comes first)
+function vqWrongWhy(f) {
+  const q = f.q; if (q.k !== 'mc' || !q.w || !f.opts) return '';
+  const picked = f.pick >= 0 && f.opts[f.pick] ? f.opts[f.pick].i : -1;
+  const ws = q.o.map((o, i) => ({ o, i, w: q.w[i] })).filter(x => x.i !== 0 && x.w).sort((a, b) => (b.i === picked) - (a.i === picked));
+  return ws.length ? '<div class="whyw"><div class="lab">Why the other answers are wrong</div><ul>' + ws.map(x => '<li' + (x.i === picked ? ' class="picked"' : '') + '><b>' + x.o + '</b>' + (x.i === picked ? ' <span class="small">(your answer)</span>' : '') + ': ' + x.w + '</li>').join('') + '</ul></div>' : '';
 }
 function finishVQ(ok, msg) {
   const step = SESSION.steps[SESSION.i]; const vs = visState(step.lesson); const t = today();
@@ -2644,6 +2873,7 @@ const GROUND = {
 };
 
 const TERM_BLOCKS = {
+  'sqlt-t1': ['row', 'column', 'value'], 'sqlt-t2': ['column', 'value', 'datatype'], 'sqlt-t3': ['row', 'value', 'table'],
   'sqlr-t1': ['table', 'row', 'key'], 'sqlr-t2': ['entity', 'column', 'value'], 'sqlr-t3': ['entity', 'row', 'event'], 'sqlr-t4': ['entity', 'key'], 'sqlr-t5': ['entity', 'row', 'key'], 'sqlr-t6': ['entity', 'table', 'key'],
   'sqlm-t1': ['entity', 'row', 'key'], 'sqlm-t2': ['table', 'key', 'row'],
   'sql1-t1': ['row', 'column'], 'sql1-t2': ['column', 'row', 'value'], 'sql1-t3': ['column', 'key', 'table'], 'sql1-t4': ['query', 'result'], 'sql1-t5': ['table', 'column', 'datatype'],
@@ -2673,6 +2903,27 @@ const TERM_BLOCKS = {
 
 const SC_GENRE = MT(['name', 'genre'], [['Burna Boy', 'Afrobeats'], ['Tems', null], ['Rema', 'Afrobeats']]);
 const TERMS4 = {
+  // ---- v8: what's inside a table
+  'sqlt-t1': { t1: { def: 'A cell is {the single value} {where one row meets one column}.', ph: [
+    { a: ['one single value', 'just one value'], d: [['a whole row of values', 'A row holds many values, one per column. A cell is only one of them.'], ['a whole column of values', 'A column holds one value per row. A cell is one of those values.'], ['the name of a column', 'The name is the header (part of the schema). A cell holds data.']],
+      spot: { q: 'In songs, which of these is a <b>cell</b>?', show: MT(['song_id', 'title', 'duration_sec'], [[2, 'SLICK', 106], [11, 'Goodbye (Warm Up)', 163]]), o: ['163, the duration of Goodbye', 'the whole SLICK row', 'the duration_sec column', 'the table name songs'], why: 'A cell is one value at one row and one column. A row or a column holds several cells.' } },
+    { a: ['where one row and one column cross', 'at the meeting of one row and one column'], d: [['where each row meets each column', 'Precision: ONE row and ONE column. "Each row meets each column" describes every cell of the table, not a single cell.'], ['where one table meets one column', 'A cell sits inside one table, at one row and one column.'], ['where two rows meet', 'Rows never cross each other. A row crosses columns.']],
+      spot: { q: 'To read Calm Down\u2019s duration, what do you need?', o: ['the Calm Down row and the duration_sec column', 'every row and the duration_sec column', 'the Calm Down row and every column', 'only the songs table'], why: 'One row (which song) plus one column (which fact) pins down one cell.' } }] },
+    t3: 'In the relational model every cell holds one atomic value (first normal form), never a list such as "1, 11"; a missing value is NULL, which means unknown, not zero or empty text.' },
+  'sqlt-t2': { t1: { def: 'A data type is {the kind of value a column may hold}, {such as INTEGER or TEXT}; {every value in that column must fit it}.', ph: [
+    { a: ['the kind of value a column can hold', 'what kind of value a column holds'], d: [['the kind of value a row may hold', 'Types belong to COLUMNS: every value down a column has the same type. A row mixes types (a TEXT title, an INTEGER duration).'], ['the number of values a column holds', 'That is a count, not a type.'], ['the name of a column', 'The name says what the column means. The type says what kind of value fits.']],
+      spot: { q: 'duration_sec holds 159, 106 and 163. What is its data type?', o: ['INTEGER', 'TEXT', 'DATE', 'BOOLEAN'], why: 'Whole numbers are INTEGER.' } },
+    { a: ['for example INTEGER or TEXT', 'like INTEGER, TEXT or DATE'], d: [['for example songs or artists', 'Those are tables, not types.'], ['for example SELECT or WHERE', 'Those are SQL keywords.'], ['for example 159 or Calm Down', 'Those are values. Their types are INTEGER and TEXT.']],
+      spot: { q: 'Which of these is a <b>data type</b>?', o: ['TEXT', 'title', 'Calm Down', 'songs'], why: 'TEXT is a type. title is a column, Calm Down is a value, songs is a table.' } },
+    { a: ['every value in that column must fit it', 'each value in the column has to match it'], d: [['one value in that column must fit it', 'Precision: EVERY value. A type is a rule for the whole column, not for one cell.'], ['every value in that row must fit it', 'The rule runs down a column, not across a row.'], ['values can be any kind', 'Then the type would mean nothing, and sums and sorting would break.']],
+      spot: { q: 'A shop stores price as TEXT and one row says \'ten\'. What goes wrong?', o: ['SUM(price) and sorting by price break: price should be a number type such as DECIMAL', 'nothing', 'the table gets a new column', 'that row becomes the primary key'], why: 'The type is the column\u2019s rule. With the right type, \'ten\' would be refused.' } }] },
+    t3: 'Choosing a data type is a design decision: it refuses invalid values, decides how values sort and compare (as text, "10" sorts before "9"), and sets storage size; money uses an exact DECIMAL rather than FLOAT, and dates use DATE or TIMESTAMP rather than free text.' },
+  'sqlt-t3': { t1: { def: 'Redundancy is {the same fact stored in more than one place}; {every change must be repeated on every copy}.', ph: [
+    { a: ['the same fact stored in several places', 'one fact kept in more than one place'], d: [['different facts stored in one place', 'That is just a table with columns. Redundancy is ONE fact with many copies.'], ['the same fact stored once', 'Storing it once is the cure, not the problem.'], ['a fact that is missing', 'Missing is NULL. Redundancy is having too many copies.']],
+      spot: { q: 'Which describes this table?', show: MT(['chart_date', 'title', 'artist', 'genre'], [['10-16', 'Heaven Baby', 'Ayra Starr', 'Afrobeats'], ['10-17', 'Heaven Baby', 'Ayra Starr', 'Afrobeats']]), o: ['redundancy: Ayra Starr\u2019s genre is copied on every chart row', 'no redundancy: every row has a different date', 'redundancy only appears when there are NULLs', 'redundancy only appears without a primary key'], why: 'The genre is a fact about the artist, copied once per chart row.' } },
+    { a: ['every change must be made to every copy', 'each update has to be repeated on all copies'], d: [['one change updates every copy automatically', 'Nothing links the copies. You must find and change each one, and missing one makes the data disagree.'], ['every change must be made to one copy', 'If only one copy changes, the copies disagree.'], ['copies can never change', 'They can and do. That is exactly the risk.']],
+      spot: { q: 'Ayra Starr\u2019s genre is copied on 300 chart rows and her genre changes. What must happen?', o: ['all 300 rows must be updated; miss one and the data disagrees', 'update one row', 'nothing: genres never change', 'delete the table'], why: 'Every copy must change. Storing the genre once, in artists, makes it one UPDATE.' } }] },
+    t3: 'Redundancy causes update, insert and delete anomalies; normalization removes it by storing each fact once, in the table whose key it depends on, while warehouses sometimes add it back on purpose (denormalized tables) for faster reads and then rely on the pipeline to keep the copies in sync.' },
   // ---- v7: entities, state, events, relationships, many-to-many
   'sqlr-t1': { t1: { def: 'An entity is {a thing that exists on its own} {that we store facts about}, {with its own table and ID}.', ph: [
     { a: ['something that exists by itself', 'a thing that exists independently'], d: [['a thing that only exists when something happens', 'That is an event. An entity (an artist) exists whether or not anything happens.'], ['a column that changes over time', 'That is state: a fact about an entity, not the entity itself.'], ['a link between two tables', 'That is a relationship.']],
@@ -2985,7 +3236,9 @@ function lessonProgress(l) {
 function moduleProgress(m) {
   if (m.status !== 'ready') return 0; const avg = ls => ls.length ? ls.reduce((a, l) => a + lessonProgress(l), 0) / ls.length : 0;
   // v7: lessons added by an update (l.added) can only raise the module %, never lower what learners already had
-  const orig = m.lessons.filter(l => !l.added); return Math.max(avg(m.lessons), orig.length < m.lessons.length ? avg(orig) : 0);
+  // v8: generalised per release: the % a learner saw before each update (lessons that existed then) is a floor
+  const cuts = [...new Set(m.lessons.filter(l => l.added).map(l => l.added))];
+  return Math.max(avg(m.lessons), ...cuts.map(v => avg(m.lessons.filter(l => !l.added || l.added < v))));
 }
 
 /* ---------- fade parsing ---------- */
@@ -3617,7 +3870,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v7.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v8.0</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -4440,6 +4693,8 @@ function learnHowHTML() {
   return '<ul class="plan learn">' +
     '<li><b>🔍 See it first.</b> Anything that changes the shape of data (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) starts with pictures: the input tables, the query, and the result table, with kept rows ✓, rows with no match ◐ (their NULLs shown), dropped rows ✕ and duplicates ⧉. You can run each query for real. Then visual questions (tap the rows that survive, predict the row count, explain a NULL, run it yourself), and only then the theory, building blocks and definition phrases. Terms of an illustrated lesson start after you have seen its pictures. If you read a lesson before pictures existed, one lesson\'s pictures are added per day.</li>' +
     '<li><b>🖼 Every abstract idea, from several angles.</b> Not just SQL: entities and relationships, pipelines, orchestration, cloud and data modelling are each shown as pictures (tables, diagrams, timelines, arrows) from more than one angle before any definition. Example: before joins you see why data is split, what an entity, state, event and relationship are, and an ERD of what can join to what.</li>' +
+    '<li><b>🏗 Inside a table before between tables.</b> Before relationships and joins you learn what a table is made of (name, columns, rows, cells, data types, primary and foreign keys, the schema), what one row stands for (the grain), how to decide which table a column belongs in (what does the fact describe? does it exist only because something happened?), and why the ID goes on the many side. Every practice table has a blueprint card.</li>' +
+    '<li><b>🌍 Transfer test.</b> Understanding is checked on data you have never seen, not only the music tables: a shop (carts, orders, order items), a hospital, a school and a bank. Most of the questions are outside music, and every wrong option is explained.</li>' +
     '<li><b>🧱 Building blocks first.</b> Words like row, column, result rows, expression and condition are learned once with a real mini table, query and output (tap the actual thing). A term\'s definition starts only after its building blocks are grounded (right on 2 different days).</li>' +
     '<li><b>🧩 One phrase at a time.</b> Each definition is split into short phrases. The next phrase starts only after the current one is fully mastered.</li>' +
     '<li><b>✋ Pick → ⌨️ Type → 🔎 Spot.</b> A phrase is mastered when you have: picked it from options, typed it without options, and spotted it in a real query, table or scenario, each right on a <b>different day</b>. A term moves at most one step a day. A miss drops one step. After all phrases, you write the whole definition on another day.</li>' +

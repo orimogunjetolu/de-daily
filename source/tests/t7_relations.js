@@ -20,6 +20,7 @@ const v6store = (() => {
     const ids = CURRICULUM.modules.find(m => m.id === 'sql').lessons.map(l => l.id); out.order = ids.join(',');
     // code items need S.items for the lesson to count as started: give sql1..sql6 code items progress
     ['sql1','sql2','sql3','sql4','sql5','sql6'].forEach(l => codeIds(LESSONS[l]).forEach(id => { S.items[id] = S.items[id] || { lvl: 3, due: '2026-10-30' }; }));
+    S.theory.sqlt = '2026-10-27'; codeIds(LESSONS.sqlt).forEach(id => S.items[id] = { lvl: 1, due: '2026-10-30' }); visState('sqlt').seen = '2026-10-27';
     const snap = () => JSON.stringify({ items: S.items, theory: S.theory, xp: S.xp, streak: S.streak, placed: E.placed, placement: E.placement });
     const before = snap(); const progBefore = {}; ['sql1','sql5','sql6'].forEach(l => progBefore[l] = lessonProgress(LESSONS[l]));
     const modP = moduleProgress(CURRICULUM.modules.find(m => m.id === 'sql'));
@@ -45,8 +46,8 @@ const v6store = (() => {
     db.close(); return out; })()`, v6store);
   const F = await H(`(() => ({ next: nextLesson().id, fresh: isFreshUser(), gap: gapLesson() }))()`, {});
   // a v6 learner placed at level 2 (sql1..sql5 tested out) but sqlr / sqlm never seen
-  const P2 = await H(`(() => { ['sql1','sql2','sql3','sql4','sql5'].forEach(l => E.placed[l] = '2026-10-01'); return { next: nextLesson().id, placed: Object.keys(E.placed).join(',') }; })()`, {});
-  ok(/sql4,sqlr,sql5,sqlm,sql6/.test(R.order), 'roadmap order: sql4 → Entities/relationships → JOINs → Many-to-many → sql6 (' + R.order + ')');
+  const P2 = await H(`(() => { ['sql1','sql2','sql3','sql4','sql5'].forEach(l => E.placed[l] = '2026-10-01'); const first = nextLesson().id; S.theory.sqlt = '2026-10-28'; codeIds(LESSONS.sqlt).forEach(id => S.items[id] = { lvl: 1, due: '2026-10-30' }); return { first, next: nextLesson().id, placed: Object.keys(E.placed).join(',') }; })()`, {});
+  ok(/sql4,sqlt,sqlr,sql5,sqlm,sql6/.test(R.order), 'roadmap order: sql4 → Entities/relationships → JOINs → Many-to-many → sql6 (' + R.order + ')');
   ok(R.next1 === 'sqlr' && R.unlocked, 'existing learner past joins: the relationships lesson is next and unlocked');
   ok(/^illus:sqlr/.test(R.daily1) && !R.dailyHasM, 'daily: one new lesson a day, pictures first (' + R.daily1 + ')');
   ok(R.next2 === 'sqlm', 'next day: the many-to-many lesson (' + R.next2 + ')');
@@ -54,8 +55,8 @@ const v6store = (() => {
   ok(R.untouched && R.progKept, 'no stored progress changed or lowered (items, theory, XP, placement)');
   ok(R.modNotLower, 'module % not pulled down by the added lessons');
   ok(F.fresh && F.next === 'sql1' && !F.gap, 'fresh learner unaffected: starts at sql1, no gap lessons');
-  ok(P2.next === 'sqlr' && P2.placed === 'sql1,sql2,sql3,sql4,sql5', 'placed-at-level-2 learner: new lessons offered, placement unchanged');
-  ok(R.placeLv2 === 'sql4,sqlr,sql5,sqlm' && R.p2f === 6, 'placement level 2 covers the new lessons, one new keys/relationships item');
+  ok(P2.first === 'sqlt' && P2.next === 'sqlr' && P2.placed === 'sql1,sql2,sql3,sql4,sql5', 'placed-at-level-2 learner: new lessons offered, placement unchanged');
+  ok(R.placeLv2 === 'sql4,sqlt,sqlr,sql5,sqlm' && R.p2f === 7, 'placement level 2 covers the new lessons (v7 keys/relationships item, v8 column-placement item)');
   R.runs.forEach(([k, g, v]) => ok(g, 'runs on the dataset: ' + k + ' ' + (g ? v.slice(0, 80) : ':: ' + v)));
   ok(R.zainab === 0, 'dataset: Zainab has no streams (no link without an event)');
   ok(R.pkPair, 'dataset: playlist_songs composite key refuses a duplicate pair');
