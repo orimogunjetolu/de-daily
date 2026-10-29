@@ -40,7 +40,7 @@ const MUSIC = /song|artist|chart|stream|playlist|listener|genre|Ayra|Burna|Rema/
     out.bp = Object.keys(BLUEPRINTS).map(t => { const real = db.exec("SELECT name FROM pragma_table_info('" + t + "')"); const rc = real.length ? real[0].values.map(v => v[0]) : []; return [t, BLUEPRINTS[t][2].every(c => rc.includes(c[0])) && rc.length === BLUEPRINTS[t][2].length]; });
     db.close();
     const I = ILLUS.sqlt; out.scenes = I.scenes.length; out.qs = I.qs.map(q => ({ k: q.k, txt: q.q + ' ' + (q.show || '') + ' ' + (q.o || []).join(' ') + ' ' + (q.items || []).map(i => i[0]).join(' ') + ' ' + (q.code || ''), wOk: q.k !== 'mc' || (Array.isArray(q.w) && q.w.length === q.o.length && q.w[0] == null && q.w.slice(1).every(x => x && x.length > 15)), clsOk: q.k !== 'cls' || q.items.every(i => i[1] < q.cats.length && i[2] && i[2].length > 10) }));
-    out.figs = ['anat','ddl','place','bp','ask'].every(f => typeof ILL_FIGS[f] === 'function');
+    out.figs = ['anat','ddl','place','bp','ask','multi'].every(f => typeof ILL_FIGS[f] === 'function');
     out.pictures = I.scenes.filter(s => s.fig || s.ins).length;
     // terms
     out.terms = ['sqlt-t1','sqlt-t2','sqlt-t3'].map(id => { const T = TERMS4[id]; const pieces = (T.t1.def.match(/\\{[^}]+\\}/g) || []).length; return [id, !!T && pieces === T.t1.ph.length && T.t1.ph.every(p => p.spot && p.spot.o.length >= 3 && p.d.length >= 2) && !!T.t3 && (TERM_BLOCKS[id] || []).length >= 2]; });

@@ -79,6 +79,16 @@ New terms (with tiers, near-miss distractors and building blocks): **Cell**, **D
 
 New figures in `ILL_FIGS`: `anat` (numbered table anatomy), `ddl` (CREATE TABLE with PK/FK tags), `place` (column → what it describes → table), `bp` (blueprint cards), `ask` (the three questions to ask, with a shop ERD). `state` takes `fp.thing` and `fp.lost` labels.
 
+## 0c. STANDING RULE (v8.1): content correctness review before shipping
+The learner is new to most of this material and cannot catch our mistakes, so every lesson must be right before it ships.
+1. **Modelling sanity test for every column.** Ask: *can this fact have more than one value for one thing?* If yes (an artist's genres, a product's categories, a student's phone numbers), it cannot be one column on that thing's table. Put it on the thing it really describes (genre on songs) or in its own table with one row per value (`song_genres(song_id, genre)`). Never show a list in a cell or a duplicated entity row as correct design. The rule is called first normal form (1NF); name it, but teach the test. The same care applies to every pictured table, even a 3-row teaching example: a count that changes every day (streams) never sits on an entity table such as songs; it goes in a daily/event table (`daily_streams`, `chart_entries`). A table that shows the artist name next to song facts must be labelled a view or a query result (or the deliberate wide-table bad example).
+2. **Verify every claim against the data.** Every number, name, ranking or "X has no Y" in a theory text, explanation or picture must be checked against the real dataset (`DATASET_SQL`, `PROJECT_SQL`). Every SQL card, solution and placement answer must run in sql.js (`t9_content.js`).
+3. **Engine differences.** When a rule depends on the engine (integer division, NULL sort order, LIKE case, type enforcement, GROUP BY strictness), say which engines behave which way, especially SQLite (this app) and DuckDB (the learner's pipeline).
+4. **Label simplifications.** If a sentence simplifies (for example "events never change", or a made-up label change), say so in the text. Do not present a teaching example as a real-world fact.
+5. **Consistency across lessons.** The same fact must be classified the same way everywhere (e.g. a chart position is an event fact, not state).
+6. **Audit, then list.** Before a release, read all content. Fix clear errors. List debatable points for the owner instead of changing them silently.
+7. **Never break progress.** Content fixes keep every lesson, item and term id; deLearn.v1/.ext/.terms stay byte-identical on update.
+
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
 - Each block has a teach card and 2 questions built on a real mini table, query and output. A question is either "tap the actual thing" (`tap`) or multiple choice (`o`).
@@ -217,6 +227,8 @@ New figures in `ILL_FIGS`: `anat` (numbered table anatomy), `ddl` (CREATE TABLE 
 - Terms without `TERMS4` still work: tier 1 is the existing definition, split by `TERM_BITES` pieces or `autoPieces()`. SPOT comes from v3 aspects, otherwise "spot the accurate definition" among versions with this phrase swapped for its near-misses.
 
 ## 9. Tests
+
+v8.1: `node source/tests/t9_content.js` runs every SQL code card, problem solution and placement answer on a fresh copy of its dataset, checks that genre lives on songs (artists has only artist_id and name, one song has a NULL genre, nothing refers to artists.genre), and that sqlt teaches the "more than one?" test with the genre before/after picture and transfer questions. `browser_test.py` adds v8 (60df8f4) saved state: deLearn.v1, .ext and .terms byte-identical after loading v8.1, no lesson, item or module % lowered.
 
 v8: `node source/tests/t8_tables.js` checks the order sql4 → sqlt → sqlr, that a v7 learner (everything up to many-to-many read) gets sqlt as the next, unlocked gap lesson with nothing stored changed and no lesson or module % lowered, that fresh learners are unaffected, that sqlt's code and problem run on the dataset, that every blueprint matches the real table, 12+ pictures and 12+ questions with most outside music and all four transfer domains present, that every mc wrong option and every sorting item is explained, and that the new terms are fully wired. `browser_test.py` adds v7 (19df660) saved state: deLearn.v1, deLearn.ext and deLearn.terms byte-identical after loading v8, then a v8 daily session.
 

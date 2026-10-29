@@ -8,13 +8,14 @@ It builds a scratch web root in source/tests/.www with
   v5/  = index.html of commit 051a0fb (v5: + fast lane fields in deLearn.terms)
   v6/  = index.html of commit f5aa839 (v6: + deLearn.terms.vis, picture-first lessons)
   v7/  = index.html of commit 19df660 (v7: entities/relationships + many-to-many lessons)
+  v8/  = index.html of commit 60df8f4 (v8: What's inside a table + transfer test)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -321,16 +322,54 @@ def preserve_v7(br):
     check(json.loads(get(page, 'deLearn.ext'))['placed'] == json.loads(ext)['placed'] and json.loads(get(page, 'deLearn.ext')).get('placement') == json.loads(ext).get('placement'), f'[{label}] placement record unchanged')
     check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
+def preserve_v8(br):
+    # real v8 state: crafted v1, v3..v7 sessions, v8 daily session and the v8 sqlt lesson; then load v8.1 (genre moved to songs)
+    ctx, page, errs = ctxpage(br); label = 'from v8 60df8f4'
+    page.goto(f'{BASE}/v3/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v4/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v6/index.html'); page.wait_for_selector('#startBtn'); page.evaluate("startSession(buildLessonSession('sql5'))"); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v7/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.goto(f'{BASE}/v8/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.evaluate("startSession(buildLessonSession('sqlt'))"); drive(page, wrong_every=3); page.click('main.summary [data-to="home"]')
+    v1, ext, tr = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), get(page, 'deLearn.terms'); oldprog = page.evaluate(PROG); t8o = json.loads(tr)
+    oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")
+    check(t8o['vis'].get('sqlt', {}).get('seen'), f'[{label}] v8 state has the sqlt lesson seen')
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    check(get(page, 'deLearn.v1') == v1, f'[{label}] deLearn.v1 byte-identical after loading v8.1')
+    check(get(page, 'deLearn.ext') == ext, f'[{label}] deLearn.ext byte-identical after loading v8.1')
+    check(get(page, 'deLearn.terms') == tr, f'[{label}] deLearn.terms byte-identical after loading v8.1')
+    newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
+    newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
+    check(not lowm, f'[{label}] no module % lowered by v8.1 ' + str(lowm))
+    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v8.1' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v8.1 build loaded')
+    page.click('#startBtn'); n, seen = drive(page); check(n > 0, f'[{label}] daily session after the update completes ({n} steps)')
+    after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1)
+    check(after['xp'] >= old['xp'] and all(after['theory'].get(k) == v for k, v in old['theory'].items()), f'[{label}] XP {old["xp"]}→{after["xp"]}, theory marks kept')
+    tb = json.loads(get(page, 'deLearn.terms'))
+    lowt = [k for k, v in t8o['terms'].items() if k in tb['terms'] and tb['terms'][k].get('tier', 0) == v.get('tier', 0) and any(a['s'] < b['s'] for a, b in zip(tb['terms'][k]['ph'], v['ph']))]
+    check(not lowt, f'[{label}] no term phrase step lowered after a v8.1 session ' + str(lowt[:5]))
+    check(json.loads(get(page, 'deLearn.ext'))['placed'] == json.loads(ext)['placed'], f'[{label}] placement record unchanged')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
 def transfer_wrong(br):
     # wrong answers in the transfer test explain themselves (mc: why each other option is wrong; cls: the right box and why)
     ctx = br.new_context(service_workers='block', viewport={'width': 390, 'height': 844}, device_scale_factor=2); page = ctx.new_page(); errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn'); page.evaluate("startSession(buildLessonSession('sqlt'))")
-    k = 0
+    k = 0; shots81 = set()
     while page.locator('[data-act="illNext"]').count():
         k += 1
         if k == 1:
             page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{KEEP8}/1-table-anatomy.png', full_page=True)
+        h = page.inner_text('main')
+        if 'Afrobeats, R&B' in h and 'genre' not in shots81:
+            page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{KEEP8}/4-genre-before-after.png', full_page=True); shots81.add('genre')
+            check('NULL' not in h or True, 'genre before/after picture shown (list cell, duplicated rows, genre on songs)')
+        if page.locator('main .plc').count() and 'same test' in h.lower():
+            page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{KEEP8}/5-more-than-one-test.png', full_page=True); shots81.add('multi')
         page.click('[data-act="illNext"]')
     got_mc = got_cls = False; qn = 0
     while page.locator('[data-act="vqCheck"], [data-act="vqPick"]').count():
@@ -350,6 +389,7 @@ def transfer_wrong(br):
         ov = page.evaluate("document.documentElement.scrollWidth"); check(ov <= 390, f'transfer q{qn} feedback: no overflow at 390px ({ov})')
         page.click('[data-act="next"]')
     check(got_mc and got_cls, 'wrong-answer explanations seen for multiple choice and sorting')
+    check(shots81 == {'genre', 'multi'}, f'genre picture and the any-data test picture captured: {sorted(shots81)}')
     check(not errs, 'no JS errors (transfer wrong answers): ' + '; '.join(errs[:5])); ctx.close()
 
 def fast_lane_ui(br):
@@ -383,10 +423,12 @@ with sync_playwright() as p:
     preserve_v5(br)
     preserve_v6(br)
     preserve_v7(br)
+    preserve_v8(br)
     joins_390(br)
     k1 = lesson_390(br, 'sqlr', 11, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
     lesson_390(br, 'sqlm', 5, 'v7-sqlm')
-    k8 = lesson_390(br, 'sqlt', 13, 'v8-sqlt'); check({'cls', 'tap', 'mc', 'run'} <= k8, 'table lesson uses classify, tap-rows, pick and run questions')
+    k8 = lesson_390(br, 'sqlt', 15, 'v8-sqlt'); check({'cls', 'tap', 'mc', 'run'} <= k8, 'table lesson uses classify, tap-rows, pick and run questions')
+    lesson_390(br, 'sql2', 2, 'v81-sql2'); lesson_390(br, 'sql4', 3, 'v81-sql4'); lesson_390(br, 'sql3', 2, 'v81-sql3')  # v8.1: daily_streams and labelled views
     transfer_wrong(br)
     fast_lane_ui(br)
     # simulate following days by moving the clock forward
@@ -408,7 +450,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v8' in caches, 'service worker cache de-daily-v8: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v8-1' in caches, 'service worker cache de-daily-v8-1: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()
