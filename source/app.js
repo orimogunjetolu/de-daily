@@ -14,7 +14,7 @@
 
 /* Sample dataset inspired by the Deezer "Top Nigeria" chart. Song titles,
    artists and durations are real; chart dates, positions and stream counts
-   are illustrative. Genre is one simplified main label per song (v8.1: it
+   are illustrative. Each song has one main genre (v8.1: genre
    moved from artists to songs, because an artist can have several genres
    and a cell holds one value). Loaded fresh into SQLite for every query. */
 const DATASET_SQL = `
@@ -111,7 +111,7 @@ const SQL_LESSONS_A = [
     why:'Before databases, data lived in files and spreadsheets. They break when many people edit at once, when rows reach the millions, or when the same fact (an artist\'s name) is copied into hundreds of places and someone updates only one copy. In 1970 Edgar Codd proposed the <b>relational model</b>: store each kind of fact in its own <b>table</b>, give every row a <b>key</b>, and link tables through keys. You then describe <i>what</i> result you want and the database works out <i>how</i> to get it.',
     body:[
       'A <b>table</b> is a set of <b>rows</b> (records) that share the same <b>columns</b> (attributes). Each column has a <b>data type</b> (INTEGER, TEXT, DATE…). The full list of tables, columns, types and rules is the <b>schema</b>.',
-      'A <b>primary key</b> (PK) uniquely identifies each row and can never be NULL. In our dataset <code>songs.song_id</code> is the PK. A <b>foreign key</b> (FK) such as <code>songs.artist_id</code> points to the PK of another table, so an artist\'s name is stored once and referenced everywhere.',
+      'A <b>primary key</b> (PK) uniquely identifies each row and can never be NULL (that is the SQL standard; SQLite has one old exception, explained in "What\'s inside a table", which is why SQLite tables often say <code>PRIMARY KEY NOT NULL</code>). In our dataset <code>songs.song_id</code> is the PK. A <b>foreign key</b> (FK) such as <code>songs.artist_id</code> points to the PK of another table, so an artist\'s name is stored once and referenced everywhere.',
       'SQL is <b>declarative</b>. <code>SELECT title FROM songs</code> says what you want; the <b>query planner</b> decides whether to scan the table or use an index. SQL is also a <b>standard</b>, so the same basic queries run on Postgres, BigQuery, Snowflake or DuckDB (the engine in your Deezer chart pipeline). Each engine adds its own <b>dialect</b> differences, which you will meet along the way.',
       '<code>SELECT</code> chooses columns (and can compute expressions), <code>FROM</code> names the table, and <code>AS</code> gives a result column an <b>alias</b>.'
     ],
@@ -121,7 +121,7 @@ const SQL_LESSONS_A = [
   terms:[
     { id:'sql1-t1', term:'Table', def:'A named collection of [[rows]] and [[columns]] where each row is one record of the {{same kind of thing}}.' },
     { id:'sql1-t2', term:'Primary key', def:'A column or set of columns whose value [[uniquely]] identifies each row; it can never be [[NULL]].' },
-    { id:'sql1-t3', term:'Foreign key', def:'A column that [[references]] the primary key of [[another table]], linking related rows.' },
+    { id:'sql1-t3', term:'Foreign key', def:'A column that [[references]] a key of [[another table]] (usually its primary key).' },
     { id:'sql1-t4', term:'Declarative language', def:'A language where you describe {{[[what]] result you want, not [[how]] to compute it}}; the database\'s [[query planner]] chooses the steps.' },
     { id:'sql1-t5', term:'Schema', def:'The [[structure]] of a database: its tables, columns, [[data types]] and constraints.' }
   ],
@@ -221,7 +221,7 @@ const SQL_LESSONS_A = [
     why:'Business questions are usually <b>summaries</b>: total streams per day, number of songs per artist, average song length per genre. Nobody wants to read 30 raw rows to answer "who is winning?". Aggregation <b>collapses many rows into one row per group</b>.',
     body:[
       '<b>Aggregate functions</b> take many rows and return one value: <code>COUNT, SUM, AVG, MIN, MAX</code>. Without GROUP BY, the whole table is one group.',
-      '<code>GROUP BY artist_id</code> makes one group per distinct artist_id. The golden rule: every column in SELECT must either be <b>in the GROUP BY</b> or <b>inside an aggregate</b>. Otherwise the database can\'t know which of the many values to show.',
+      '<code>GROUP BY artist_id</code> makes one group per distinct artist_id. The safe rule: put every column in SELECT either <b>in the GROUP BY</b> or <b>inside an aggregate</b>. Any other column can have many different values inside one group, and nothing says which one to show. Standard SQL does allow one more case: a column that is <b>functionally dependent</b> on the grouped columns, meaning it has exactly one value for each group. For example, Postgres accepts <code>artists.name</code> when you group by <code>artists.artist_id</code>, because artist_id is the primary key of artists. SQLite is more lenient than the standard: it runs any such query and shows the value from an arbitrary row of the group, without an error. Following the safe rule gives correct results on every engine.',
       '<code>WHERE</code> filters <b>rows before</b> grouping; <code>HAVING</code> filters <b>groups after</b> aggregation. "Songs with more than 2 chart days" needs <code>HAVING COUNT(*) > 2</code>.',
       'Aggregates <b>ignore NULLs</b> (except <code>COUNT(*)</code>). So <code>COUNT(streams)</code> counts only non-NULL values, and <code>AVG(streams)</code> divides by the number of non-NULL values, which can surprise you.',
       'Always know the <b>grain</b> of a result, meaning what one row represents. chart_entries has a grain of "one song on one chart day".'
@@ -262,13 +262,13 @@ const SQL_LESSONS_B = [
   theory:{
     why:'Before you can connect tables you must be able to read one, and to decide what belongs in it. If you cannot say why <code>artist_id</code> sits in <code>songs</code> while <code>position</code> sits in <code>chart_entries</code>, every new database (a shop, a hospital, a bank) will look like a pile of random columns. One question sorts almost every column: <i>what does this fact describe?</i>',
     body:[
-      '<b>The parts of a table.</b> A table has a <b>name</b> (<code>songs</code>) that says what kind of thing each row is. A <b>column</b> is one named field, read downwards (<code>title</code>). A <b>row</b> (record) is one thing, read across (one song). A <b>cell</b> is the single value where one row meets one column (163 is the duration of Goodbye). Every column has a <b>data type</b> (INTEGER, TEXT, DATE), and every cell in it must fit that type. (Most databases enforce this. SQLite, the engine inside this app, is lenient and stores a mismatched value anyway unless the table is declared STRICT, so do not rely on it to catch type mistakes.) The <b>primary key</b> (<code>song_id</code>) is unique on every row and never NULL. A <b>foreign key</b> (<code>artist_id</code>) holds another table\'s primary key, so its values may repeat. The list of tables, columns, types and keys is the <b>schema</b>: the blueprint, not the data.',
+      '<b>The parts of a table.</b> A table has a <b>name</b> (<code>songs</code>) that says what kind of thing each row is. A <b>column</b> is one named field, read downwards (<code>title</code>). A <b>row</b> (record) is one thing, read across (one song). A <b>cell</b> is the single value where one row meets one column (163 is the duration of Goodbye). Every column has a <b>data type</b> (INTEGER, TEXT, DATE), and every cell in it must fit that type. (Most databases enforce this. SQLite, the engine inside this app, is lenient and stores a mismatched value anyway unless the table is declared STRICT, so do not rely on it to catch type mistakes.) The <b>primary key</b> (<code>song_id</code>) is unique on every row and never NULL. (SQLite footnote: because of a bug in early versions, SQLite accepts NULL in a primary-key column unless the column is an <code>INTEGER PRIMARY KEY</code>, the table is <code>WITHOUT ROWID</code> or <code>STRICT</code>, or the column is also declared <code>NOT NULL</code>. Postgres and DuckDB always reject it. So in SQLite write <code>PRIMARY KEY NOT NULL</code> for text keys.) A <b>foreign key</b> (<code>artist_id</code>) holds another table\'s primary key, so its values may repeat. The list of tables, columns, types and keys is the <b>schema</b>: the blueprint, not the data.',
       '<b>Grain: what one row stands for.</b> Say it out loud before you add a column. <code>artists</code>: one row = one artist. <code>songs</code>: one row = one song. <code>chart_entries</code>: one row = one song on one chart day. <code>streams</code>: one row = one play.',
-      '<b>Where does a column belong?</b> Ask what the fact describes. A fact about the artist (the name) goes in <code>artists</code>. A fact about the song (title, duration, its main genre label) goes in <code>songs</code>. A fact that exists <b>only because something happened</b> (position 1 on 17 October, 108,000 streams that day) is not a fact about the song: it is a fact about that song <i>on that day</i>, so it goes in the event table <code>chart_entries</code>, one new row per day. If you put <code>position</code> in <code>songs</code>, each day would overwrite the last and the history would be lost.',
-      '<b>One value per cell: the "more than one?" test.</b> Before you put a fact on a table, ask: <i>can this fact have more than one value for one of these things?</i> If yes, it cannot be one column on that table. An artist can have several genres (Ayra Starr is described as Afrobeats and R&B). As a column on <code>artists</code> you would need either a list in one cell ("Afrobeats, R&B"), which cannot be filtered, counted or joined reliably, or a second Ayra Starr row, which copies her name and makes <code>artist_id</code> no longer unique. So genre is not an artist column. In our data each song carries one main genre label, so <code>genre</code> lives in <code>songs</code>. If a song could have several genres too, you would add a table <code>song_genres(song_id, genre)</code> with one row per pair. The rule "every cell holds one value" is called <b>first normal form</b> (1NF); you will meet the other normal forms in data modelling. Same test anywhere: a product in several categories → <code>product_categories</code>; a student with several phone numbers → <code>student_phones</code>.',
-      '<b>The wide-table trap.</b> One wide table with the song\'s title, genre and artist name written on every chart row repeats facts (<b>redundancy</b>). If the artist changes their stage name, every copy must change; miss one and the data disagrees. Splitting into <code>artists</code>, <code>songs</code> and <code>chart_entries</code> stores each fact once.',
-      '<b>Where does the ID go?</b> On the <b>many</b> side. A song has one artist and an artist has many songs, so each song row holds one <code>artist_id</code>. The other way round, <code>artists</code> would need a list of song IDs in one cell, which cannot be checked or joined. An <b>event</b> row (a chart entry, a stream, an appointment, an order) holds the IDs of <b>everything involved</b>: who, what, and when. When both sides are "many" (playlists and songs), the IDs go in a <b>linking table</b> with one row per pair.',
-      '<b>It works on any data.</b> Shop: <code>email</code> describes the customer → <code>customers</code>; <code>price</code> describes the product → <code>products</code>; <code>quantity</code> exists only because a product was put on an order → <code>order_items</code>; <code>customer_id</code> goes in <code>orders</code> (one customer, many orders). Hospital: an appointment time exists only because the appointment happened → <code>appointments</code>, which holds <code>patient_id</code> and <code>doctor_id</code>. School: a grade describes one student in one course → <code>enrolments</code>. Bank: each deposit or withdrawal is an event → one row in <code>transactions</code> with <code>account_id</code>.'
+      '<b>Where does a column belong?</b> Ask what the fact describes. A fact about the artist (the name) goes in <code>artists</code>. A fact about the song (title, duration, its main genre) goes in <code>songs</code>. A fact that exists <b>only because something happened</b> (position 1 on 17 October, 108,000 streams that day) is not a fact about the song: it is a fact about that song <i>on that day</i>, so it goes in the event table <code>chart_entries</code>, one new row per day. If you put <code>position</code> in <code>songs</code>, each day would overwrite the last and the history would be lost.',
+      '<b>One value per cell: the "more than one?" test.</b> Before you put a fact on a table, ask: <i>can this fact have more than one value for one of these things?</i> If yes, it cannot be one column on that table. An artist can have several genres (Ayra Starr is described as Afrobeats and R&B). As a column on <code>artists</code> you would need either a list in one cell ("Afrobeats, R&B"), which cannot be filtered, counted or joined reliably, or a second Ayra Starr row, which copies her name and makes <code>artist_id</code> no longer unique. So genre is not an artist column. In our data each song carries one main genre, so <code>genre</code> lives in <code>songs</code>. If a song could have several genres too, you would add a table <code>song_genres(song_id, genre)</code> with one row per pair. The rule "every cell holds one value" is called <b>first normal form</b> (1NF); you will meet the other normal forms in data modelling. The test also catches other names: an artist has one <b>main</b> stage name (<code>artists.name</code>), but can also be known by several others (Wizkid is also called Starboy), so those go in <code>artist_aliases(artist_id, alias)</code>, one row per name. Featured artists work the same way: a song has one main artist in <code>songs.artist_id</code>, and any featured artists go in a linking table <code>song_artists(song_id, artist_id)</code>. The same test works anywhere: a product in several categories needs <code>product_categories</code>, and a student with several phone numbers needs <code>student_phones</code>.',
+      '<b>The wide-table trap.</b> One wide table with the song\'s title, genre and artist name written on every chart row repeats facts (<b>redundancy</b>). If the artist changes their main stage name, every copy must change; miss one and the data disagrees. Splitting into <code>artists</code>, <code>songs</code> and <code>chart_entries</code> stores each fact once.',
+      '<b>Where does the ID go?</b> On the <b>many</b> side. A song has one main artist and an artist has many songs, so each song row holds one <code>artist_id</code>. The other way round, <code>artists</code> would need a list of song IDs in one cell, which cannot be checked or joined. An <b>event</b> row (a chart entry, a stream, an appointment, an order) holds the IDs of <b>everything involved</b>: who, what, and when. When both sides are "many" (playlists and songs), the IDs go in a <b>linking table</b> with one row per pair.',
+      '<b>It works on any data.</b> In a shop, <code>email</code> describes the customer, so it goes in <code>customers</code>, and <code>price</code> describes the product, so it goes in <code>products</code>. <code>quantity</code> exists only because a product was put on an order, so it goes in <code>order_items</code>, and <code>customer_id</code> goes in <code>orders</code> because one customer has many orders. In a hospital, an appointment time exists only because the appointment happened, so it goes in <code>appointments</code>, which holds <code>patient_id</code> and <code>doctor_id</code>. In a school, a grade describes one student in one course, so it goes in <code>enrolments</code>. In a bank, each deposit or withdrawal is an event, stored as one row in <code>transactions</code> with its <code>account_id</code>.'
     ],
     pro:'"Before I add a column I state the table\'s grain and ask what the fact describes. Entity attributes live on the entity table, facts that exist only because of an event live on the event table, and the foreign key goes on the many side."',
     q:{ q:'A shop\'s products table has a column quantity_sold_today. What is wrong with it, and where should that fact live?', a:'It is not a fact about the product: it exists only because orders happened today, and it would be overwritten every day (losing history). Store each sale as rows in order_items (order_id, product_id, quantity) and compute "sold today" with a query: SUM(quantity) for today\'s orders, grouped by product_id.' }
@@ -295,22 +295,22 @@ const SQL_LESSONS_B = [
   theory:{
     why:'Joins only make sense once you know <i>why</i> data is split into tables and <i>what</i> links them. If <code>songs.artist_id = artists.artist_id</code> looks like magic syntax, you will guess at joins. If you can see "a song belongs to an artist" and "a stream links a listener to a song", you know which table connects to which, and which pairs cannot be connected at all.',
     body:[
-      'One big table repeats facts: the artist\'s name and label are copied onto every song. Change a label and you must update every copy, and if you miss one the data disagrees with itself. Mistype a name once ("Burna Boi") and you have invented a new artist. So we <b>split</b> the data so that each fact is stored <b>once</b>, in the table it describes.',
+      'One big table repeats facts: the artist\'s name and the label the artist is currently signed to are copied onto every song. Change a label and you must update every copy, and if you miss one the data disagrees with itself. Mistype a name once ("Burna Boi") and you have invented a new artist. So we <b>split</b> the data so that each fact is stored <b>once</b>, in the table it describes.',
       '<b>Entity</b>: a thing that exists on its own and that we store facts about, such as an artist, a song or a listener. Each entity gets its own table and its own ID (the primary key).',
       '<b>State</b>: a current, changeable fact about an entity, such as an artist\'s current label or a listener\'s current city. It is usually a column on that entity\'s table. (A song\'s chart position is not state: it belongs to one day\'s chart, so it is stored as an event row in chart_entries. See "What\'s inside a table".) An UPDATE overwrites it, so the old value is lost unless you keep history on purpose (a history table, or a slowly changing dimension later in the course).',
-      '<b>Event</b>: something that happened at a moment, such as "Ada streamed Calm Down at 21:14". It did not exist until it happened, and it is not edited afterwards (a mistake is fixed by a correction, not by rewriting history). Each event is a <b>new row</b> holding a timestamp and the IDs of the entities involved (listener_id, song_id).',
-      '<b>Relationship</b>: how entities connect. Some relationships are fixed facts stored as a foreign key: a song belongs to an artist (<code>songs.artist_id → artists.artist_id</code>). Others are <b>created by events</b>: a listener and a song have no link until a stream happens, and the stream row <i>is</i> the link. Entities exist first. Events, and the links they create, come later.',
+      '<b>Event</b>: something that happened at a moment, such as "Ada streamed Calm Down at 21:14". It did not exist until it happened. Each event is a <b>new row</b> holding a timestamp and the IDs of the entities involved (listener_id, song_id), and in normal use the row is not edited afterwards. When an event row is wrong, it is fixed deliberately: by a new correcting row (for example a reversal), or by a controlled, logged update. Events can also arrive late, and are added when they arrive.',
+      '<b>Relationship</b>: how entities connect. Some relationships are facts stored as a foreign key: each song points at its main artist (<code>songs.artist_id</code> holds a value of <code>artists.artist_id</code>). Featured artists are a separate many-to-many relationship with its own linking table. Others are <b>created by events</b>: a listener and a song have no link until a stream happens, and the stream row <i>is</i> the link. Entities exist first. Events, and the links they create, come later.',
       'There are three kinds of relationship. <b>One-to-many</b>: an artist has many songs, and the foreign key sits on the "many" side. <b>One-to-one</b>: an artist has one profile. <b>Many-to-many</b>: listeners and songs, or songs and playlists. A many-to-many relationship needs a <b>linking (junction) table</b> that holds pairs of IDs. An <b>ERD</b> (entity-relationship diagram) draws the tables as boxes and the relationships as lines between their keys.',
-      'Tables connect only through <b>shared IDs</b>. listeners and artists share no column, so you cannot join them directly. Instead you follow the arrows: listeners → streams → songs → artists. If no shared ID, event table or linking table connects two tables, a join between them has no meaning.'
+      'Tables connect only through <b>shared IDs</b>. listeners and artists share no column, so you cannot join them directly. Instead you follow the foreign keys: from listeners to streams (on listener_id), from streams to songs (on song_id), and from songs to artists (on artist_id). If no shared ID, event table or linking table connects two tables, a join between them has no meaning.'
     ],
     pro:'"I start from the ERD. Entities like artists and songs are linked by foreign keys. Events like streams are rows that carry the listener\'s and the song\'s IDs, so that is the path I join along."',
-    q:{ q:'You need each listener\'s favourite artist, but listeners and artists share no column. Is it possible, and how?', a:'Yes, by following the relationships: listeners → streams (listener_id) → songs (song_id) → artists (artist_id). The stream events connect listeners to songs, and songs.artist_id connects songs to artists. Count streams per listener and artist, then keep the top one for each listener.' }
+    q:{ q:'You need each listener\'s favourite artist, but listeners and artists share no column. Is it possible, and how?', a:'Yes, by following the relationships: join listeners to streams on listener_id, streams to songs on song_id, and songs to artists on artist_id. The stream events connect listeners to songs, and songs.artist_id connects songs to artists. Count streams per listener and artist, then keep the top one for each listener.' }
   },
   terms:[
     { id:'sqlr-t1', term:'Entity', def:'A [[thing]] that exists on its own and that we store facts about, with its own [[table]] and [[ID]].' },
     { id:'sqlr-t2', term:'State', def:'A [[current]], changeable fact about an entity, usually a column. An UPDATE [[overwrites]] the old value.' },
-    { id:'sqlr-t3', term:'Event (data modelling)', def:'Something that [[happened]] at a moment. It is stored as a [[new row]] with a timestamp and the IDs involved, and is never changed.' },
-    { id:'sqlr-t4', term:'Relationship', def:'How entities [[connect]]: either a fixed fact stored as a [[foreign key]], or a link [[created by events]].' },
+    { id:'sqlr-t3', term:'Event (data modelling)', def:'Something that [[happened]] at a moment. It is stored as a [[new row]] with a timestamp and the IDs involved, and is normally not edited.' },
+    { id:'sqlr-t4', term:'Relationship', def:'How entities [[connect]]: either a fact stored as a [[foreign key]], or a link [[created by events]].' },
     { id:'sqlr-t5', term:'One-to-many', def:'One row on one side matches [[many]] rows on the other. The foreign key sits on the [[many side]].' },
     { id:'sqlr-t6', term:'ERD', def:'An [[entity-relationship diagram]]: tables drawn as [[boxes]] and relationships as [[lines]] between their keys.' }
   ],
@@ -394,7 +394,7 @@ const SQL_LESSONS_B = [
       scenario:'For each listener and artist, return the listener\'s name (call it listener), the artist\'s name (artist) and the number of streams (plays). listeners and artists share no column, so follow the arrows.',
       hint:'streams → listeners on listener_id, streams → songs on song_id, songs → artists on artist_id. Then GROUP BY listener and artist.',
       solution:'SELECT l.name AS listener, a.name AS artist, COUNT(*) AS plays\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id\nJOIN artists a   ON a.artist_id = s.artist_id\nGROUP BY l.name, a.name;',
-      explain:'The listener–artist link is not stored anywhere. It exists only because of stream events plus the fixed song → artist foreign key. Ada → Rema shows 2 plays because she streamed Calm Down twice. Zainab is missing: she has no stream events, so she has no link to any artist.' }
+      explain:'The listener–artist link is not stored anywhere. It exists only because of stream events plus the foreign key from each song to its main artist (songs.artist_id). The row for Ada and Rema shows 2 plays because she streamed Calm Down twice. Zainab is missing: she has no stream events, so she has no link to any artist.' }
   ]
 },
 { id:'sql6', title:'Subqueries',
@@ -454,7 +454,7 @@ const SQL_LESSONS_B = [
     { id:'sql7-t1', term:'CTE', def:'A Common Table Expression: a [[named temporary result]] defined with [[WITH]] that exists only for {{the duration of one statement}}.' },
     { id:'sql7-t2', term:'Chained CTEs', def:'Several CTEs separated by [[commas]] where each one [[builds on the previous]], turning a complex query into readable steps.' },
     { id:'sql7-t3', term:'Recursive CTE', def:'A CTE that [[references itself]], with an anchor part and a recursive part joined by [[UNION ALL]], used for hierarchies or sequences.' },
-    { id:'sql7-t4', term:'UNION ALL vs UNION', def:'UNION ALL stacks rows and [[keeps duplicates]]; UNION also [[removes duplicates]], which makes it slower.' }
+    { id:'sql7-t4', term:'UNION ALL vs UNION', def:'UNION ALL stacks rows and [[keeps duplicates]]; UNION also [[removes duplicates]], which usually makes it slower.' }
   ],
   code:[
     { id:'sql7-c1', task:'Daily totals as a CTE, then keep days above 690,000 streams.', lang:'sql', code:'[[WITH]] daily AS (\n  SELECT chart_date, SUM(streams) AS total\n  FROM chart_entries\n  GROUP BY chart_date\n)\nSELECT * FROM [[daily]]\nWHERE total > 690000;' },
@@ -486,7 +486,7 @@ const SQL_LESSONS_B = [
   terms:[
     { id:'sql8-t1', term:'Window function', def:'A function that computes a value across a [[set of related rows]] while [[keeping every row]] in the result, defined with OVER().' },
     { id:'sql8-t2', term:'PARTITION BY', def:'Splits rows into [[independent groups]] for a window function, like GROUP BY but [[without collapsing]] the rows.' },
-    { id:'sql8-t3', term:'LAG', def:'Returns a value from a [[previous row]] in the window\'s order, such as yesterday\'s chart position; it returns [[NULL]] when there is no previous row.' },
+    { id:'sql8-t3', term:'LAG', def:'Returns a value from a [[previous row]] in the window\'s order, such as yesterday\'s chart position; it returns [[NULL]] when there is no previous row (unless you give a default).' },
     { id:'sql8-t4', term:'ROW_NUMBER vs RANK vs DENSE_RANK', def:'ROW_NUMBER gives [[unique]] numbers even for ties; RANK gives ties the same number and [[skips]] the next; DENSE_RANK gives ties the same number [[without gaps]].' },
     { id:'sql8-t5', term:'Window frame', def:'The rows within a partition used for each calculation, e.g. ROWS BETWEEN [[UNBOUNDED PRECEDING]] AND [[CURRENT ROW]] for a running total.' }
   ],
@@ -556,7 +556,7 @@ const ETL_LESSONS = [
       '<b>Extract</b>: read from the source (API, database, files). <b>Transform</b>: clean, reshape, join, validate. <b>Load</b>: write into the target (warehouse, lake).',
       '<b>ETL</b> transforms <i>before</i> loading. It was the classic choice when warehouse storage and compute were expensive. <b>ELT</b> loads raw data first and transforms <i>inside</i> the warehouse with SQL, which became common with cheap cloud storage and tools like dbt.',
       'A <b>raw layer</b> (landing zone) keeps the source data exactly as received. If you find a bug in your transform next month, you can <b>replay</b> from raw instead of losing history. Your pipeline does this with <code>data/raw/top_nigeria_YYYY-MM-DD.json</code>.',
-      'Layers are often named <b>raw → staging → marts</b> (or bronze → silver → gold): untouched, then cleaned, then business-ready.'
+      'Layers are often named <b>raw</b>, <b>staging</b> and <b>marts</b> (or bronze, silver and gold). Data flows through them in that order: the raw layer is untouched, staging is cleaned, and marts are business-ready.'
     ],
     pro:'"My pipeline is ETL with a raw landing layer. It extracts the Deezer chart, stores the JSON untouched for replay, transforms and validates in Python, and loads idempotently into DuckDB."',
     q:{ q:'Why keep the raw JSON if you already loaded clean rows?', a:'Because transforms change and have bugs, and the source API won\'t give you yesterday\'s chart again. Raw data lets you rebuild history with new logic (a backfill) and debug what the source actually sent.' }
@@ -655,17 +655,17 @@ const ETL_LESSONS = [
   theory:{
     why:'A pipeline that runs "successfully" but loads wrong data is worse than one that crashes, because people make decisions with it. Trust in data takes months to build and one bad dashboard to lose. So data engineers <b>check data automatically at the boundaries</b> and <b>fail loudly</b> before bad data reaches users.',
     body:[
-      'Common <b>data-quality checks</b>: <b>not null</b> (titles exist), <b>unique</b> (one row per chart_date + song), <b>accepted values or ranges</b> (position between 1 and 100), <b>referential integrity</b> (every song_id exists in songs), <b>volume</b> (about 100 rows per day, not 3), and <b>freshness</b> (today\'s data has arrived).',
+      'Common <b>data-quality checks</b>: <b>not null</b> (titles exist), <b>unique</b> (one row per chart_date + song), <b>accepted values or ranges</b> (position between 1 and 100), <b>referential integrity</b> (every song_id exists in songs), <b>volume</b> (100 rows per day in your data, not 3), and <b>freshness</b> (today\'s data has arrived).',
       '<b>Schema drift</b>: the source changes shape, for example Deezer renames a field. Validate the fields you depend on during extract and transform, so the job fails with a clear message instead of loading NULLs.',
       '<b>Unit tests</b> (pytest) check one function with known input and expected output, such as "transform drops duplicate tracks". Teams usually run them in CI on every push. Your project has <code>tests/test_transform.py</code>, and your workflow runs it before each pipeline run.',
       'Where checks run: in Python before load (your transform refuses duplicates or missing titles), as SQL queries that should return zero rows, or as dbt tests (<code>unique</code>, <code>not_null</code>) after load.'
     ],
     pro:'"I treat data-quality checks as assertions: a SQL check that should return zero rows, or a Python assert in the transform. If one fails, the run fails before the bad data is published."',
-    q:{ q:'Your job loaded 3 rows today instead of ~100, and all values look valid. Which check would catch it?', a:'A volume (row-count) check, for example "fail if today\'s count is under 90". Not-null and unique checks pass on 3 perfectly valid rows. Volume and freshness checks catch silent partial loads.' }
+    q:{ q:'Your job loaded 3 rows today instead of the usual 100, and all values look valid. Which check would catch it?', a:'A volume (row-count) check, for example "fail if today\'s count is under 90". Not-null and unique checks pass on 3 perfectly valid rows. Volume and freshness checks catch silent partial loads.' }
   },
   terms:[
     { id:'etl4-t1', term:'Data-quality check', def:'An automated [[assertion]] about data, such as no NULLs or unique keys, that [[stops or flags]] the pipeline when it fails.' },
-    { id:'etl4-t2', term:'Freshness check', def:'Verifies how [[recent]] the latest data is, e.g. today\'s chart has [[arrived]] by 07:00.' },
+    { id:'etl4-t2', term:'Freshness check', def:'Verifies how [[recent]] the latest data is, e.g. today\'s chart [[arrived]] on time.' },
     { id:'etl4-t3', term:'Schema drift', def:'When the source\'s [[structure changes]] unexpectedly, such as a renamed or [[missing field]].' },
     { id:'etl4-t4', term:'Unit test', def:'A small automated test that checks [[one function]] in isolation with known input and [[expected output]].' },
     { id:'etl4-t5', term:'Volume check', def:'Compares the [[number of rows]] loaded with what is [[expected]], catching partial or empty loads.' }
@@ -689,10 +689,10 @@ const ETL_LESSONS = [
   theory:{
     why:'For a remote entry-level role, your portfolio project <b>is</b> your experience. Interviewers don\'t just check that it runs. They check that you can explain the <b>decisions</b>: why this design, what breaks, how you\'d scale it. This lesson turns your Naija Chart Pipeline into a story you can tell fluently.',
     body:[
-      '<b>Architecture in one breath</b>: GitHub Actions (cron, daily) → <code>extract.py</code> calls the Deezer API → raw JSON saved per date → <code>transform.py</code> flattens and validates → <code>load.py</code> delete-and-inserts the date into DuckDB → SQL views (chart_movement with LAG, artist_summary).',
-      'A <b>partition</b> is a slice of a table by a column such as date. Your load replaces exactly one date partition, which makes it idempotent and cheap.',
-      '<b>Data lineage</b>: you can trace each number back through raw JSON → clean rows → table → view. <b>Logging</b> row counts each run (your load prints them) is the first step toward <b>observability</b>.',
-      '<b>Scaling story</b>: DuckDB → BigQuery free tier; SQL views → dbt models with tests; GitHub Actions → Airflow when there are many dependent tasks (Module 5); add alerting when a check fails.'
+      '<b>Architecture in one breath</b>: GitHub Actions starts the job on a daily cron schedule. <code>extract.py</code> calls the Deezer API and saves the raw JSON for that date. <code>transform.py</code> flattens and validates it, and <code>load.py</code> deletes that date\'s rows in DuckDB and inserts the new ones. Finally, SQL views are built on top: chart_movement (with LAG) and artist_summary.',
+      'A <b>partition</b> is the slice of a table whose rows share one value of a column such as the date. In your DuckDB table it is a <b>logical</b> slice: the rows <code>WHERE chart_date = </code> that day, inside one table. Warehouses such as BigQuery can also store each partition <b>physically</b> apart, so a query that filters on the date reads only that part (partition pruning). Your load deletes and re-inserts exactly one date\'s rows, which makes it idempotent and cheap.',
+      '<b>Data lineage</b>: you can trace each number in a view back to the table row it came from, then to the clean row, and finally to the raw JSON. <b>Logging</b> row counts each run (your load prints them) is the first step toward <b>observability</b>.',
+      '<b>Scaling story</b>: move from DuckDB to BigQuery (its free tier is enough to start), turn the SQL views into dbt models with tests, replace GitHub Actions with Airflow once there are many dependent tasks (Module 5), and add alerting when a check fails.'
     ],
     pro:'"I built a daily batch pipeline: GitHub Actions triggers a Python extractor against the Deezer API. Raw JSON lands per date for replayability, the transform enforces quality rules, and an idempotent partition load writes to DuckDB, where SQL window functions model chart movement."',
     q:{ q:'An interviewer asks, "What would break first if the chart had 10 million rows a day?" What\'s a good direction?', a:'The single-machine parts. Loading everything into Python lists in memory and one DuckDB file. Move to chunked or streamed processing, columnar files (Parquet) in object storage, a cloud warehouse with partitioned tables, and incremental models. Mentioning a measurement first ("I\'d profile where time goes") also scores well.' }
@@ -713,7 +713,7 @@ const ETL_LESSONS = [
     { id:'etl5-p1', kind:'open', title:'"Walk me through your project"',
       scenario:'Answer out loud first, then type it: "Walk me through a data pipeline you built." Aim for 60–90 seconds. Cover the problem, the architecture, one design decision and one thing you\'d improve.',
       hint:'Problem → Architecture → Decision (idempotency or raw layer) → Result → Next step.',
-      solution:'Problem: Deezer only shows today\'s Top Nigeria chart, so there\'s no history to see which songs are climbing.\n\nArchitecture: a daily GitHub Actions cron runs a Python pipeline. extract.py calls the Deezer API with pagination and saves the raw JSON per date. transform.py flattens the tracks and enforces quality rules (no duplicate tracks, no missing titles). load.py writes to DuckDB.\n\nDecision: I made the load idempotent by deleting and re-inserting the run date\'s partition, so retries and backfills can\'t double-count. I keep the raw JSON so I can replay history if the logic changes.\n\nResult: SQL views use LAG to compute daily movement and rank artists. For example, FOLA had 9 songs on one day\'s chart. Unit tests run with pytest.\n\nNext: move to BigQuery and dbt with not_null and unique tests, and add alerting when a check fails.',
+      solution:'Problem: Deezer only shows today\'s Top Nigeria chart, so there\'s no history to see which songs are climbing.\n\nArchitecture: a daily GitHub Actions cron runs a Python pipeline. extract.py calls the Deezer API with pagination and saves the raw JSON per date. transform.py flattens the tracks and enforces quality rules (no duplicate tracks, no missing titles). load.py writes to DuckDB.\n\nDecision: I made the load idempotent by deleting and re-inserting the run date\'s partition, so retries and backfills can\'t double-count. I keep the raw JSON so I can replay history if the logic changes.\n\nResult: SQL views use LAG to compute daily movement and rank artists. For example, FOLA had 9 songs on the 17 October 2026 chart. Unit tests run with pytest.\n\nNext: move to BigQuery and dbt with not_null and unique tests, and add alerting when a check fails.',
       explain:'This <b>Problem → Architecture → Decision → Result → Next</b> structure works for any project question. Use the terms you\'ve drilled: idempotent, partition, raw layer, data quality, window function. Saying them fluently is what makes you sound intermediate.' }
   ]
 }
@@ -791,7 +791,7 @@ const PROJECT_LESSONS_A = [
   theory:{
     why:'Deezer\'s "Top Nigeria" playlist only ever shows <b>today\'s</b> chart. Yesterday\'s positions are gone the moment it updates. To answer "which songs are climbing?" you have to take a <b>snapshot every day</b>, keep it, clean it, store it somewhere you can query, and model the changes. That is the whole job of a batch pipeline, and your repo does it with one file per responsibility.',
     body:[
-      '<b>The flow</b>: GitHub Actions (<code>cron: "17 7 * * *"</code>) runs <code>run_pipeline.py</code> → <code>extract()</code> saves <code>data/raw/top_nigeria_&lt;date&gt;.json</code> → <code>clean_rows()</code> returns a list of dicts → <code>load()</code> writes table <code>chart_entries</code> in <code>data/charts.duckdb</code> → <code>build_models()</code> runs <code>sql/*.sql</code> to create the views <code>chart_movement</code> and <code>artist_summary</code> → the workflow commits <code>data/</code> back to the repo.',
+      '<b>The flow</b>: GitHub Actions (<code>cron: "17 7 * * *"</code>) runs <code>run_pipeline.py</code>, which calls four functions in order. <code>extract()</code> saves <code>data/raw/top_nigeria_&lt;date&gt;.json</code>, <code>clean_rows()</code> turns it into a list of dicts, <code>load()</code> writes them to the table <code>chart_entries</code> in <code>data/charts.duckdb</code>, and <code>build_models()</code> runs <code>sql/*.sql</code> to create the views <code>chart_movement</code> and <code>artist_summary</code>. Then the workflow commits <code>data/</code> back to the repo.',
       '<b>Contracts between stages</b>: <code>extract()</code> returns a <code>Path</code> (the raw file), <code>clean_rows(raw_file)</code> returns <code>list[dict]</code>, and <code>load(rows)</code> returns the table\'s row count as an <code>int</code>. Each stage can be run and tested on its own.',
       '<b>Grain</b> (from the transform docstring): "Each row = one song\'s position on one day\'s chart". The database enforces it with <code>PRIMARY KEY (chart_date, track_id)</code>.',
       'Precision matters in interviews. The README diagram labels the load "idempotent upsert", but the code actually does <b>delete-then-insert</b> for the run date. Both are idempotent, so name the mechanism your code uses.',
@@ -820,7 +820,7 @@ pytest [[-q]]
 python [[run_pipeline.py]]` }
   ],
   qa:[
-    { id:'pj1-q1', q:'What breaks if the Deezer API is down at 07:17 UTC?', a:'raise_for_status() raises, run_pipeline.py stops and the GitHub Actions job [[fails]] before anything is loaded. Nothing is committed, so that day is [[missing]] unless you re-run it with workflow_dispatch [[before the chart updates]], because the API only serves today\'s chart.' },
+    { id:'pj1-q1', q:'What breaks if the Deezer API is down when the scheduled run starts?', a:'raise_for_status() raises, run_pipeline.py stops and the GitHub Actions job [[fails]] before anything is loaded. Nothing is committed, so that day is [[missing]] unless you re-run it with workflow_dispatch [[before the chart updates]], because the API only serves today\'s chart.' },
     { id:'pj1-q2', q:'Why is the raw JSON saved before any cleaning happens?', a:'So the [[untouched source data]] survives even if transform has a bug; you can fix the code and [[replay]] from the raw file instead of losing that day.' }
   ],
   problems:[
@@ -883,22 +883,23 @@ out.[[write_text]](json.dumps({"chart_date": run_date.isoformat(), "tracks": tra
   ],
   problems:[
     { id:'pj2-p1', kind:'open', title:'Retry on HTTP 429',
-      scenario:'Deezer sometimes answers <b>429 Too Many Requests</b>. Change extract so it retries a request up to 3 times with an increasing pause, but still fails loudly on other errors. Write the helper and show where it goes in the loop.',
+      scenario:'Deezer sometimes answers <b>429 Too Many Requests</b>. Change extract so it tries a request up to 3 times (the first try plus 2 retries) with an increasing pause between tries, but still fails loudly on other errors. Write the helper and show where it goes in the loop.',
       hint:'Check resp.status_code. Sleep longer each attempt (back-off). Keep raise_for_status for everything else.',
       solution:`import time
 
 def get_with_retry(url, attempts=3, wait=5):
-    for i in range(attempts):
+    for i in range(attempts):        # 3 tries = 1 try + 2 retries
         resp = requests.get(url, timeout=30)
         if resp.status_code != 429:
             resp.raise_for_status()
             return resp.json()
-        time.sleep(wait * (i + 1))   # back off: 5s, 10s, 15s
+        if i < attempts - 1:
+            time.sleep(wait * (i + 1))   # back off before the next try: 5s, then 10s
     resp.raise_for_status()          # still 429 after 3 tries -> fail loudly
 
 # in extract(), replace the three request lines with:
 #     body = get_with_retry(url)`,
-      explain:'Only retry errors that are <b>transient</b> (429, and often 502/503). A 404 won\'t fix itself. <b>Back-off</b> stops you hammering a struggling server. The final <code>raise_for_status()</code> keeps the fail-loudly principle. Airflow and similar tools give you task-level retries like this for free.' }
+      explain:'Only retry errors that are <b>transient</b> (429, and often 502/503). A 404 won\'t fix itself. <b>Back-off</b> stops you hammering a struggling server. The final <code>raise_for_status()</code> keeps the fail-loudly principle. Airflow and similar tools give you task-level retries like this for free. (Your real extract.py has no retry yet; this exercise adds one.)' }
   ]
 },
 
@@ -942,7 +943,7 @@ assert len({r["track_id"] for r in rows}) == [[len(rows)]], "duplicate tracks"
 assert [[all]](r["title"] and r["artist"] for r in rows), "missing title/artist"` }
   ],
   qa:[
-    { id:'pj3-q1', q:'What breaks if you remove the duplicate-tracks assert and Deezer sends a track twice?', a:'The duplicate reaches load.py after the DELETE has run. The [[primary key]] then rejects it with a [[ConstraintException]] partway through executemany, so that day is left [[incomplete]] in the warehouse. The assert fails earlier, before anything is touched.' },
+    { id:'pj3-q1', q:'What breaks if you remove the duplicate-tracks assert and Deezer sends a track twice?', a:'The duplicate reaches load.py after the DELETE has run. The [[primary key]] then rejects it with a [[ConstraintException]] partway through executemany (checked on DuckDB 2.0: the rows before the duplicate stay), so that day is left [[incomplete]] in the warehouse. The assert fails earlier, before anything is touched.' },
     { id:'pj3-q2', q:'What breaks if Deezer sends "artist": null for one track?', a:'t.get("artist", {}) returns [[None]] because the key exists, so .get("name") raises [[AttributeError]] and the run fails. Fix: [[(t.get("artist") or {})]].get("name").' },
     { id:'pj3-q3', q:'What breaks if you drop start=1 from enumerate?', a:'Positions become [[0-based]], so the #1 song is stored as position 0. best_position shows 0, filters like position = 1 pick the [[second]] song, and test_positions_follow_order [[fails]].' }
   ],
@@ -989,7 +990,7 @@ def test_string_false_is_not_explicit(tmp_path):
     { id:'pj4-t2', term:'CREATE TABLE IF NOT EXISTS', def:'Creates the table only when it is [[missing]], so the statement is safe to run on [[every run]].' },
     { id:'pj4-t3', term:'Composite primary key', def:'A primary key made of [[more than one column]], here (chart_date, track_id), so a track can appear [[once per day]].' },
     { id:'pj4-t4', term:'Delete-then-insert', def:'An idempotent load that first [[removes the partition]] being loaded (the run date) and then inserts it [[fresh]].' },
-    { id:'pj4-t5', term:'DuckDB', def:'An [[in-process]] analytical SQL database stored in a [[single file]], with no server to run.' },
+    { id:'pj4-t5', term:'DuckDB', def:'An [[in-process]] analytical SQL database, usually stored in a [[single file]] (or kept in memory), with no server to run.' },
     { id:'pj4-t6', term:'Parameterized query', def:'SQL with [[placeholders]] (?) whose values are passed separately, avoiding [[SQL injection]] and quoting bugs.' }
   ],
   code:[
@@ -1054,7 +1055,7 @@ except Exception:
   theory:{
     why:'Raw rows answer "what was the chart on day X?". The questions people actually ask are about <b>change</b> ("who climbed?") and <b>dominance</b> ("who owns the chart?"). Models encode those questions <b>once</b>, so every query and dashboard uses the same logic. They\'re views, so they always reflect the latest load and take up no storage.',
     body:[
-      '<code>CREATE OR REPLACE VIEW</code> is DuckDB syntax that creates the view or overwrites its definition, so editing a .sql file takes effect on the next run. A view stores the <i>query</i>, not data. SQLite (the engine in this app) has no OR REPLACE, so the app runs <code>DROP VIEW IF EXISTS</code> + <code>CREATE VIEW</code> instead.',
+      '<code>CREATE OR REPLACE VIEW</code> (supported by DuckDB, Postgres and others) creates the view or overwrites its definition, so editing a .sql file takes effect on the next run. A view stores the <i>query</i>, not data. SQLite (the engine in this app) has no OR REPLACE, so the app runs <code>DROP VIEW IF EXISTS</code> + <code>CREATE VIEW</code> instead.',
       '<b>chart_movement</b>: <code>LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position</code> gives the song\'s position on its <b>previous appearance</b>. <code>… - position AS places_gained</code>: a lower number is better, so <b>positive = climbed</b>. A first appearance has no previous row, LAG returns NULL, and NULL minus anything is NULL.',
       'It partitions by <b>track_id</b>, not title, because different songs can share a title and track_id is the stable key.',
       '"Previous appearance" is not the same as "yesterday". If a song drops out and comes back (a <b>re-entry</b>), LAG compares it with its last appearance. In the sample data, Freddy Kooger is #5 on 10-16, missing on 10-17 and #5 again on 10-18, so places_gained is 0.',
@@ -1067,7 +1068,7 @@ except Exception:
   },
   terms:[
     { id:'pj5-t1', term:'View', def:'A [[stored query]] that behaves like a table but holds [[no data]] itself; it is recomputed when queried.' },
-    { id:'pj5-t2', term:'CREATE OR REPLACE VIEW', def:'DuckDB syntax that creates a view or [[overwrites]] its definition, so re-running the SQL file is [[idempotent]].' },
+    { id:'pj5-t2', term:'CREATE OR REPLACE VIEW', def:'SQL syntax in DuckDB and Postgres that creates a view or [[overwrites]] its definition, so re-running the SQL file is [[idempotent]].' },
     { id:'pj5-t3', term:'prev_position', def:'The song\'s position on its [[previous appearance]], found with LAG over a partition by [[track_id]] ordered by chart_date.' },
     { id:'pj5-t4', term:'places_gained', def:'prev_position [[minus]] position: [[positive]] means the song climbed and NULL means a new entry.' },
     { id:'pj5-t5', term:'Re-entry', def:'A song that [[left the chart]] and came back; LAG compares it with its [[last appearance]], not with yesterday.' }
@@ -1213,9 +1214,9 @@ def test_load_is_idempotent(tmp_path):
       '<code>on: schedule: - cron: "17 7 * * *"</code> has five fields: minute, hour, day-of-month, month and day-of-week. It means 07:17 <b>UTC</b> every day. GitHub can delay scheduled runs when it\'s busy (especially on the hour), and an odd minute like :17 helps.',
       '<code>workflow_dispatch: {}</code> adds a <b>Run workflow</b> button (and API/CLI trigger) for manual runs and re-runs. Your first data commit, "data: chart for 2026-10-18" by chart-bot, came from a run shortly after the initial push.',
       '<code>permissions: contents: write</code> lets the job\'s automatic <code>GITHUB_TOKEN</code> push commits. If the default token is read-only (the default for newer repos), the final <code>git push</code> is rejected without it.',
-      'Steps run <b>in order</b>, and a failing step stops the job: <code>actions/checkout@v4</code> → <code>actions/setup-python@v5</code> with Python 3.12 → <code>pip install -r requirements.txt</code> → <code>pytest -q</code> (the <b>gate</b>) → <code>python run_pipeline.py</code> → "Commit new data".',
+      'Steps run <b>in order</b>, and a failing step stops the job. First <code>actions/checkout@v4</code> checks out the repo and <code>actions/setup-python@v5</code> installs Python 3.12. Then <code>pip install -r requirements.txt</code> installs the libraries, <code>pytest -q</code> runs the tests (the <b>gate</b>), <code>python run_pipeline.py</code> runs the pipeline, and the last step, "Commit new data", saves the result.',
       '<b>Commit step</b>: set a bot identity, <code>git add data/</code>, then <code>git diff --cached --quiet || git commit -m "data: chart for $(date -u +%F)"</code>. <code>diff --cached --quiet</code> exits 0 when nothing is staged, so the commit is skipped instead of failing. <code>$(date -u +%F)</code> is today\'s date as YYYY-MM-DD in UTC. Then <code>git push</code>.',
-      'Trade-offs: every run commits the whole DuckDB binary (it went from about 0.8 MB to 1.3 MB in one day), so the repo grows. In public repos, GitHub disables scheduled workflows after 60 days with no repository activity.'
+      'Trade-offs: every data commit stores a new full copy of the DuckDB file, because Git cannot store just the changed rows of a binary file. In your repo the file alternates between about 0.8 MB and 1.3 MB; Git compresses each copy, and so far each one has added roughly 10 to 100 KB to the history. That is small today, but the history only ever grows. Also, in public repos GitHub disables scheduled workflows after 60 days with no repository activity. GitHub does not define "activity" precisely, but in practice your daily data commits count, so the risk is a stretch with no commits, for example while the job keeps failing. Finally, the schedule says 07:17 UTC, but GitHub starts scheduled runs late when it is busy: your data commits so far landed between about 12:00 and 14:45 UTC.'
     ],
     pro:'"A GitHub Actions workflow runs daily at 07:17 UTC (and on demand via workflow_dispatch). It installs dependencies, runs pytest as a gate, runs the pipeline, and commits only when data changed, using a contents: write token."',
     q:{ q:'Why run pytest before run_pipeline.py in the same job?', a:'Steps run in order and a failed step stops the job. If transform\'s rules are broken, the pipeline never runs and no bad data is loaded or committed.' }
@@ -1456,7 +1457,7 @@ HAVING MIN(position) <> 1
   terms:[],
   code:[],
   qa:[
-    { id:'pj10-q1', q:'"Walk me through your pipeline."', a:'It\'s a daily [[batch ETL]] for the Deezer Top Nigeria chart. A [[GitHub Actions cron]] runs run_pipeline.py at 07:17 UTC. extract.py follows the API\'s pagination and saves [[raw JSON]] per date, transform.py flattens the tracks and asserts quality rules, load.py does an [[idempotent]] delete-then-insert into DuckDB, and SQL views use [[LAG]] for chart movement. Tests run first, and the job commits the data back to the repo.' },
+    { id:'pj10-q1', q:'"Walk me through your pipeline."', a:'It\'s a daily [[batch ETL]] for the Deezer Top Nigeria chart. A [[GitHub Actions cron]] schedules run_pipeline.py for 07:17 UTC every day. extract.py follows the API\'s pagination and saves [[raw JSON]] per date, transform.py flattens the tracks and asserts quality rules, load.py does an [[idempotent]] delete-then-insert into DuckDB, and SQL views use [[LAG]] for chart movement. Tests run first, and the job commits the data back to the repo.' },
     { id:'pj10-q2', q:'"How do you handle failures and re-runs?"', a:'Every stage [[fails loudly]]: raise_for_status for HTTP errors, asserts for bad data, and pytest runs first, so a failure stops the job before data changes. Re-runs are safe because load replaces the [[run date\'s partition]], with a [[primary key]] as a backstop, and I can re-run with [[workflow_dispatch]]. One gap I\'d fix: wrapping the delete and insert in a [[transaction]].' },
     { id:'pj10-q3', q:'"What exactly makes the load idempotent?"', a:'load.py runs DELETE FROM chart_entries WHERE chart_date = ? and then inserts that day\'s rows, so running it [[twice]] leaves exactly [[one copy]] of the day. The [[composite primary key]] (chart_date, track_id) makes a duplicate raise an error instead of silently doubling counts.' },
     { id:'pj10-q4', q:'"Why DuckDB?"', a:'It\'s an [[in-process]] columnar analytical database in a [[single file]]: no server, free, and fast SQL with [[window functions]], and the file can live in the repo for GitHub Actions. For many users or much bigger data I\'d move to a [[cloud warehouse]] like BigQuery.' },
@@ -1469,7 +1470,7 @@ HAVING MIN(position) <> 1
   ],
   problems:[
     { id:'pj10-p1', kind:'open', title:'Follow-up under pressure',
-      scenario:'Interviewer: <i>"At 07:17 Deezer returned HTTP 500. What happens to today\'s data, and what do you do?"</i> Answer as you would out loud.',
+      scenario:'Interviewer: <i>"When today\'s scheduled run started, Deezer returned HTTP 500. What happens to today\'s data, and what do you do?"</i> Answer as you would out loud.',
       hint:'Trace the code: extract → raise_for_status → which steps run? What\'s in the warehouse? Then: immediate action and long-term fix.',
       solution:`What happens: requests.get gets a 500 and resp.raise_for_status() raises HTTPError inside extract(). run_pipeline.py stops (fail-fast), so transform, load and build_models never run, and the commit step never runs. The warehouse is unchanged and still correct up to yesterday. No partial data.
 
@@ -1594,7 +1595,7 @@ const PLACE_BANK = [
   { id:'p4b', lv:4, kind:'sql', q:'Data-quality check: return <b>chart_date</b> and <b>song_id</b> for chart rows where <b>streams is missing</b>.', sol:"SELECT chart_date, song_id FROM chart_entries WHERE streams IS NULL;" },
   { id:'p4c', lv:4, kind:'mcq', q:'A nightly job reloads 3 years of orders (4 hours), though only yesterday\'s rows change. Best approach?', o:['Incremental load using a watermark (last processed timestamp)','Full refresh twice as often','A bigger database server','Move to stream processing with Kafka'], why:'Load only what is new or changed since the last run.' },
   { id:'p4d', lv:4, kind:'mcq', q:'Why save untouched API responses (a raw layer) before transforming?', o:['To replay or re-transform later without calling the source again','Raw JSON is faster to query','SQL requires it','It saves storage space'], why:'Sources change or forget history; your raw copy does not.' },
-  { id:'p4e', lv:4, kind:'mcq', q:'The API returned 3 rows today instead of ~100, on time and with the right columns. Which check catches this?', o:['Volume check (row count vs expected)','Freshness check','Schema drift check','A unit test of the transform'], why:'Fresh and well-formed, just too few rows: a volume problem.' },
+  { id:'p4e', lv:4, kind:'mcq', q:'The API returned 3 rows today instead of the usual 100, on time and with the right columns. Which check catches this?', o:['Volume check (row count vs expected)','Freshness check','Schema drift check','A unit test of the transform'], why:'Fresh and well-formed, just too few rows: a volume problem.' },
   // ---- Level 5
   { id:'p5a', lv:5, kind:'mcq', q:'chart_movement computes places_gained = prev_position - position, with prev_position from LAG. For a brand-new entry, places_gained is…', o:['NULL, because prev_position is NULL','0','Equal to its position','An error'], why:'Arithmetic with NULL yields NULL; that is how new entries are flagged.' },
   { id:'p5b', lv:5, kind:'mcq', q:'A GitHub Actions schedule is <code>cron: "17 7 * * *"</code>. When does it run?', o:['07:17 UTC every day','17:07 every day','At 17:00 on the 7th of each month','Every 17 minutes from 07:00'], why:'Fields: minute hour day-of-month month day-of-week, in UTC.' },
@@ -1624,15 +1625,16 @@ const _h = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', 
 const MT = (cols, rows) => '<table class="mini"><tr>' + cols.map(c => '<th>' + _h(c) + '</th>').join('') + '</tr>' + rows.map(r => '<tr>' + r.map(v => v === null ? '<td class="null">NULL</td>' : '<td>' + _h(v) + '</td>').join('') + '</tr>').join('') + '</table>';
 const QY = s => '<pre class="qy">' + _h(s) + '</pre>';
 const LAB = (l, h) => '<div class="lab">' + l + '</div>' + h;
-// daily_streams: one song's stream count on one day (a count that changes daily, so it never lives on songs). Title stands in for song_id to keep it readable.
-const SC_SONGS = MT(['chart_date', 'title', 'streams'], [['10-17', 'Rush', 900], ['10-17', 'Calm Down', 1200], ['10-17', 'Essence', 700]]);
-const SC_Q = "SELECT title, streams * 2 AS doubled\nFROM daily_streams\nWHERE streams > 800\nORDER BY streams DESC;";
-const SC_RES = MT(['title', 'doubled'], [['Calm Down', 2400], ['Rush', 1800]]);
+// daily_streams: one song's stream count on one day (a count that changes daily, so it never lives on songs).
+// It stores song_id (the key), not the title: the title is stored once, in songs.
+const SC_SONGS = MT(['chart_date', 'song_id', 'streams'], [['10-17', 1, 900], ['10-17', 2, 1200], ['10-17', 3, 700]]);
+const SC_Q = "SELECT song_id, streams * 2 AS doubled\nFROM daily_streams\nWHERE streams > 800\nORDER BY streams DESC;";
+const SC_RES = MT(['song_id', 'doubled'], [[2, 2400], [1, 1800]]);
 const SC_ART = MT(['artist_id', 'name'], [[1, 'Burna Boy'], [2, 'Tems'], [3, 'Rema']]);
 const SC_SNG = MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Calm Down', 3], [12, 'Charm', 3]]);
 const SC_CHART = LAB('<code>chart</code> is a <b>view</b> (a saved query that joins chart rows to songs and artists), so the artist name repeats here on purpose', MT(['chart_date', 'artist', 'title', 'streams'], [['10-16', 'Rema', 'Calm Down', 1200], ['10-17', 'Rema', 'Calm Down', 1100], ['10-17', 'Tems', 'Free Mind', 800]]));
 const SC_PART = LAB('<code>chart_entries</code> (stored, split by chart_date)', MT(['chart_date', 'song_id', 'streams'], [['10-16', 11, 1200], ['10-17', 11, 1100], ['10-17', 12, 800]]));
-const SCENE = '<div class="scene">' + LAB('Table <code>daily_streams</code> (streams per song per day)', SC_SONGS) + LAB('Query', QY(SC_Q)) + LAB('Output (the result)', SC_RES) + '</div>';
+const SCENE = '<div class="scene">' + LAB('Table <code>daily_streams</code>: one row per song per day. <code>song_id</code> points at the <code>songs</code> table, where each title is stored once', SC_SONGS) + LAB('Query', QY(SC_Q)) + LAB('Output (the result)', SC_RES) + '</div>';
 
 /* =====================================================================
    v6 ILLUSTRATIONS: "illustrate shape-changing concepts first".
@@ -1665,7 +1667,7 @@ const ILL_ART = ILT('artists', ['artist_id', 'name'], [[1, 'Burna Boy'], [2, 'Te
 const ILL_SNG = ILT('songs', ['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2], [12, 'Mystery Song', 9]]);
 const ILL_JSEL = 'SELECT a.name, s.title, s.artist_id\n';
 const ILL_ENT = ILT('entries', ['artist', 'title', 'streams'], [['Rema', 'Calm Down', 1200], ['Rema', 'Charm', 500], ['Tems', 'Free Mind', 800], ['Wizkid', 'Essence', 700], ['Tems', 'Me & U', 300]]);
-const ILL_POS = ILT('chart', ['chart_date', 'title', 'position'], [['10-16', 'Calm Down', 1], ['10-17', 'Calm Down', 2], ['10-16', 'Rush', 2], ['10-17', 'Rush', 1], ['10-17', 'Essence', 3]]);
+const ILL_POS = ILT('chart', ['chart_date', 'song_id', 'position'], [['10-16', 2, 1], ['10-17', 2, 2], ['10-16', 1, 2], ['10-17', 1, 1], ['10-17', 3, 3]]);
 const ILLUS = {
   sql5: {
     tables: { artists: ILL_ART, songs: ILL_SNG },
@@ -1674,24 +1676,24 @@ const ILLUS = {
         say: 'Before any definition, look at the data. <b>artists</b> has one row per artist. <b>songs</b> has one row per song, and <code>songs.artist_id</code> points at <code>artists.artist_id</code>.<br><b>Left or right?</b> It is only about the <b>order you write them</b>: the table after <code>FROM</code> (written first) is the <b>LEFT</b> table; the table after <code>JOIN</code> is the <b>RIGHT</b> table. It has nothing to do with size or keys.',
         sql: 'SELECT a.name, s.title, s.artist_id\nFROM artists a          -- LEFT (first)\nJOIN songs s             -- RIGHT (second)\n  ON s.artist_id = a.artist_id;', norun: true,
         ins: [{ t: 'artists', role: '⬅ LEFT table: written first, after FROM' }, { t: 'songs', role: 'RIGHT table ➡: written after JOIN' }],
-        note: 'Matches: Burna Boy (1) ↔ Last Last, Tems (2) ↔ Free Mind. <b>Asake</b> (3) has no song. <b>Mystery Song</b> points at artist 9, who does not exist. Watch what each join does with these two.' },
+        note: 'Two pairs match: Burna Boy (artist 1) with Last Last, and Tems (artist 2) with Free Mind. <b>Asake</b> (artist 3) has no song in <code>songs</code>, and <b>Mystery Song</b> points at artist 9, who does not exist in <code>artists</code>. Watch what each join does with these two unmatched rows.' },
       { h: 'INNER JOIN: only matches', fig: 'venn-inner', vl: ['Asake', '2 matches', 'Mystery Song'],
-        say: 'INNER JOIN keeps a row only when the two sides <b>match</b>. Asake and Mystery Song have no partner, so both disappear.',
+        say: 'INNER JOIN keeps a row only when an <code>artists</code> row and a <code>songs</code> row <b>match</b> on artist_id. Asake has no song and Mystery Song has no artist, so neither has a partner, and both disappear. Only the 2 matching pairs remain.',
         sql: ILL_JSEL + 'FROM artists a\nINNER JOIN songs s\n  ON s.artist_id = a.artist_id;',
         ins: [{ t: 'artists', m: ['m', 'm', 'x'], role: '⬅ LEFT (FROM)' }, { t: 'songs', m: ['m', 'm', 'x'], role: 'RIGHT (JOIN) ➡' }],
         out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2]], m: ['m', 'm'] } },
       { h: 'LEFT JOIN: every left row stays', fig: 'venn-left', vl: ['Asake', '2 matches', 'Mystery Song'],
-        say: 'LEFT JOIN keeps <b>every row of the LEFT table</b> (artists). Asake has no song, so the right-side columns are filled with <b>NULL</b>. Mystery Song is still dropped: it is on the right side.',
+        say: 'LEFT JOIN keeps <b>every row of the LEFT table</b>, which here is <code>artists</code>. Asake has no song, but Asake stays, and the columns that would come from <code>songs</code> are filled with <b>NULL</b>. Mystery Song is still dropped, because it is on the right side and LEFT JOIN only keeps unmatched left rows.',
         sql: ILL_JSEL + 'FROM artists a\nLEFT JOIN songs s\n  ON s.artist_id = a.artist_id;',
         ins: [{ t: 'artists', m: ['m', 'm', 'u'], role: '⬅ LEFT (FROM): all kept' }, { t: 'songs', m: ['m', 'm', 'x'], role: 'RIGHT (JOIN) ➡' }],
         out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], ['Asake', null, null]], m: ['m', 'm', 'u'] } },
       { h: 'RIGHT JOIN: every right row stays', fig: 'venn-right', vl: ['Asake', '2 matches', 'Mystery Song'],
-        say: 'Same written order, other side. RIGHT JOIN keeps <b>every row of the RIGHT table</b> (songs). Mystery Song has no artist 9, so <code>name</code> is <b>NULL</b>. Asake is dropped now.',
+        say: 'The tables are written in the same order, but now the other side is kept. RIGHT JOIN keeps <b>every row of the RIGHT table</b>, <code>songs</code>. Mystery Song points at artist 9, who does not exist, so its <code>name</code> is <b>NULL</b>. Asake, a left row with no match, is dropped this time.',
         sql: ILL_JSEL + 'FROM artists a\nRIGHT JOIN songs s\n  ON s.artist_id = a.artist_id;',
         ins: [{ t: 'artists', m: ['m', 'm', 'x'], role: '⬅ LEFT (FROM)' }, { t: 'songs', m: ['m', 'm', 'u'], role: 'RIGHT (JOIN) ➡: all kept' }],
         out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], [null, 'Mystery Song', 9]], m: ['m', 'm', 'u'] } },
       { h: 'FULL OUTER JOIN: everything from both', fig: 'venn-full', vl: ['Asake', '2 matches', 'Mystery Song'],
-        say: 'FULL OUTER JOIN keeps <b>all rows from both tables</b>: the 2 matches, plus Asake (NULL song) and Mystery Song (NULL artist). 4 rows.',
+        say: 'FULL OUTER JOIN keeps <b>all rows from both tables</b>. The result has the 2 matching pairs, plus Asake with a NULL title and Mystery Song with a NULL artist name: 4 rows in total.',
         sql: ILL_JSEL + 'FROM artists a\nFULL OUTER JOIN songs s\n  ON s.artist_id = a.artist_id;',
         ins: [{ t: 'artists', m: ['m', 'm', 'u'], role: '⬅ LEFT (FROM): all kept' }, { t: 'songs', m: ['m', 'm', 'u'], role: 'RIGHT (JOIN) ➡: all kept' }],
         out: { c: ['name', 'title', 'artist_id'], r: [['Burna Boy', 'Last Last', 1], ['Tems', 'Free Mind', 2], ['Asake', null, null], [null, 'Mystery Song', 9]], m: ['m', 'm', 'u', 'u'] },
@@ -1707,34 +1709,34 @@ const ILLUS = {
       { k: 'tap', q: 'LEFT JOIN: tap the <b>songs</b> rows that appear in the result.', sql: 'FROM artists a LEFT JOIN songs s ON s.artist_id = a.artist_id', t: 'songs', ans: [0, 1], why: 'LEFT JOIN keeps every artist (left), not every song. Mystery Song points at artist 9, who does not exist, so it is dropped.' },
       { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT a.name, s.title FROM artists a FULL OUTER JOIN songs s ON s.artist_id = a.artist_id;', o: ['4', '3', '2', '6'], why: '2 matches + Asake (no song) + Mystery Song (no artist) = 4.' },
       { k: 'mc', q: 'In the LEFT JOIN result, why is <code>title</code> NULL for Asake?', o: ['No song has artist_id 3, so there is nothing to fill the right-side columns', 'Asake\'s song has an empty title in the songs table', 'NULL means the title is an empty string', 'The join failed for that row'], why: 'LEFT JOIN keeps Asake anyway and fills the right side with NULL: "no match", not "empty".' },
-      { k: 'mc', q: 'Which is the <b>LEFT</b> table here?', sql: 'SELECT a.name, s.title\nFROM songs s\nLEFT JOIN artists a ON a.artist_id = s.artist_id;', o: ['songs: it is written first, after FROM', 'artists: it holds the primary key', 'artists: it comes after JOIN', 'whichever table is bigger'], why: 'Left/right is only about written order: FROM songs → songs is LEFT; JOIN artists → artists is RIGHT.' },
+      { k: 'mc', q: 'Which is the <b>LEFT</b> table here?', sql: 'SELECT a.name, s.title\nFROM songs s\nLEFT JOIN artists a ON a.artist_id = s.artist_id;', o: ['songs: it is written first, after FROM', 'artists: it holds the primary key', 'artists: it comes after JOIN', 'whichever table is bigger'], why: 'Left and right are only about written order. songs is written after FROM, so it is the LEFT table; artists is written after JOIN, so it is the RIGHT table.' },
       { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT a.name, s.title FROM artists a RIGHT JOIN songs s ON s.artist_id = a.artist_id;', o: ['3', '2', '4', '1'], why: 'Every song (right table) stays: 2 matches + Mystery Song with NULL name. Asake is dropped.' },
       { k: 'mc', q: 'Rewrite <code>FROM artists a RIGHT JOIN songs s ON …</code> as a LEFT JOIN.', o: ['FROM songs s LEFT JOIN artists a ON …', 'FROM artists a LEFT JOIN songs s ON …', 'FROM songs s RIGHT JOIN artists a ON …', 'It cannot be rewritten'], why: 'Swap the tables: the one you wanted to keep in full (songs) goes after FROM.' },
       { k: 'run', q: 'Run it: fill the blank so <b>Asake stays</b> (with a NULL title). Press ▶ Run to see the result, then ✓ Check.', code: 'SELECT a.name, s.title, s.artist_id\nFROM artists a\n____ JOIN songs s\n  ON s.artist_id = a.artist_id;', sol: 'SELECT a.name, s.title, s.artist_id FROM artists a LEFT JOIN songs s ON s.artist_id = a.artist_id;', why: 'LEFT JOIN keeps every row of the left table (artists). FULL would also add Mystery Song.' },
       { k: 'run', q: 'Run it: keep <b>every song</b>, even Mystery Song, <b>without</b> RIGHT JOIN.', code: 'SELECT a.name, s.title, s.artist_id\nFROM ____\nLEFT JOIN ____\n  ON a.artist_id = s.artist_id;', sol: 'SELECT a.name, s.title, s.artist_id FROM songs s LEFT JOIN artists a ON a.artist_id = s.artist_id;', forbid: 'right\\s+join|full', why: 'FROM songs s LEFT JOIN artists a: songs is written first, so it is the left table and every song is kept.' }
     ] },
   sql2: {
-    tables: { daily_streams: ILT('daily_streams', ['chart_date', 'title', 'streams'], [['10-17', 'Rush', 900], ['10-17', 'Calm Down', 1200], ['10-17', 'Essence', 700], ['10-17', 'Free Mind', null]]) },
+    tables: { daily_streams: ILT('daily_streams', ['chart_date', 'song_id', 'streams'], [['10-17', 1, 900], ['10-17', 2, 1200], ['10-17', 3, 700], ['10-17', 4, null]]) },
     scenes: [
-      { h: 'WHERE keeps fewer rows', fig: 'flow', say: 'WHERE checks the condition on <b>each row</b>. Rows where it is TRUE stay; FALSE <b>and UNKNOWN</b> rows are dropped. The columns do not change, only the number of rows.',
-        sql: 'SELECT title, streams\nFROM daily_streams\nWHERE streams > 800;', ins: [{ t: 'daily_streams', m: ['m', 'm', 'x', 'x'] }],
-        out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 1200]], m: ['m', 'm'] },
-        note: 'Free Mind\u2019s stream count for 10-17 is missing (NULL). <code>NULL &gt; 800</code> is UNKNOWN, not TRUE, so it is dropped too. (Streams change every day, so they live in a daily table, never on songs.)' },
-      { h: 'Finding the missing values', fig: 'flow', say: 'To keep rows with a missing value you must ask <code>IS NULL</code>. <code>= NULL</code> is never TRUE.',
-        sql: 'SELECT title, streams\nFROM daily_streams\nWHERE streams IS NULL;', ins: [{ t: 'daily_streams', m: ['x', 'x', 'x', 'm'] }],
-        out: { c: ['title', 'streams'], r: [['Free Mind', null]], m: ['m'] } }
+      { h: 'WHERE keeps fewer rows', fig: 'flow', say: 'The table <code>daily_streams</code> holds one row per song per day, with the song\u2019s ID and its stream count. WHERE checks the condition <code>streams &gt; 800</code> on <b>each row</b>. Rows where it is TRUE stay, and rows where it is FALSE <b>or UNKNOWN</b> are dropped. The columns do not change; only the number of rows does.',
+        sql: 'SELECT song_id, streams\nFROM daily_streams\nWHERE streams > 800;', ins: [{ t: 'daily_streams', m: ['m', 'm', 'x', 'x'] }],
+        out: { c: ['song_id', 'streams'], r: [[1, 900], [2, 1200]], m: ['m', 'm'] },
+        note: 'Song 4\u2019s stream count for 10-17 is missing (NULL). <code>NULL &gt; 800</code> is UNKNOWN, not TRUE, so that row is dropped too. Stream counts change every day, which is why they live in a daily table and not on <code>songs</code>.' },
+      { h: 'Finding the missing values', fig: 'flow', say: 'Now we want the rows whose value is missing. A comparison such as <code>streams = NULL</code> is UNKNOWN for every row, so it never keeps anything. The test that works is <code>IS NULL</code>, and here it keeps only song 4\u2019s row.',
+        sql: 'SELECT song_id, streams\nFROM daily_streams\nWHERE streams IS NULL;', ins: [{ t: 'daily_streams', m: ['x', 'x', 'x', 'm'] }],
+        out: { c: ['song_id', 'streams'], r: [[4, null]], m: ['m'] } }
     ],
     qs: [
-      { k: 'tap', q: 'Tap the rows kept by <code>WHERE streams &lt; 1000</code>.', t: 'daily_streams', ans: [0, 2], why: 'Rush (900) and Essence (700). Free Mind\'s NULL makes the test UNKNOWN, so it is dropped.' },
-      { k: 'mc', q: 'How many rows does this return?', sql: "SELECT title FROM daily_streams WHERE streams <> 900;", o: ['2', '3', '4', '1'], why: 'Calm Down and Essence. Rush is 900, and NULL <> 900 is UNKNOWN, so Free Mind is dropped.' }
+      { k: 'tap', q: 'Tap the rows kept by <code>WHERE streams &lt; 1000</code>.', t: 'daily_streams', ans: [0, 2], why: 'Song 1 (900) and song 3 (700). Song 4\'s NULL makes the test UNKNOWN, so its row is dropped.' },
+      { k: 'mc', q: 'How many rows does this return?', sql: "SELECT song_id FROM daily_streams WHERE streams <> 900;", o: ['2', '3', '4', '1'], why: 'Songs 2 and 3. Song 1 has exactly 900, and NULL <> 900 is UNKNOWN, so song 4 is dropped too.' }
     ] },
   sql3: {
     tables: { chart: ILT('chart', ['title', 'artist', 'streams'], [['Rush', 'Ayra Starr', 900], ['Calm Down', 'Rema', 1200], ['Essence', 'Wizkid', 700], ['Charm', 'Rema', 500]]) },
     scenes: [
-      { h: 'ORDER BY + LIMIT: sort, then cut', fig: 'flow', say: 'ORDER BY rearranges the <b>result rows</b>; LIMIT then keeps the first n. Together they answer "top 2".',
+      { h: 'ORDER BY + LIMIT: sort, then cut', fig: 'flow', say: 'The view <code>chart</code> lists one day’s songs with their stream counts. <code>ORDER BY streams DESC</code> sorts the <b>result rows</b> from the highest count to the lowest, and <code>LIMIT 2</code> then keeps only the first two. Together they answer “which 2 songs had the most streams?”: Calm Down (1200) and Rush (900).',
         sql: 'SELECT title, streams\nFROM chart\nORDER BY streams DESC\nLIMIT 2;', ins: [{ t: 'chart', m: ['m', 'm', 'x', 'x'], role: 'chart: a view (one day\u2019s chart joined to artists, so names repeat on purpose)' }],
         out: { c: ['title', 'streams'], r: [['Calm Down', 1200], ['Rush', 900]], m: ['m', 'm'], ordered: true }, lg: { m: '✓ in the top 2' } },
-      { h: 'DISTINCT: duplicates collapse', fig: 'flow', say: 'DISTINCT removes duplicate <b>result rows</b>. Rema appears twice in the input but once in the output. Colours show which rows collapse together.',
+      { h: 'DISTINCT: duplicates collapse', fig: 'flow', say: 'DISTINCT removes duplicate <b>result rows</b>. The query asks only for the <code>artist</code> column, and Rema appears in two rows of <code>chart</code>, so those two identical result rows collapse into one. The colours show which input rows collapse together.',
         sql: 'SELECT DISTINCT artist\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g1', 'g2', 'g1'], role: 'chart: a view (one day\u2019s chart joined to artists, so names repeat on purpose)' }],
         out: { c: ['artist'], r: [['Ayra Starr'], ['Rema'], ['Wizkid']], m: ['g0', 'g1', 'g2'] } }
     ],
@@ -1743,27 +1745,49 @@ const ILLUS = {
       { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT DISTINCT artist, title FROM chart;', o: ['4', '3', '2', '1'], why: 'DISTINCT applies to the whole selected row. Every (artist, title) pair is different, so all 4 stay.' }
     ] },
   sql4: {
-    tables: { entries: ILL_ENT },
+    tables: { entries: ILL_ENT,
+      songs: ILT('songs', ['song_id', 'title', 'artist_id'], [[2, 'Calm Down', 1], [4, 'Free Mind', 2], [6, 'Me & U', 2], [3, 'Essence', 3], [7, 'Rush', 4], [5, 'Charm', 1]]),
+      artists: ILT('artists', ['artist_id', 'name'], [[1, 'Rema'], [2, 'Tems'], [3, 'Wizkid'], [4, 'Ayra Starr']]) },
     scenes: [
-      { h: 'GROUP BY: many rows become one per group', fig: 'flow', say: 'Each colour is one group (one artist). GROUP BY collapses each group into <b>one row</b>; aggregates (COUNT, SUM) summarise the rows inside it. 5 rows in, 3 rows out.',
+      { h: 'GROUP BY: many rows become one per group', fig: 'flow', say: 'The view <code>entries</code> has one row per song, with the artist’s name repeated on each. Each colour marks one group: all the rows of one artist. GROUP BY collapses each group into <b>one row</b>, and the aggregates (COUNT and SUM) summarise the rows inside it. 5 rows go in and 3 rows come out, one per artist.',
         sql: 'SELECT artist, COUNT(*) AS songs, SUM(streams) AS total\nFROM entries\nGROUP BY artist;', ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'g2', 'g1'], role: 'entries: a view (one day\u2019s chart rows joined to artists, so names repeat on purpose)' }],
-        out: { c: ['artist', 'songs', 'total'], r: [['Rema', 2, 1700], ['Tems', 2, 1100], ['Wizkid', 1, 700]], m: ['g0', 'g1', 'g2'], nc: [1, 2] } },
-      { h: 'WHERE filters rows before grouping', fig: 'flow', say: 'WHERE runs <b>first</b>, on single rows. Charm (500) and Me & U (300) are removed <b>before</b> the groups are built, so they never reach SUM.',
+        out: { c: ['artist', 'songs', 'total'], r: [['Rema', 2, 1700], ['Tems', 2, 1100], ['Wizkid', 1, 700]], m: ['g0', 'g1', 'g2'], nc: [1, 2] },
+        note: 'Grouping by the artist name works here only because each name in this small view belongs to one artist. On real tables you group by the key, <code>artist_id</code>, as the last picture in this lesson shows.' },
+      { h: 'WHERE filters rows before grouping', fig: 'flow', say: 'WHERE runs <b>before</b> GROUP BY and tests single rows. Charm (500 streams) and Me & U (300) fail <code>streams &gt;= 700</code>, so they are removed <b>before</b> the groups are built and never reach SUM. That is why Rema’s total is now 1200 instead of 1700.',
         sql: 'SELECT artist, SUM(streams) AS total\nFROM entries\nWHERE streams >= 700\nGROUP BY artist;', ins: [{ t: 'entries', m: ['g0', 'x', 'g1', 'g2', 'x'], role: 'entries: a view (one day\u2019s chart rows joined to artists, so names repeat on purpose)' }],
         out: { c: ['artist', 'total'], r: [['Rema', 1200], ['Tems', 800], ['Wizkid', 700]], m: ['g0', 'g1', 'g2'], nc: [1] } },
-      { h: 'HAVING filters groups after grouping', fig: 'flow', say: 'HAVING runs <b>after</b> GROUP BY, on whole groups. Wizkid\'s group totals 700, so the whole group is removed.',
+      { h: 'HAVING filters groups after grouping', fig: 'flow', say: 'HAVING runs <b>after</b> GROUP BY, on whole groups. The groups are the same three artists as before, but now the condition is tested on each group\'s total. Wizkid\'s group totals 700, which is not above 1000, so the whole group is removed.',
         sql: 'SELECT artist, SUM(streams) AS total\nFROM entries\nGROUP BY artist\nHAVING SUM(streams) > 1000;', ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'x', 'g1'], role: 'entries: a view (one day\u2019s chart rows joined to artists, so names repeat on purpose)' }],
-        out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'], nc: [1] } }
+        out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'], nc: [1] } },
+      { h: 'A column that is neither grouped nor aggregated', fig: 'flow', say: 'This query groups <code>entries</code> by artist but also asks for <code>title</code>. Rema\'s group has two titles, Calm Down and Charm, and Tems\'s group has Free Mind and Me & U, yet each group becomes one result row with one title cell. Nothing in the query says which title to show. Postgres and DuckDB refuse to run it. SQLite runs it and picks a title from an arbitrary row of the group, so the answer looks fine but means nothing.',
+        sql: 'SELECT artist, title, SUM(streams) AS total\nFROM entries\nGROUP BY artist;', norun: true,
+        ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'g2', 'g1'], role: 'entries: a view (one day\u2019s chart rows joined to artists, so names repeat on purpose)' }],
+        after: [{ tab: ILT('result', ['artist', 'title', 'total'], [['Rema', 'Calm Down or Charm?', 1700], ['Tems', 'Free Mind or Me & U?', 1100], ['Wizkid', 'Essence', 700]]), m: ['x', 'x', 'g2'], role: 'result: one row per group, but which title?' }],
+        lg: { x: '✕ several titles, one cell: no single right answer', g: '🎨 same colour = same group' } },
+      { h: 'The safe habit, and when grouping by a key is enough', fig: 'flow', say: 'Here the tables are <code>songs</code> and <code>artists</code>, joined on <code>artist_id</code>. We want each artist\'s name next to their song count. Every artist_id has exactly one name, because artist_id is the primary key of artists: the name is <b>functionally dependent</b> on the key. Standard SQL, and Postgres, therefore accept <code>GROUP BY a.artist_id</code> alone. The safe habit, which works on every engine, is to list both columns in GROUP BY, as below.',
+        sql: 'SELECT a.artist_id, a.name, COUNT(*) AS songs\nFROM songs s\nJOIN artists a ON a.artist_id = s.artist_id\nGROUP BY a.artist_id, a.name;',
+        ins: [{ t: 'songs', m: ['g0', 'g1', 'g1', 'g2', '', 'g0'], role: 'songs (artist_id is the main artist)' }, { t: 'artists', m: ['g0', 'g1', 'g2'], role: 'artists (artist_id is the primary key)' }],
+        out: { c: ['artist_id', 'name', 'songs'], r: [[1, 'Rema', 2], [2, 'Tems', 2], [3, 'Wizkid', 1], [4, 'Ayra Starr', 1]], m: ['g0', 'g1', 'g2', ''], nc: [2] }, stack: true,
+        lg: { g: '🎨 same colour = same artist' } }
     ],
     qs: [
       { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT artist, COUNT(*) FROM entries GROUP BY artist;', o: ['3', '5', '2', '1'], why: 'One row per distinct artist: Rema, Tems, Wizkid.' },
       { k: 'tap', q: 'Tap the rows that reach the groups in <code>WHERE streams &gt; 750 GROUP BY artist</code>.', t: 'entries', ans: [0, 2], why: 'WHERE filters single rows first: only Calm Down (1200) and Free Mind (800) pass.' },
-      { k: 'mc', q: '"Only artists whose total streams exceed 1,000." Where does the condition go?', o: ['HAVING SUM(streams) > 1000', 'WHERE SUM(streams) > 1000', 'WHERE streams > 1000', 'ORDER BY SUM(streams) > 1000'], why: 'It is a condition on a group total, so it goes in HAVING, after GROUP BY.' }
+      { k: 'mc', q: '"Only artists whose total streams exceed 1,000." Where does the condition go?', o: ['HAVING SUM(streams) > 1000', 'WHERE SUM(streams) > 1000', 'WHERE streams > 1000', 'ORDER BY SUM(streams) > 1000'], why: 'It is a condition on a group total, so it goes in HAVING, after GROUP BY.' },
+      { k: 'mc', ref: false, q: 'What is wrong with <code>SELECT artist, title, SUM(streams) FROM entries GROUP BY artist</code>?', o: ['title has several values per artist and is neither grouped nor aggregated, so no single title is correct', 'nothing: SQLite runs it, so it is valid SQL', 'SUM cannot be used with GROUP BY', 'it must also GROUP BY streams'],
+        w: [null, 'SQLite is lenient and picks a title from an arbitrary row. Postgres and DuckDB reject the query, and the title SQLite shows means nothing.', 'SUM is exactly what GROUP BY is for: one total per group.', 'Grouping by streams would make a group per stream count and break the per-artist totals.'],
+        why: 'Each group becomes one row, so every column must have one value per group: grouped, aggregated (for example MAX(title)), or functionally dependent on the grouped key.' },
+      { k: 'mc', ref: false, q: 'You group by <code>artists.artist_id</code> (the primary key) and also select <code>artists.name</code>. Which statement is accurate?', o: ['It is valid in standard SQL and Postgres, because each artist_id has exactly one name; adding name to GROUP BY is the habit that works everywhere', 'It is always an error: name must be in the GROUP BY', 'It works only because SQLite is lenient', 'It returns one row per name instead of per artist'],
+        w: [null, 'This is the simple rule stated too strongly. Standard SQL allows columns that are functionally dependent on the grouped key.', 'SQLite would run it, but it is also valid standard SQL here, because name depends on the primary key.', 'The groups are still one per artist_id; name just has one value per group.'],
+        why: 'A column that has exactly one value per group (functionally dependent on the key) is safe to select. Listing it in GROUP BY as well costs nothing and is accepted by every engine.' },
+      { k: 'mc', ref: false, q: '🛒 Shop: you want each customer\u2019s name and their number of orders. Which query is correct on every engine?', o: ['SELECT c.customer_id, c.name, COUNT(*) FROM orders o JOIN customers c ON c.customer_id = o.customer_id GROUP BY c.customer_id, c.name', 'SELECT c.name, o.order_date, COUNT(*) FROM orders o JOIN customers c ON c.customer_id = o.customer_id GROUP BY c.name', 'SELECT c.name, COUNT(*) FROM orders o JOIN customers c ON c.customer_id = o.customer_id GROUP BY c.name', 'SELECT c.customer_id, c.name, COUNT(*) FROM orders o JOIN customers c ON c.customer_id = o.customer_id'],
+        w: [null, 'order_date has many values per customer and is neither grouped nor aggregated, so no single date is correct.', 'It runs, but two different customers with the same name would be merged into one group. Group by the key.', 'Without GROUP BY, COUNT(*) collapses everything into one row, and Postgres or DuckDB reject the extra columns.'],
+        why: 'Group by the key (customer_id) so that each customer is one group, and list the name too so every engine accepts it.' }
     ] },
   sql6: {
     tables: { entries: ILL_ENT },
     scenes: [
-      { h: 'A subquery used as a filter', fig: 'flow', say: 'The inner query runs first and returns <b>one value</b>: the average, 700. The outer WHERE then keeps rows above it. Essence (700) is not above 700.',
+      { h: 'A subquery used as a filter', fig: 'flow', say: 'The query inside the brackets is a <b>subquery</b>. It runs first and returns <b>one value</b>: the average stream count in <code>entries</code>, which is 700. The outer WHERE then compares each row with that value and keeps the rows above it. Essence has exactly 700, which is not above 700, so it is dropped.',
         sql: 'SELECT title, streams\nFROM entries\nWHERE streams > (SELECT AVG(streams) FROM entries);', ins: [{ t: 'entries', m: ['m', 'x', 'm', 'x', 'x'], role: 'entries: a view (one day\u2019s chart rows joined to artists, so names repeat on purpose)' }],
         out: { c: ['title', 'streams'], r: [['Calm Down', 1200], ['Free Mind', 800]], m: ['m', 'm'] } }
     ],
@@ -1771,15 +1795,15 @@ const ILLUS = {
   sql7: {
     tables: { entries: ILL_ENT, chart_mon: ILT('chart_mon', ['title'], [['Rush'], ['Calm Down']]), chart_tue: ILT('chart_tue', ['title'], [['Calm Down'], ['Essence']]) },
     scenes: [
-      { h: 'A CTE is a named, temporary result', fig: 'flow', say: 'The CTE <code>totals</code> is computed first (one row per artist) and exists only for this query. The final SELECT reads it like a table.',
+      { h: 'A CTE is a named, temporary result', fig: 'flow', say: 'The query starts with <code>WITH totals AS (…)</code>. That part is a <b>CTE</b> (common table expression): a named result, here one row per artist with their total streams, which exists only while this query runs. The final SELECT then reads <code>totals</code> as if it were a table and keeps the artists above 1000.',
         sql: 'WITH totals AS (\n  SELECT artist, SUM(streams) AS total\n  FROM entries GROUP BY artist\n)\nSELECT artist, total\nFROM totals\nWHERE total > 1000;',
         ins: [{ t: 'entries', m: ['g0', 'g0', 'g1', 'g2', 'g1'], role: 'entries (a saved view)' }, { tab: ILT('totals', ['artist', 'total'], [['Rema', 1700], ['Tems', 1100], ['Wizkid', 700]]), m: ['g0', 'g1', 'x'], role: 'totals (the CTE: step 1)' }],
         out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'] } },
-      { h: 'UNION ALL stacks every row', fig: 'flow', say: 'UNION ALL puts the second result <b>under</b> the first. Calm Down is in both, so it appears twice.',
-        sql: 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'] }, { t: 'chart_tue', m: ['g1', 'g2'] }],
+      { h: 'UNION ALL stacks every row', fig: 'flow', say: 'UNION ALL places the rows of the second query <b>under</b> the rows of the first. Calm Down is on both Monday’s and Tuesday’s chart, so it appears twice in the result, which has 4 rows.',
+        sql: 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'], role: 'chart_mon: a view (titles on Monday\u2019s chart)' }, { t: 'chart_tue', m: ['g1', 'g2'], role: 'chart_tue: a view (titles on Tuesday\u2019s chart)' }],
         out: { c: ['title'], r: [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']], m: ['g0', 'g1', 'd', 'g2'] }, lg: { d: '⧉ duplicate: UNION ALL keeps it' } },
-      { h: 'UNION removes duplicates', fig: 'flow', say: 'UNION stacks too, then <b>removes duplicate rows</b>: 3 rows. That extra step costs time, so use UNION ALL unless you need deduplication.',
-        sql: 'SELECT title FROM chart_mon\nUNION\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'] }, { t: 'chart_tue', m: ['d', 'g2'] }], lg: { d: '⧉ duplicate: UNION removes it' },
+      { h: 'UNION removes duplicates', fig: 'flow', say: 'UNION also stacks the two results, but then <b>removes duplicate rows</b>, so Calm Down appears once and the result has 3 rows. Removing duplicates is an extra step that usually costs time, so use UNION ALL unless you need the duplicates removed.',
+        sql: 'SELECT title FROM chart_mon\nUNION\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'], role: 'chart_mon: a view (titles on Monday\u2019s chart)' }, { t: 'chart_tue', m: ['d', 'g2'], role: 'chart_tue: a view (titles on Tuesday\u2019s chart)' }], lg: { d: '⧉ duplicate: UNION removes it' },
         out: { c: ['title'], r: [['Calm Down'], ['Essence'], ['Rush']], m: ['g1', 'g2', 'g0'] } }
     ],
     qs: [
@@ -1787,57 +1811,88 @@ const ILLUS = {
       { k: 'mc', q: 'And with <code>UNION</code>?', sql: 'SELECT title FROM chart_mon UNION SELECT title FROM chart_tue;', o: ['3', '4', '2', '1'], why: 'Rush, Calm Down, Essence: the duplicate is removed.' }
     ] },
   sql8: {
-    tables: { chart: ILL_POS },
+    tables: { chart: ILL_POS,
+      chart_named: ILT('chart_named', ['chart_date', 'song_id', 'title', 'position'], [['10-16', 5, 'Love', 3], ['10-17', 5, 'Love', 8], ['10-17', 6, 'Love', 2]]) },
     scenes: [
-      { h: 'PARTITION BY + LAG: rows are kept', fig: 'flow', say: 'Unlike GROUP BY, a window function <b>keeps every row</b> (5 in, 5 out) and <b>adds a column</b>. PARTITION BY title splits rows into groups (colours); LAG reads the previous row in the same group.',
-        sql: 'SELECT title, chart_date, position,\n  LAG(position) OVER (PARTITION BY title ORDER BY chart_date) AS prev\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g0', 'g1', 'g1', 'g2'] }],
-        out: { c: ['title', 'chart_date', 'position', 'prev'], r: [['Calm Down', '10-16', 1, null], ['Calm Down', '10-17', 2, 1], ['Essence', '10-17', 3, null], ['Rush', '10-16', 2, null], ['Rush', '10-17', 1, 2]], m: ['g0', 'g0', 'g2', 'g1', 'g1'], nc: [3] },
-        note: 'The first row of each group has no previous row, so <code>prev</code> is NULL. (Titles are unique in this small example, so PARTITION BY title works. In real data, partition by song_id: two different songs can share a title.)' },
-      { h: 'ROW_NUMBER numbers rows inside each partition', fig: 'flow', say: 'PARTITION BY chart_date: each day starts again at 1. Still 5 rows out.',
-        sql: 'SELECT chart_date, title, position,\n  ROW_NUMBER() OVER (PARTITION BY chart_date ORDER BY position) AS rn\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g1', 'g0', 'g1', 'g1'] }],
-        out: { c: ['chart_date', 'title', 'position', 'rn'], r: [['10-16', 'Calm Down', 1, 1], ['10-16', 'Rush', 2, 2], ['10-17', 'Rush', 1, 1], ['10-17', 'Calm Down', 2, 2], ['10-17', 'Essence', 3, 3]], m: ['g0', 'g0', 'g1', 'g1', 'g1'], nc: [3] } }
+      { h: 'PARTITION BY + LAG: rows are kept', fig: 'flow', say: 'The table <code>chart</code> holds one row per song per chart day, identified by <code>song_id</code> (song 1 is Rush, song 2 is Calm Down and song 3 is Essence; the titles are stored once, in <code>songs</code>). Unlike GROUP BY, a window function <b>keeps every row</b> (5 in, 5 out) and <b>adds a column</b>. <code>PARTITION BY song_id</code> splits the rows into one group per song (one colour each), and LAG reads the previous row inside the same group.',
+        sql: 'SELECT song_id, chart_date, position,\n  LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) AS prev\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g0', 'g1', 'g1', 'g2'] }],
+        out: { c: ['song_id', 'chart_date', 'position', 'prev'], r: [[2, '10-16', 1, null], [2, '10-17', 2, 1], [3, '10-17', 3, null], [1, '10-16', 2, null], [1, '10-17', 1, 2]], m: ['g0', 'g0', 'g2', 'g1', 'g1'], nc: [3] },
+        note: 'The first row of each group has no previous row, so <code>prev</code> is NULL. That is how a new entry shows up.' },
+      { h: 'ROW_NUMBER numbers rows inside each partition', fig: 'flow', say: 'This time the window is split by day: <code>PARTITION BY chart_date</code> makes one group per chart day, and ROW_NUMBER counts the rows of each day in position order. Each day starts again at 1, and all 5 rows are still in the result.',
+        sql: 'SELECT chart_date, song_id, position,\n  ROW_NUMBER() OVER (PARTITION BY chart_date ORDER BY position) AS rn\nFROM chart;', ins: [{ t: 'chart', m: ['g0', 'g1', 'g0', 'g1', 'g1'] }],
+        out: { c: ['chart_date', 'song_id', 'position', 'rn'], r: [['10-16', 2, 1, 1], ['10-16', 1, 2, 2], ['10-17', 1, 1, 1], ['10-17', 2, 2, 2], ['10-17', 3, 3, 3]], m: ['g0', 'g0', 'g1', 'g1', 'g1'], nc: [3] } },
+      { h: 'Why the key is song_id, not the title', fig: 'flow', say: 'Titles are not unique: here two <b>different</b> songs are both called "Love" (song 5 and song 6). <code>chart_named</code> is a view that shows the title next to the ID. If we partition by <code>title</code>, both songs land in one group, and LAG hands each of them the other song\u2019s position. Song 6 is brand new, yet it gets a "previous" position of 3, and song 5 gets 2 instead of its own 3.',
+        sql: 'SELECT chart_date, song_id, position,\n  LAG(position) OVER (PARTITION BY title ORDER BY chart_date, position) AS prev\nFROM chart_named;',
+        ins: [{ t: 'chart_named', m: ['g0', 'g0', 'g0'], role: 'chart_named: a view (chart rows with the title shown)' }],
+        out: { c: ['chart_date', 'song_id', 'position', 'prev'], r: [['10-16', 5, 3, null], ['10-17', 6, 2, 3], ['10-17', 5, 8, 2]], m: ['', 'x', 'x'], nc: [3] },
+        lg: { x: '✕ wrong: this is the other song\u2019s position' } },
+      { h: 'Partition by the key, and each song keeps its own history', fig: 'flow', say: 'Now the same query uses <code>PARTITION BY song_id</code>. Song 5 and song 6 are separate groups, so song 5 correctly gets 3 (its own position on 10-16), and song 6 correctly gets NULL because it is a new entry. A key such as song_id is unique by design, which is why IDs, not names, identify rows.',
+        sql: 'SELECT chart_date, song_id, position,\n  LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) AS prev\nFROM chart_named;',
+        ins: [{ t: 'chart_named', m: ['g0', 'g0', 'g1'], role: 'chart_named: a view (chart rows with the title shown)' }],
+        out: { c: ['chart_date', 'song_id', 'position', 'prev'], r: [['10-16', 5, 3, null], ['10-17', 5, 8, 3], ['10-17', 6, 2, null]], m: ['g0', 'g0', 'g1'], nc: [3] },
+        lg: { g: '🎨 same colour = same song (same song_id)' } }
     ],
     qs: [
-      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT title, LAG(position) OVER (PARTITION BY title ORDER BY chart_date) FROM chart;', o: ['5', '3', '2', '1'], why: 'Window functions keep every row: 5 in, 5 out. GROUP BY title would return 3.' },
-      { k: 'mc', q: 'Why is <code>prev</code> NULL for Essence?', o: ['It is the first (only) row in its partition, so there is no previous row', 'Essence has no position', 'LAG always returns NULL for the last row', 'Essence was filtered out'], why: 'LAG looks one row back inside the same partition. Essence\'s partition has one row.' }
+      { k: 'mc', q: 'How many rows does this return?', sql: 'SELECT song_id, LAG(position) OVER (PARTITION BY song_id ORDER BY chart_date) FROM chart;', o: ['5', '3', '2', '1'], why: 'Window functions keep every row: 5 in, 5 out. GROUP BY song_id would return 3.' },
+      { k: 'mc', q: 'In the first picture, why is <code>prev</code> NULL for song 3?', o: ['It is the first (only) row in its partition, so there is no previous row', 'Song 3 has no position', 'LAG always returns NULL for the last row', 'Song 3 was filtered out'], why: 'LAG looks one row back inside the same partition. Song 3\'s partition has only one row.' },
+      { k: 'mc', ref: false, q: 'Two different songs are both called "Love". Which window gives each song its own previous position?', o: ['PARTITION BY song_id ORDER BY chart_date', 'PARTITION BY title ORDER BY chart_date', 'PARTITION BY chart_date ORDER BY position', 'no PARTITION BY at all'],
+        w: [null, 'This is the version that only works while titles happen to be unique. With two songs called "Love", they share one partition and LAG mixes their positions.', 'This groups by day, so LAG would read the song one place above on the same day, not the same song yesterday.', 'Without a partition every row is in one group, so LAG reads whatever row came before, from any song.'],
+        why: 'A partition must be one song, and the only column that always means one song is its key, song_id.' },
+      { k: 'mc', ref: false, q: '🛒 Shop: you use LAG to find each customer\u2019s previous order. Two customers are both named "Ada Okafor". What do you partition by?', o: ['customer_id', 'customer_name', 'order_date', 'order_total'],
+        w: [null, 'Names repeat. Both Adas would share one partition, and one Ada\u2019s "previous order" could be the other Ada\u2019s order.', 'That groups orders by day, not by person.', 'The amount says nothing about who placed the order.'],
+        why: 'Each customer has exactly one customer_id, and no two customers share it. That is the definition of a key, so it is the safe thing to partition by.' }
     ] },
   sql9: {
     tables: { raw: ILT('raw', ['title', 'streams'], [['  Rush ', '900'], ['Calm Down', null], ['Essence', '700']]) },
     scenes: [
-      { h: 'Cleaning keeps the rows, fixes the values', fig: 'flow', say: 'TRIM removes the spaces (shown as ␣), CAST turns text into numbers, COALESCE replaces NULL with 0. Same rows, cleaner values.',
-        sql: 'SELECT TRIM(title) AS title,\n  COALESCE(CAST(streams AS INTEGER), 0) AS streams\nFROM raw;', ins: [{ t: 'raw', m: ['n', 'n', 'm'] }],
+      { h: 'Cleaning keeps the rows, fixes the values', fig: 'flow', say: 'The table <code>raw</code> holds values exactly as they arrived: a title with extra spaces (shown as ␣), stream counts stored as text, and one missing count. TRIM removes the spaces, CAST turns the text into a number, and COALESCE replaces the NULL with 0. The result has the same 3 rows, with cleaner values.',
+        sql: 'SELECT TRIM(title) AS title,\n  COALESCE(CAST(streams AS INTEGER), 0) AS streams\nFROM raw;', ins: [{ t: 'raw', m: ['n', 'n', 'm'], role: 'raw: the source data as received, before cleaning' }],
         out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 0], ['Essence', 700]], m: ['n', 'n', 'm'] }, lg: { n: '＋ value changed', m: '✓ unchanged' } }
     ],
     qs: [{ k: 'mc', q: 'Why does Calm Down end up with streams = 0?', o: ['Its streams was NULL and COALESCE(…, 0) replaced it', 'CAST turns text into 0', 'TRIM removed the number', 'The row was filtered out'], why: 'COALESCE returns the first non-NULL argument: NULL → 0.' }] },
   etl1: {
     tables: { raw_tracks: ILT('raw_tracks', ['title', 'streams'], [[' Rush', '900'], [null, '450'], ['Essence ', '700']]) },
     scenes: [
-      { h: 'Transform: raw → staging', fig: 'flow', say: 'The raw layer keeps the source exactly as received. The transform step cleans it into staging: it trims text, converts types and <b>drops rows that fail a rule</b> (no title).',
+      { h: 'Transform: raw → staging', fig: 'flow', say: 'The raw layer, <code>raw_tracks</code>, keeps the source exactly as received. The transform step reads it and produces a cleaned staging result: it trims the titles, converts the stream counts from text to integers, and <b>drops rows that fail a rule</b>. Here the rule is “every row needs a title”, so the row with a NULL title is dropped.',
         sql: "SELECT TRIM(title) AS title, CAST(streams AS INTEGER) AS streams\nFROM raw_tracks\nWHERE title IS NOT NULL;", ins: [{ t: 'raw_tracks', m: ['n', 'x', 'n'], role: 'raw (untouched)' }],
         out: { c: ['title', 'streams'], r: [['Rush', 900], ['Essence', 700]], m: ['n', 'n'] }, lg: { n: '＋ cleaned' } }
     ],
     qs: [{ k: 'mc', q: 'After this transform, how many rows reach staging?', o: ['2', '3', '1', '0'], why: 'The row with a missing title fails the rule; the other two are cleaned and kept. Raw still has all 3.' }] },
   etl2: {
-    tables: { target: ILT('target', ['chart_date', 'title'], [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']]), batch: ILT('batch', ['chart_date', 'title'], [['10-17', 'Rush'], ['10-17', 'Calm Down']]) },
+    tables: { target: ILT('target', ['chart_date', 'song_id'], [['10-16', 1], ['10-16', 2], ['10-17', 1], ['10-17', 2]]), batch: ILT('batch', ['chart_date', 'song_id'], [['10-17', 1], ['10-17', 2]]),
+      chart_entries: ILT('chart_entries', ['chart_date', 'song_id', 'position'], [['10-16', 1, 1], ['10-16', 2, 2], ['10-17', 2, 1], ['10-17', 1, 2]]) },
     scenes: [
-      { h: 'A retry with plain INSERT duplicates rows', fig: 'flow', say: 'The 10-17 load already ran once (4 rows). The scheduler retries it. A plain INSERT adds the same 2 rows again: 6 rows, 2 of them duplicates.',
+      { h: 'What "the run date\u2019s partition" means', fig: 'flow', say: 'A <b>partition</b> is the slice of a table that shares one value of the partition key, here <code>chart_date</code>. In your DuckDB project, <code>chart_entries</code> is <b>one table</b>, and "the 10-17 partition" simply means its rows <code>WHERE chart_date = \'10-17\'</code>. That is a <b>logical</b> slice: nothing is stored separately. The query below reads it.',
+        sql: "SELECT * FROM chart_entries\nWHERE chart_date = '10-17';", ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1'], role: 'DuckDB: one table; colours show the two date slices' }],
+        out: { c: ['chart_date', 'song_id', 'position'], r: [['10-17', 2, 1], ['10-17', 1, 2]], m: ['g1', 'g1'] } },
+      { h: 'Warehouses can store each partition separately', fig: 'flow', say: 'A warehouse such as BigQuery can declare a <b>partitioned table</b>, and a data lake can store one folder of Parquet files per date (Hive-style partitioning). Then each date is stored <b>physically apart</b> (in its own storage blocks or folder), so a query that filters on the date reads only that part. This is called <b>partition pruning</b>, and it is why big daily tables stay cheap to query. The idea is the same as in DuckDB; only the storage differs.',
+        ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1'], role: 'the same rows, before partitioning' }],
+        after: [{ tab: ILT('chart_entries · 10-16', ['song_id', 'position'], [[1, 1], [2, 2]]), m: ['g0', 'g0'], role: 'stored part 1: date 10-16' }, { tab: ILT('chart_entries · 10-17', ['song_id', 'position'], [[2, 1], [1, 2]]), m: ['g1', 'g1'], role: 'stored part 2: date 10-17' }],
+        note: 'In both cases a load can replace one date without touching the others. That is what the next two pictures use.' },
+      { h: 'A retry with plain INSERT duplicates rows', fig: 'flow', say: 'The table <code>target</code> already holds the 10-17 load (4 rows in total). The scheduler retries the job, and a plain INSERT adds the 2 rows of <code>batch</code> again. Now there are 6 rows, and 2 of them are duplicates.',
         sql: "INSERT INTO target SELECT * FROM batch;\nSELECT * FROM target;", ins: [{ t: 'target', role: 'target before the retry' }, { t: 'batch', role: 'batch for 10-17' }],
-        out: { c: ['chart_date', 'title'], r: [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']], m: ['m', 'm', 'm', 'm', 'd', 'd'] } },
-      { h: 'Delete-then-insert is idempotent', fig: 'flow', say: 'First delete the run date\'s rows, then insert the batch. Run it once or ten times: always 4 rows. Other dates are untouched.',
+        out: { c: ['chart_date', 'song_id'], r: [['10-16', 1], ['10-16', 2], ['10-17', 1], ['10-17', 2], ['10-17', 1], ['10-17', 2]], m: ['m', 'm', 'm', 'm', 'd', 'd'] } },
+      { h: 'Delete-then-insert is idempotent', fig: 'flow', say: 'This time the job first deletes the run date\u2019s partition (the 10-17 rows) and then inserts the batch. Run it once or ten times and the table always ends with the same 4 rows. The 10-16 partition is never touched.',
         sql: "DELETE FROM target WHERE chart_date = '10-17';\nINSERT INTO target SELECT * FROM batch;\nSELECT * FROM target;", ins: [{ t: 'target', m: ['m', 'm', 'x', 'x'], role: 'target before' }, { t: 'batch', m: ['n', 'n'], role: 'batch for 10-17' }],
-        out: { c: ['chart_date', 'title'], r: [['10-16', 'Rush'], ['10-16', 'Calm Down'], ['10-17', 'Rush'], ['10-17', 'Calm Down']], m: ['m', 'm', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted again' } }
+        out: { c: ['chart_date', 'song_id'], r: [['10-16', 1], ['10-16', 2], ['10-17', 1], ['10-17', 2]], m: ['m', 'm', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted again' } }
     ],
     qs: [
       { k: 'mc', q: 'The plain INSERT job is retried <b>twice more</b> for 10-17 (starting from the 4-row table). How many rows?', o: ['8', '6', '4', '10'], why: 'Each retry adds the 2 rows again: 4 + 2 + 2 = 8.' },
-      { k: 'mc', q: 'The delete-then-insert job runs 3 times for 10-17. How many rows?', o: ['4', '8', '6', '2'], why: 'Each run deletes the 10-17 rows first, so the result is the same every time: idempotent.' }
+      { k: 'mc', q: 'The delete-then-insert job runs 3 times for 10-17. How many rows?', o: ['4', '8', '6', '2'], why: 'Each run deletes the 10-17 rows first, so the result is the same every time: idempotent.' },
+      { k: 'mc', ref: false, q: 'In your DuckDB project, what is "the 10-17 partition" of chart_entries?', o: ['the rows of the one chart_entries table WHERE chart_date = \'10-17\' (a logical slice)', 'a separate file that DuckDB keeps for 10-17', 'a copy of the table made for 10-17', 'the chart_date column'],
+        w: [null, 'Your table is not declared as partitioned, so there is no separate file per date. Warehouses such as BigQuery can store dates separately; your DuckDB table does not.', 'Nothing is copied. A partition is part of the same table.', 'A partition is a set of rows, not a column. chart_date is the column that defines the slices.'],
+        why: 'A partition is the set of rows that share one value of the partition key. Whether it is also stored separately depends on the engine and on how the table was created.' },
+      { k: 'mc', ref: false, q: '🛒 Shop: a BigQuery orders table is partitioned by order_date. A report asks only for 2026-10-17. What does partitioning give you?', o: ['the query reads only the 10-17 partition instead of every day (partition pruning)', 'the orders of 10-17 are copied into a new table', 'orders from other days are deleted', 'nothing, because partitions are only a name for a WHERE filter'],
+        w: [null, 'Pruning reads the stored partition in place; nothing is copied.', 'Partitioning never deletes data.', 'In DuckDB, where your table is one unpartitioned table, a date slice is only a WHERE filter. In a warehouse table declared as partitioned, the dates are stored apart and unneeded ones are skipped.'],
+        why: 'Physical partitions let the engine skip the days a query does not ask for, which saves time and money on large tables.' }
     ] },
   etl4: {
     tables: { raw_tracks: ILT('raw_tracks', ['track_id', 'title', 'loaded_at'], [[1, 'Rush', '08:00'], [1, 'Rush', '09:00'], [2, 'Essence', '08:00']]) },
     scenes: [
-      { h: 'A quality check that should return zero rows', fig: 'flow', say: 'A uniqueness check groups by the key and keeps keys that appear more than once. A healthy table returns <b>no rows</b>; here track 1 is duplicated.',
+      { h: 'A quality check that should return zero rows', fig: 'flow', say: 'This uniqueness check groups <code>raw_tracks</code> by its key, <code>track_id</code>, and keeps only the keys that appear more than once. On a healthy table the check returns <b>no rows</b>. Here it returns track 1, which was loaded twice (at 08:00 and at 09:00).',
         sql: 'SELECT track_id, COUNT(*) AS n\nFROM raw_tracks\nGROUP BY track_id\nHAVING COUNT(*) > 1;', ins: [{ t: 'raw_tracks', m: ['g0', 'g0', 'x'] }],
         out: { c: ['track_id', 'n'], r: [[1, 2]], m: ['g0'], nc: [1] } },
-      { h: 'Dedupe: keep the latest row per key', fig: 'flow', say: 'ROW_NUMBER numbers each track\'s rows, newest first; keeping rn = 1 leaves one row per track.',
+      { h: 'Dedupe: keep the latest row per key', fig: 'flow', say: 'To remove the duplicate, ROW_NUMBER numbers the rows of each track_id from the newest load to the oldest. Keeping only the rows where rn = 1 leaves one row per track: the latest one.',
         sql: 'WITH r AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY track_id ORDER BY loaded_at DESC) AS rn\n  FROM raw_tracks\n)\nSELECT track_id, title, loaded_at FROM r WHERE rn = 1;', ins: [{ t: 'raw_tracks', m: ['x', 'g0', 'g1'] }],
         out: { c: ['track_id', 'title', 'loaded_at'], r: [[1, 'Rush', '09:00'], [2, 'Essence', '08:00']], m: ['g0', 'g1'] } }
     ],
@@ -1845,7 +1900,7 @@ const ILLUS = {
   pj3: {
     tables: {},
     scenes: [
-      { h: 'Flattening: nested JSON → one row per track', fig: 'flow', say: 'The API returns one nested document. transform.py walks <code>tracks</code> and turns each track into one flat row. The list order becomes the chart position.',
+      { h: 'Flattening: nested JSON → one row per track', fig: 'flow', say: 'The API returns one nested JSON document. transform.py walks through its <code>tracks</code> list and turns each track into one flat row with one value per column. The order of the list becomes the chart position, so the first track is position 1.',
         code: 'for position, t in enumerate(payload["tracks"], start=1):\n    rows.append({"chart_date": payload["chart_date"], "position": position,\n                 "title": t["title"].strip(), "artist": t["artist"]["name"]})',
         ins: [{ raw: '{"chart_date": "2026-10-17",\n "tracks": [\n   {"title": "Rush ", "artist": {"name": "Ayra Starr"}},\n   {"title": "Calm Down", "artist": {"name": "Rema"}}\n ]}', role: 'raw JSON (one document)' }],
         out: { c: ['chart_date', 'position', 'title', 'artist'], r: [['2026-10-17', 1, 'Rush', 'Ayra Starr'], ['2026-10-17', 2, 'Calm Down', 'Rema']], m: ['n', 'n'] }, lg: { n: '＋ one row per track' } }
@@ -1855,10 +1910,10 @@ const ILLUS = {
     tables: { chart_entries: ILT('chart_entries', ['chart_date', 'track_id', 'title'], [['10-16', 1, 'Rush'], ['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down']], 'CREATE TABLE chart_entries (chart_date, track_id, title, PRIMARY KEY (chart_date, track_id));'),
       batch: ILT('batch', ['chart_date', 'track_id', 'title'], [['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down'], ['10-17', 3, 'Charm']]) },
     scenes: [
-      { h: 'The primary key refuses a duplicate load', fig: 'flow', say: '<code>PRIMARY KEY (chart_date, track_id)</code> enforces the grain. Re-inserting 10-17 fails instead of silently duplicating.',
+      { h: 'The primary key refuses a duplicate load', fig: 'flow', say: 'In <code>chart_entries</code> the primary key is <code>(chart_date, track_id)</code>, so a track can appear only once per day: that is the table’s grain. The batch tries to insert the 10-17 rows again. Because those keys already exist, the database refuses the insert instead of silently storing duplicates.',
         sql: 'INSERT INTO chart_entries SELECT * FROM batch;', ins: [{ t: 'chart_entries', role: 'chart_entries (PK chart_date, track_id)' }, { t: 'batch', m: ['d', 'd', 'n'], role: 'rerun batch for 10-17' }],
         out: { err: 'UNIQUE constraint failed' }, lg: { d: '⧉ key already exists' } },
-      { h: 'load.py: delete the date, then insert', fig: 'flow', say: 'load.py deletes the run date first, then inserts the fresh batch (now with a late Charm). 10-16 is untouched.',
+      { h: 'load.py: delete the date, then insert', fig: 'flow', say: 'This is what load.py does. It first deletes every <code>chart_entries</code> row for the run date, 10-17, and then inserts the fresh batch, which now also contains Charm, a song that arrived late. The 10-16 rows are not touched, and running it again gives the same table.',
         sql: "DELETE FROM chart_entries WHERE chart_date = '10-17';\nINSERT INTO chart_entries SELECT * FROM batch;\nSELECT * FROM chart_entries;", ins: [{ t: 'chart_entries', m: ['m', 'x', 'x'] }, { t: 'batch', m: ['n', 'n', 'n'] }],
         out: { c: ['chart_date', 'track_id', 'title'], r: [['10-16', 1, 'Rush'], ['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down'], ['10-17', 3, 'Charm']], m: ['m', 'n', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted' } }
     ],
@@ -1866,12 +1921,13 @@ const ILLUS = {
   pj5: {
     tables: { chart_entries: ILT('chart_entries', ['chart_date', 'track_id', 'title', 'artist', 'position'], [['10-16', 1, 'Rush', 'Ayra Starr', 2], ['10-17', 1, 'Rush', 'Ayra Starr', 1], ['10-16', 2, 'Calm Down', 'Rema', 1], ['10-17', 2, 'Calm Down', 'Rema', 3], ['10-17', 3, 'Charm', 'Rema', 2]]) },
     scenes: [
-      { h: 'chart_movement keeps every row, adds columns', fig: 'flow', say: 'The view adds <code>prev_position</code> (LAG per track) and <code>places_gained</code>. 5 rows in, 5 rows out. A new entry has no previous row, so both are NULL.',
+      { h: 'chart_movement keeps every row, adds columns', fig: 'flow', say: 'The view chart_movement reads <code>chart_entries</code> and adds two columns. <code>prev_position</code> uses LAG within each track_id to fetch the track’s position on its previous chart day, and <code>places_gained</code> subtracts today’s position from it. 5 rows go in and 5 come out. Charm is a new entry with no previous row, so both new columns are NULL for it.',
         sql: 'SELECT chart_date, title, position,\n  LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) AS prev_position,\n  LAG(position) OVER (PARTITION BY track_id ORDER BY chart_date) - position AS places_gained\nFROM chart_entries;', ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1', 'g2'] }],
         out: { c: ['chart_date', 'title', 'position', 'prev_position', 'places_gained'], r: [['10-16', 'Rush', 2, null, null], ['10-17', 'Rush', 1, 2, 1], ['10-16', 'Calm Down', 1, null, null], ['10-17', 'Calm Down', 3, 1, -2], ['10-17', 'Charm', 2, null, null]], m: ['g0', 'g0', 'g1', 'g1', 'g2'], nc: [3, 4] } },
-      { h: 'artist_summary collapses to one row per artist', fig: 'flow', say: 'GROUP BY artist: 5 rows become 2. COUNT(DISTINCT track_id) counts songs, not chart days.',
+      { h: 'artist_summary collapses to one row per artist', fig: 'flow', say: 'The view artist_summary groups <code>chart_entries</code> by artist, so 5 rows become 2. COUNT(DISTINCT track_id) counts different songs, not chart days, which is why Ayra Starr has 1 song even though Rush appears on two days.',
         sql: 'SELECT artist, COUNT(DISTINCT track_id) AS songs_charted, MIN(position) AS best_position\nFROM chart_entries\nGROUP BY artist;', ins: [{ t: 'chart_entries', m: ['g0', 'g0', 'g1', 'g1', 'g1'] }],
-        out: { c: ['artist', 'songs_charted', 'best_position'], r: [['Ayra Starr', 1, 1], ['Rema', 2, 1]], m: ['g0', 'g1'], nc: [1, 2] } }
+        out: { c: ['artist', 'songs_charted', 'best_position'], r: [['Ayra Starr', 1, 1], ['Rema', 2, 1]], m: ['g0', 'g1'], nc: [1, 2] },
+        note: 'Your project groups by the artist <b>name</b> because transform.py keeps only the name from the API, not Deezer\u2019s artist ID. Two different artists with the same name would be merged into one row. In a modelled warehouse you would store an artist_id and group by it.' }
     ],
     qs: [
       { k: 'mc', q: 'What is <code>places_gained</code> for Charm on 10-17?', o: ['NULL: it is a new entry with no previous position', '0', '2', '-2'], why: 'prev_position is NULL, and NULL − 2 is NULL.' },
@@ -1879,12 +1935,12 @@ const ILLUS = {
     ] }
 };
 // a before/after figure for building blocks (grounding) as well
-const ILL_COND = { h: '', fig: 'flow', sql: 'SELECT title, streams\nFROM daily_streams\nWHERE streams > 800;', norun: true,
-  ins: [{ tab: ILT('daily_streams', ['chart_date', 'title', 'streams'], [['10-17', 'Rush', 900], ['10-17', 'Calm Down', 1200], ['10-17', 'Essence', 700]]), m: ['m', 'm', 'x'], role: 'Before: table daily_streams' }],
-  out: { c: ['title', 'streams'], r: [['Rush', 900], ['Calm Down', 1200]], m: ['m', 'm'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
+const ILL_COND = { h: '', fig: 'flow', sql: 'SELECT song_id, streams\nFROM daily_streams\nWHERE streams > 800;', norun: true,
+  ins: [{ tab: ILT('daily_streams', ['chart_date', 'song_id', 'streams'], [['10-17', 1, 900], ['10-17', 2, 1200], ['10-17', 3, 700]]), m: ['m', 'm', 'x'], role: 'Before: table daily_streams' }],
+  out: { c: ['song_id', 'streams'], r: [[1, 900], [2, 1200]], m: ['m', 'm'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
 
 /* v7: entities, state, events, relationships (before joins) and many-to-many (after joins) */
-const ERD_ART = { n: 'artists', cols: [['artist_id', 'PK'], ['name'], ['label']] };
+const ERD_ART = { n: 'artists', cols: [['artist_id', 'PK'], ['name'], ['current_label']] };
 const ERD_SNG = { n: 'songs', cols: [['song_id', 'PK'], ['title'], ['artist_id', 'FK']] };
 const ERD_LIS = { n: 'listeners', cols: [['listener_id', 'PK'], ['name']] };
 const ERD_STR = { n: 'streams', sub: 'events', cols: [['stream_id', 'PK'], ['listener_id', 'FK'], ['song_id', 'FK'], ['streamed_at']] };
@@ -1894,74 +1950,88 @@ const ERD_L_SS = { f: ['streams', 'song_id'], t: ['songs', 'song_id'] };
 const erdAt = (o, x, y, more) => Object.assign({}, o, { x, y }, more || {});
 ILLUS.sqlr = {
   tables: {
-    songs_flat: ILT('songs_flat', ['title', 'artist', 'label'], [['Last Last', 'Burna Boy', 'Spaceship'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship'], ['Free Mind', 'Tems', 'RCA'], ['Me & U', 'Tems', 'RCA']]),
-    artists: ILT('artists', ['artist_id', 'name', 'label'], [[1, 'Burna Boy', 'Spaceship'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']]),
+    songs_flat: ILT('songs_flat', ['title', 'artist', 'artist_label'], [['Last Last', 'Burna Boy', 'Spaceship'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship'], ['Free Mind', 'Tems', 'RCA'], ['Me & U', 'Tems', 'RCA']]),
+    artists: ILT('artists', ['artist_id', 'name', 'current_label'], [[1, 'Burna Boy', 'Spaceship'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']]),
+    payments: ILT('payments', ['payment_id', 'account_id', 'amount', 'corrects'], [[1, 7, 5000, null], [2, 7, 5000, null], [3, 7, -5000, 2]]),
     songs: ILT('songs', ['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2], [12, 'Joha', 3], [13, 'City Boys', 1]]),
     listeners: ILT('listeners', ['listener_id', 'name'], [[100, 'Ada'], [101, 'Tunde'], [102, 'Zainab']]),
     streams: ILT('streams', ['stream_id', 'listener_id', 'song_id', 'streamed_at'], [[1, 100, 10, '21:14'], [2, 100, 11, '21:18'], [3, 101, 10, '22:02']])
   },
   scenes: [
     { h: 'One big table repeats itself',
-      say: 'Imagine keeping everything in one table. Each row is a song, but it also <b>copies</b> the artist\u2019s name and label. Burna Boy\u2019s label is written 3 times and Tems\u2019 twice. Every copy is a chance for the data to disagree.',
-      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'one big table' }], lg: { d: 'artist + label copied again' },
+      say: 'Imagine keeping everything in one table, <code>songs_flat</code>. Each row is a song, but it also <b>copies</b> the artist\u2019s name and, in <code>artist_label</code>, the record label the artist is currently signed to. Burna Boy\u2019s label is written 3 times and Tems\u2019 twice. Every copy is a chance for the data to disagree.',
+      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'one big table (a deliberately bad design)' }], lg: { d: 'artist and label copied again' },
       note: 'Look closely at row 3: "Burna Boi". The next two pictures show why copies hurt.' },
     { h: 'Problem 1: an update misses copies',
-      say: 'Imagine Burna Boy\u2019s label changes to Atlantic (the labels here are a made-up example). Someone updates <b>one</b> row. The other copies still say Spaceship, so the table now gives two different answers to "what is Burna Boy\u2019s label?".',
-      sql: "UPDATE songs_flat SET label = 'Atlantic'\nWHERE title = 'Last Last';\nSELECT title, artist, label FROM songs_flat\nWHERE artist LIKE 'Bur%';",
-      ins: [{ t: 'songs_flat', m: ['n', 'u', 'u'], role: 'one big table' }],
-      out: { c: ['title', 'artist', 'label'], r: [['Last Last', 'Burna Boy', 'Atlantic'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship']], m: ['n', 'u', 'u'] },
+      say: 'Imagine Burna Boy signs with a new label, Atlantic (the labels in this lesson are made-up examples). Someone updates <b>one</b> row of <code>songs_flat</code>. The other two copies still say Spaceship, so the table now gives two different answers to "which label is Burna Boy signed to now?".',
+      sql: "UPDATE songs_flat SET artist_label = 'Atlantic'\nWHERE title = 'Last Last';\nSELECT title, artist, artist_label FROM songs_flat\nWHERE artist LIKE 'Bur%';",
+      ins: [{ t: 'songs_flat', m: ['n', 'u', 'u'], role: 'one big table (a deliberately bad design)' }],
+      out: { c: ['title', 'artist', 'artist_label'], r: [['Last Last', 'Burna Boy', 'Atlantic'], ["It's Plenty", 'Burna Boy', 'Spaceship'], ['City Boys', 'Burna Boi', 'Spaceship']], m: ['n', 'u', 'u'] },
       lg: { n: 'updated', u: 'missed copy: now the data disagrees' } },
     { h: 'Problem 2: a typo invents an artist',
-      say: 'Ask for the distinct artists. Because the name is typed on every row, one typo ("Burna Boi") creates an artist who does not exist.',
-      sql: 'SELECT DISTINCT artist, label\nFROM songs_flat;',
-      ins: [{ t: 'songs_flat', m: ['m', 'm', 'u', 'm', 'm'], role: 'one big table' }],
-      out: { c: ['artist', 'label'], r: [['Burna Boy', 'Spaceship'], ['Burna Boi', 'Spaceship'], ['Tems', 'RCA']], m: ['m', 'u', 'm'] },
+      say: 'Now ask <code>songs_flat</code> for its distinct artists. Because the name is typed again on every row, the one typo in row 3 ("Burna Boi") shows up as an extra artist who does not exist.',
+      sql: 'SELECT DISTINCT artist, artist_label\nFROM songs_flat;',
+      ins: [{ t: 'songs_flat', m: ['m', 'm', 'u', 'm', 'm'], role: 'one big table (a deliberately bad design)' }],
+      out: { c: ['artist', 'artist_label'], r: [['Burna Boy', 'Spaceship'], ['Burna Boi', 'Spaceship'], ['Tems', 'RCA']], m: ['m', 'u', 'm'] },
       lg: { m: 'real artist', u: 'typo = a fake extra artist' } },
     { h: 'The fix: split it so each fact lives once',
-      say: 'Put artists in their own table, one row each, with an ID. Songs keep only the artist\u2019s <b>ID</b>. The repetition disappears. A label change is now <b>one</b> UPDATE, and a song cannot point at "Burna Boi" because it stores the number 1, not a name.',
-      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'before: copies everywhere' }],
-      after: [{ t: 'artists', m: ['n', 'n', 'n'], role: 'artists: each label stored once' }, { t: 'songs', role: 'songs: point at the artist by ID' }],
+      say: 'The fix is to give artists their own table, <code>artists</code>, with one row and one ID per artist. The <code>songs</code> table keeps only the artist\u2019s <b>ID</b> in <code>artist_id</code>, so the repetition disappears. If Burna Boy changes label, that is now <b>one</b> UPDATE to <code>artists.current_label</code>, and a song cannot point at "Burna Boi" because it stores the number 1, not a typed name.',
+      ins: [{ t: 'songs_flat', m: ['d', 'd', 'd', 'd', 'd'], role: 'before: copies everywhere (a deliberately bad design)' }],
+      after: [{ t: 'artists', m: ['n', 'n', 'n'], role: 'artists: each artist\u2019s current label stored once' }, { t: 'songs', role: 'songs: point at the artist by ID' }],
       lg: { d: 'copied fact', n: 'stored once' } },
     { h: 'Entities: things that exist on their own', fig: 'ent',
       say: 'An <b>entity</b> is a thing that exists by itself and that we store facts about. Artists, songs and listeners exist whether or not anything happens today. Each entity gets <b>its own table</b> and <b>its own ID</b> (the primary key).' },
-    { h: 'State: a fact that changes and gets overwritten', fig: 'state', fp: { who: 'Burna Boy · label', vals: [['last week', 'Spaceship'], ['today', 'Atlantic']] },
-      say: '<b>State</b> is a current fact about an entity, such as an artist\u2019s current label or a listener\u2019s current city. It lives in a column. When it changes we UPDATE, and the old value is <b>gone</b> unless we deliberately keep history.',
-      sql: "UPDATE artists SET label = 'Atlantic'\nWHERE artist_id = 1;\nSELECT * FROM artists;",
+    { h: 'State: a fact that changes and gets overwritten', fig: 'state', fp: { who: 'Burna Boy · current_label', vals: [['last week', 'Spaceship'], ['today', 'Atlantic']] },
+      say: '<b>State</b> is a current fact about an entity, such as the label an artist is signed to <i>now</i> or a listener\u2019s current city. It lives in a column, here <code>artists.current_label</code>. When it changes we UPDATE that one row, and the old value is <b>gone</b> unless we deliberately keep history.',
+      sql: "UPDATE artists SET current_label = 'Atlantic'\nWHERE artist_id = 1;\nSELECT * FROM artists;",
       ins: [{ t: 'artists', m: ['n'], role: 'before' }],
-      out: { c: ['artist_id', 'name', 'label'], r: [[1, 'Burna Boy', 'Atlantic'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']], m: ['n', '', ''] },
+      out: { c: ['artist_id', 'name', 'current_label'], r: [[1, 'Burna Boy', 'Atlantic'], [2, 'Tems', 'RCA'], [3, 'Asake', 'YBNL']], m: ['n', '', ''] },
       lg: { n: 'same row, value overwritten ("Spaceship" is lost)' } },
+    { h: 'A song\u2019s label is a different fact', fig: 'flow',
+      say: 'There are really two label facts, and the "more than one value?" test separates them. Can one artist have more than one label? Over a career, yes: in this made-up example Last Last came out on Spaceship and City Boys on Atlantic. So the label a song was <b>released on</b> is a fact about the release, and it is stored with the song in <code>songs.release_label</code>. It stays true when the artist moves. <code>artists.current_label</code> is a different fact: who the artist is signed to today, which is state.',
+      ins: [{ tab: ILT('artists', ['artist_id', 'name', 'current_label'], [[1, 'Burna Boy', 'Atlantic']]), m: ['n'], role: 'artists.current_label: who the artist is signed to now (state)' }],
+      after: [{ tab: ILT('songs', ['song_id', 'title', 'artist_id', 'release_label'], [[10, 'Last Last', 1, 'Spaceship'], [13, 'City Boys', 1, 'Atlantic']]), m: ['m', 'm'], role: 'songs.release_label: the label each song came out on (a fact about that release)' }],
+      lg: { n: 'state: overwritten when the artist moves', m: 'release fact: does not change' },
+      note: 'If one song can come out on several labels (for example a different label in each country), that is "more than one value" again, so it gets its own table, such as <code>song_releases(song_id, country, label)</code>.' },
     { h: 'Events: things that happen, one new row each', fig: 'events', fp: [['21:14', '🎧 Ada ▶ Last Last'], ['21:18', '🎧 Ada ▶ Free Mind'], ['22:02', '🎧 Tunde ▶ Last Last']],
-      say: 'An <b>event</b> happens at a moment. It did not exist before, and once it has happened it is not edited (a mistake is fixed with a correction, not by rewriting the old row). Each event becomes a <b>new row</b> holding a time plus the IDs of the entities involved (who listened, to which song).',
+      say: 'An <b>event</b> is something that happened at a moment. The table <code>streams</code> records each play as a <b>new row</b> holding the time and the IDs of the entities involved: who listened (<code>listener_id</code>) and to which song (<code>song_id</code>). Once a row is recorded, it is normally not edited. The next picture shows what happens when an event row is wrong.',
       sql: 'SELECT * FROM streams\nORDER BY streamed_at;', ordered: true,
       out: { c: ['stream_id', 'listener_id', 'song_id', 'streamed_at'], r: [[1, 100, 10, '21:14'], [2, 100, 11, '21:18'], [3, 101, 10, '22:02']], m: ['n', 'n', 'n'] },
       lg: { n: 'one new row per event' } },
-    { h: 'Relationships: fixed, or created by events', fig: 'bip',
+    { h: 'A wrong event is fixed by a correction', fig: 'flow',
+      say: 'Mistakes still happen, so event tables need a way to fix them. In the table <code>payments</code>, account 7 was charged 5000 twice by mistake (payment 2). The standard fix is to <b>add a correcting event</b>: payment 3 has amount −5000, and its <code>corrects</code> column points at payment 2. The history still shows what happened and how it was fixed, and the sum below gives the right balance.',
+      sql: 'SELECT account_id, SUM(amount) AS balance\nFROM payments\nGROUP BY account_id;',
+      ins: [{ t: 'payments', m: ['m', 'u', 'n'], role: 'payments: an event table (one row per money movement)' }],
+      out: { c: ['account_id', 'balance'], r: [[7, 5000]], m: ['m'] },
+      lg: { u: 'the mistaken event (kept, not edited)', n: '＋ the correcting event', m: '✓ counted' },
+      note: 'Some systems instead allow a <b>controlled update</b>, such as a logged fix made by an authorised job, but never a silent rewrite. Events can also arrive <b>late</b>: a stream played at 23:59 may reach the pipeline the next morning, and it is simply added as a new row then.' },
+    { h: 'Relationships: stored as keys, or created by events', fig: 'bip',
       fp: { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde', 'Zainab'], r: ['Last Last', 'Free Mind', 'Joha'], e: [[0, 0, 'd'], [0, 1, 'd'], [1, 0, 'd']],
-        cap: 'Dashed lines exist <b>only because a stream happened</b>. Each one is a row in <code>streams</code>. Zainab has streamed nothing, so she has <b>no link</b> to any song yet. Compare: "Last Last belongs to Burna Boy" is a <b>fixed</b> fact, stored once in <code>songs.artist_id</code>.' },
-      say: 'A <b>relationship</b> is how entities connect. Some are <b>fixed facts</b>: a song belongs to one artist, stored as a foreign key. Others are <b>created by events</b>: a listener and a song are unrelated until a stream happens, and then the stream row <i>is</i> the link.' },
+        cap: 'Dashed lines exist <b>only because a stream happened</b>. Each one is a row in <code>streams</code>. Zainab has streamed nothing, so she has <b>no link</b> to any song yet. Compare that with "Last Last\u2019s main artist is Burna Boy": it is a fact about the song, stored once in <code>songs.artist_id</code>.' },
+      say: 'A <b>relationship</b> is how entities connect. Some are <b>facts stored as a foreign key</b>: each song points at its main artist through <code>songs.artist_id</code>. Others are <b>created by events</b>: a listener and a song are unrelated until a stream happens, and then that row in <code>streams</code> <i>is</i> the link. The picture shows the second kind as dashed lines.' },
     { h: 'Keys: the arrow from one table to another', fig: 'erd',
       fp: { boxes: [erdAt(ERD_ART, 6, 6), erdAt(ERD_SNG, 214, 6)], links: [ERD_L_SA], label: 'songs.artist_id points to artists.artist_id' },
-      say: 'The <b>primary key</b> (PK) identifies each row in its own table: <code>artists.artist_id</code>. A <b>foreign key</b> (FK) is a column that holds another table\u2019s PK: <code>songs.artist_id</code>. Draw it as an arrow from the FK to the PK. Following the arrow by hand looks like this:',
+      say: 'The <b>primary key</b> (PK) identifies each row in its own table; in <code>artists</code> it is <code>artist_id</code>. A <b>foreign key</b> (FK) is a column that holds values of another table’s key: <code>songs.artist_id</code> holds artist_id values from artists. The diagram draws that link as an arrow from the FK to the PK. The query below follows the arrow by hand for one song, Last Last, whose artist_id is 1.',
       sql: "SELECT name FROM artists\nWHERE artist_id = 1;  -- Last Last's artist_id",
       out: { c: ['name'], r: [['Burna Boy']], m: ['m'] }, lg: { m: 'the row the arrow points at' } },
     { h: 'Three kinds of relationship', fig: 'kinds',
-      say: 'Count how many rows can sit at each end of a line. That count tells you where the key goes.' },
+      say: 'Each picture below joins rows of one table to rows of another. For each line, count how many rows can sit at each end: one or many. That count tells you which kind of relationship it is, and therefore where the foreign key goes.' },
     { h: 'The ERD: what can join to what', fig: 'erd',
       fp: { boxes: [erdAt(ERD_ART, 6, 6, { hl: 1 }), erdAt(ERD_SNG, 214, 6, { hl: 1 }), erdAt(ERD_LIS, 6, 102, { hl: 1 }), erdAt(ERD_STR, 214, 102, { hl: 1 })],
         links: [Object.assign({ hl: 1 }, ERD_L_SA), Object.assign({ hl: 1 }, ERD_L_SL), Object.assign({ hl: 1 }, ERD_L_SS)], label: 'ERD of artists, songs, listeners and streams',
-        cap: 'Path from a listener to an artist: <b>listeners → streams → songs → artists</b>. There is <b>no line</b> between listeners and artists (no shared ID), so they cannot be joined directly.' },
-      say: 'An <b>ERD</b> (entity-relationship diagram) draws every table as a box and every FK → PK link as a line. The crow\u2019s foot marks the <b>many</b> end. Tables connect only along these lines: shared IDs are what make a connection meaningful.' }
+        cap: 'To get from a listener to an artist you follow the lines: from <code>listeners</code> to <code>streams</code>, then to <code>songs</code>, then to <code>artists</code>. There is <b>no line</b> between listeners and artists, because they share no ID, so they cannot be joined directly.' },
+      say: 'An <b>ERD</b> (entity-relationship diagram) draws every table as a box and every foreign-key link as a line between the foreign key and the key it points at. The crow’s foot marks the <b>many</b> end of each line. Tables can only be joined meaningfully along these lines, because each line is a shared ID.' }
   ],
   qs: [
     { k: 'cls', q: 'Sort each one: entity, state, event or relationship?', cats: ['Entity', 'State', 'Event', 'Relationship'],
       items: [['Burna Boy (an artist)', 0], ['Ada currently lives in Lagos', 1], ['Ada streamed Last Last at 21:14', 2], ['Last Last belongs to Burna Boy', 3], ['Tems is signed to RCA (for now)', 1], ['a listener', 0]],
       why: 'Artists and listeners exist on their own (entities). A current city and a current label are changeable facts (state). A stream happened at a moment (event). "Belongs to" connects two entities (relationship).' },
     { k: 'mc', q: 'Which tables connect <b>listeners</b> to <b>artists</b>?', o: ['streams, then songs', 'none: join listeners to artists directly', 'playlists only', 'artists already has a listener_id'],
-      why: 'listeners → streams (listener_id) → songs (song_id) → artists (artist_id). listeners and artists share no column.' },
+      why: 'listeners and artists share no column, so you go through the tables that do: join listeners to streams on listener_id, streams to songs on song_id, and songs to artists on artist_id.' },
     { k: 'tapc', q: 'Tap the <b>foreign key</b> column in songs.', t: 'songs', ans: [2],
       why: '<code>songs.artist_id</code> holds values of another table\u2019s primary key (<code>artists.artist_id</code>). <code>song_id</code> is songs\u2019 own primary key.' },
-    { k: 'mc', q: 'An artist has many songs, and each song has one artist. Which kind of relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'],
-      why: 'One artist row, many song rows. The FK sits on the many side (songs).' },
+    { k: 'mc', q: 'An artist has many songs, and each song has one main artist. Which kind of relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'],
+      why: 'One artist row, many song rows. The FK sits on the many side (songs). Featured artists are a separate, many-to-many relationship with its own linking table.' },
     { k: 'mc', q: 'Which pair can <b>not</b> be joined directly?', o: ['listeners and artists', 'songs and artists', 'streams and songs', 'streams and listeners'],
       why: 'listeners and artists share no ID and no line joins them in the ERD. You have to go through streams and songs.' },
     { k: 'mc', q: 'What goes wrong with the one big table?', o: ['a change must be repeated on every copy, and one typo creates a fake artist', 'nothing: one table is always best', 'SQL cannot read tables with text', 'it can only hold 5 rows'],
@@ -1971,9 +2041,21 @@ ILLUS.sqlr = {
     { k: 'mc', q: 'Zainab has never streamed anything. Is she related to any song?', o: ['No: the link only appears when a stream event is stored', 'Yes, to every song', 'Yes, through artists', 'Yes, through a listener_id in songs'],
       why: 'Listener–song links are created by events. No stream row means no link.' },
     { k: 'mc', q: 'Ada streams Last Last again tomorrow. What happens in streams?', o: ['a new row is added and old rows stay unchanged', 'row 1 gets the new time', 'nothing: she already has that link', 'the songs row is updated'],
-      why: 'Every play is a new event row. Events are never edited, which is why Ada can appear with the same song many times.' },
-    { k: 'mc', q: 'After <code>UPDATE artists SET label = \'Atlantic\' WHERE artist_id = 1</code>, where is "Spaceship"?', o: ['gone, unless history was kept on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the label column next to Atlantic'],
-      why: 'State is overwritten. To keep the old value you need a history table (or a slowly changing dimension).' },
+      why: 'Every play is a new event row, and the earlier rows stay as they were. That is why Ada can appear with the same song many times.' },
+    { k: 'mc', q: 'After <code>UPDATE artists SET current_label = \'Atlantic\' WHERE artist_id = 1</code>, where is "Spaceship"?', o: ['gone from artists, unless history was kept on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the current_label column next to Atlantic'],
+      why: 'State is overwritten. To keep the old value you need a history table (or a slowly changing dimension). A label stored on each song as <code>release_label</code> would not be affected, because it is a different fact.' },
+    { k: 'mc', ref: false, q: 'Burna Boy moved from Spaceship to Atlantic. Where should "Last Last came out on Spaceship" be stored?', o: ['with the song (songs.release_label), because it is a fact about that release', 'in artists.current_label, which now says Atlantic', 'nowhere: an artist only ever has one label', 'in artists.current_label as "Spaceship, Atlantic"'],
+      w: [null, 'current_label is state: it was overwritten by the move, so it can no longer tell you what Last Last came out on.', 'This was the simplified version. Over a career an artist can have several labels, so a label is not one fixed fact about the artist.', 'Two values in one cell cannot be checked or joined, and it still does not say which song came out on which label.'],
+      why: 'Ask "can there be more than one?". One artist can have several labels over time, but one release has one label, so the release label is stored with the song.' },
+    { k: 'mc', ref: false, q: 'A bug logged one of Ada\u2019s streams twice. What is the standard fix in an event table?', o: ['record a correction (for example a row that cancels the duplicate), or make a controlled, logged fix', 'nothing: events can never change, so the duplicate must stay and be counted', 'quietly edit the old rows so nobody sees the mistake', 'delete Ada from listeners'],
+      w: [null, 'This was the simplified rule. Events are not edited in normal use, but wrong events are corrected; otherwise every count would stay wrong.', 'A silent rewrite destroys the history and makes later numbers impossible to explain or audit.', 'Ada is an entity and did nothing wrong. The problem is one duplicated event row.'],
+      why: 'Events are recorded once and normally not edited. Mistakes are fixed deliberately and traceably: a correcting row, or a controlled update.' },
+    { k: 'mc', ref: false, q: '🏦 Bank: a customer was charged ₦5,000 twice by mistake. What does a well-designed transactions table do?', o: ['add a reversal of −₦5,000 that points at the wrong charge', 'change the wrong charge to ₦0 and keep no record', 'delete both charges', 'only change the balance shown on the account'],
+      w: [null, 'The money did move, and then moved back. Changing the amount silently hides that, and the statement no longer matches what happened.', 'Deleting removes the correct charge too, and any record of the error.', 'The balance should be computed from the transactions. Editing only the balance makes the two disagree.'],
+      why: 'Ledgers keep every transaction and fix mistakes with a correcting entry. The sum of the rows is then right, and the history explains it.' },
+    { k: 'mc', ref: false, q: '🏥 Hospital: Dr Bello now works at Lagos General, but last year she did an operation at Ikeja Clinic. Where is "the operation was at Ikeja Clinic" stored?', o: ['on the operation\u2019s own row (operations.hospital_id)', 'in doctors.current_hospital', 'in doctors.current_hospital as "Ikeja Clinic, Lagos General"', 'nowhere: a doctor has one hospital'],
+      w: [null, 'That is state: it now says Lagos General, so it cannot tell you where last year\u2019s operation happened.', 'A list in one cell cannot be checked or joined, and it does not say which operation was where.', 'A doctor can work at several hospitals over time, so "one hospital per doctor" is only true today.'],
+      why: 'Where one operation happened is a fact about that operation, just as the release label is a fact about the song. The doctor\u2019s current hospital is separate state.' },
     { k: 'run', q: 'Follow the arrow: song 12 (Joha) has artist_id 3. Fill in the ____ to get its artist\u2019s name.', code: 'SELECT name FROM artists\nWHERE artist_id = ____;', sol: 'SELECT name FROM artists WHERE artist_id = 3;',
       why: 'A foreign key is just the other table\u2019s ID. Looking it up by hand is exactly what a JOIN does for every row at once.' }
   ]
@@ -1990,23 +2072,23 @@ ILLUS.sqlm = {
     { h: 'Many on both sides: no single FK fits', fig: 'bip',
       fp: { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde', 'Zainab'], r: ['Last Last', 'Free Mind', 'Joha'], e: [[0, 0], [0, 1], [1, 0], [1, 2]],
         cap: 'Ada has 2 songs, and Last Last has 2 listeners. A column <code>listeners.song_id</code> could hold only <b>one</b> song, so the pairs get their own table.' },
-      say: 'Listeners and songs are <b>many-to-many</b>. Every line in the picture becomes <b>one row</b> in a linking table, here <code>streams</code>.',
+      say: 'Listeners and songs are <b>many-to-many</b>: Ada has played 2 songs, and Last Last has 2 listeners. Each line in the picture becomes <b>one row</b> in a linking table, and here that table is <code>streams</code>.',
       ins: [{ t: 'streams', role: 'streams: one row per line above' }] },
     { h: 'Join 1: streams → listeners', fig: 'flow',
-      say: 'Start from the linking table and follow one arrow: <code>streams.listener_id → listeners</code>. Each stream picks up its listener\u2019s name. Zainab has no stream rows, so nothing points at her.',
+      say: 'Start from the linking table, <code>streams</code>, and follow one arrow: <code>streams.listener_id</code> points at <code>listeners.listener_id</code>. The join gives each stream its listener’s name. Zainab has no rows in streams, so nothing points at her and she does not appear.',
       sql: 'SELECT st.stream_id, l.name, st.song_id\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;',
       ins: [{ t: 'streams', m: ['g0', 'g0', 'g1', 'g1'], role: 'linking table (FROM)' }, { t: 'listeners', m: ['g0', 'g1', 'x'], role: 'JOIN ➡' }],
       out: { c: ['stream_id', 'name', 'song_id'], r: [[1, 'Ada', 10], [2, 'Ada', 11], [3, 'Tunde', 10], [4, 'Tunde', 12]], m: ['g0', 'g0', 'g1', 'g1'] },
       lg: { g: 'colour = same listener', x: 'no stream points here' } },
     { h: 'Join 2: … → songs. Two joins, one per arrow', fig: 'flow',
-      say: 'Add the second arrow: <code>streams.song_id → songs</code>. Now each row reads "listener played song". The result has <b>one row per stream</b>, not one per listener.',
+      say: 'Now add the second arrow: <code>streams.song_id</code> points at <code>songs.song_id</code>. With both joins, each result row reads “this listener played this song”. The result has <b>one row per stream</b> (4 rows), not one per listener.',
       sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;',
       ins: [{ t: 'listeners', m: ['g0', 'g1', 'x'], role: 'listeners' }, { t: 'streams', m: ['g0', 'g0', 'g1', 'g1'], role: 'streams (the link)' }, { t: 'songs', m: ['m', 'm', 'm'], role: 'songs' }],
       out: { c: ['name', 'title'], r: [['Ada', 'Last Last'], ['Ada', 'Free Mind'], ['Tunde', 'Last Last'], ['Tunde', 'Joha']], m: ['g0', 'g0', 'g1', 'g1'] },
       lg: { g: 'colour = same listener', x: 'no streams: dropped by INNER JOIN' } },
     { h: 'Read it the other way round', fig: 'flow',
-      say: 'The same linking table also answers "who played this song?". Group the streams by song: Last Last has 2 listeners, the others have 1.',
-      sql: 'SELECT s.title, COUNT(*) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\nGROUP BY s.title;',
+      say: 'The same linking table also answers “who played this song?”. This query joins <code>streams</code> to <code>songs</code> and groups by the song’s key, <code>song_id</code>, showing the title next to it. Last Last has 2 listeners, and the other two songs have 1 each.',
+      sql: 'SELECT s.title, COUNT(*) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\nGROUP BY s.song_id, s.title;',
       ins: [{ t: 'streams', m: ['g0', 'g1', 'g0', 'g2'], role: 'streams' }, { t: 'songs', m: ['g0', 'g1', 'g2'], role: 'songs' }],
       out: { c: ['title', 'listeners'], r: [['Last Last', 2], ['Free Mind', 1], ['Joha', 1]], m: ['g0', 'g1', 'g2'], nc: [1] },
       lg: { g: 'colour = same song' } },
@@ -2040,8 +2122,8 @@ const TBL_SONGS = ILT('songs', ['song_id', 'title', 'artist_id', 'duration_sec',
   'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT NOT NULL, artist_id INTEGER REFERENCES artists(artist_id), duration_sec INTEGER, genre TEXT);');
 // blueprint cards for every practice table: [table, kind, grain, [[column, type, tag, why]], sample row]
 const BLUEPRINTS = {
-  artists: ['entity', 'one artist', [['artist_id', 'INTEGER', 'PK', 'identifies each artist; other tables point here'], ['name', 'TEXT', '', 'describes the artist (one stage name per artist)']], [1, 'Ayra Starr']],
-  songs: ['entity', 'one song', [['song_id', 'INTEGER', 'PK', 'identifies each song'], ['title', 'TEXT', '', 'describes the song'], ['artist_id', 'INTEGER', 'FK', 'which artist: a song has one artist, an artist many songs, so the ID sits here (the many side)'], ['duration_sec', 'INTEGER', '', 'describes the song'], ['genre', 'TEXT', '', 'one main genre label per song (an artist can have several genres, so genre is not an artist column; waf has none yet: NULL)']], [14, 'Calm Down', 14, 239, 'Afrobeats']],
+  artists: ['entity', 'one artist', [['artist_id', 'INTEGER', 'PK', 'identifies each artist; other tables point here'], ['name', 'TEXT', '', 'the artist\u2019s main stage name (other names go in artist_aliases, one row each)']], [1, 'Ayra Starr']],
+  songs: ['entity', 'one song', [['song_id', 'INTEGER', 'PK', 'identifies each song'], ['title', 'TEXT', '', 'describes the song'], ['artist_id', 'INTEGER', 'FK', 'the main artist: a song has one main artist and an artist has many songs, so the ID sits here (the many side); featured artists would need a linking table'], ['duration_sec', 'INTEGER', '', 'describes the song'], ['genre', 'TEXT', '', 'one main genre per song (an artist can have several genres, so genre is not an artist column; waf has none yet: NULL)']], [14, 'Calm Down', 14, 239, 'Afrobeats']],
   listeners: ['entity', 'one listener', [['listener_id', 'INTEGER', 'PK', 'identifies each listener'], ['name', 'TEXT', '', 'describes the listener'], ['city', 'TEXT', '', 'describes the listener (state: changes if they move)']], [1, 'Ada', 'Lagos']],
   playlists: ['entity', 'one playlist', [['playlist_id', 'INTEGER', 'PK', 'identifies each playlist'], ['name', 'TEXT', '', 'describes the playlist']], [1, 'Naija Hits']],
   chart_entries: ['event', 'one song on one chart day', [['chart_date', 'TEXT', 'PK', 'which day (part of the key)'], ['position', 'INTEGER', '', 'exists only because of that day\u2019s chart'], ['song_id', 'INTEGER', 'PK FK', 'which song (part of the key, points at songs)'], ['streams', 'INTEGER', '', 'that song\u2019s count on that day']], ['2026-10-17', 1, 1, 108000]],
@@ -2060,50 +2142,63 @@ ILLUS.sqlt = {
     artists_list: ILT('artists_list', ['artist_id', 'name', 'genres'], [[1, 'Ayra Starr', 'Afrobeats, R&B'], [2, 'Victony', 'Afrobeats']]),
     artists_dup: ILT('artists_dup', ['artist_id', 'name', 'genre'], [[1, 'Ayra Starr', 'Afrobeats'], [1, 'Ayra Starr', 'R&B'], [2, 'Victony', 'Afrobeats']]),
     chart_entries: ILT('chart_entries', ['chart_date', 'position', 'song_id'], [['10-16', 1, 1], ['10-16', 2, 2], ['10-17', 1, 1], ['10-17', 2, 2], ['10-17', 3, 11]]),
+    listeners: ILT('listeners', ['listener_id', 'name', 'email'], [[100, 'Ada', 'ada@mail.ng'], [101, 'Tunde', null], [102, 'Zainab', null]]),
     artists_bad: ILT('artists_bad', ['artist_id', 'name', 'song_ids'], [[1, 'Ayra Starr', '1, 11'], [2, 'Victony', '2']])
   },
   scenes: [
     { h: 'The parts of a table', fig: 'anat',
-      say: 'Here is the real <code>songs</code> table. Each number points at one part. Read the key below the table and find each number in it.' },
+      say: 'Here is the real <code>songs</code> table. Each number in the picture points at one part of it, and the key below the table names that part. Find each number in the key before moving on: the next pictures use these names.' },
     { h: 'The same table as a blueprint (the schema)', fig: 'ddl',
       say: 'The <b>schema</b> is the blueprint that existed before any row was added: the table name, each column\u2019s name and <b>data type</b>, and which columns are keys. This is how <code>songs</code> was created. The database can show you the blueprint itself:',
       sql: "SELECT name, type, pk\nFROM pragma_table_info('songs');", ordered: true,
       out: { c: ['name', 'type', 'pk'], r: [['song_id', 'INTEGER', 1], ['title', 'TEXT', 0], ['artist_id', 'INTEGER', 0], ['duration_sec', 'INTEGER', 0], ['genre', 'TEXT', 0]], m: ['m', '', '', '', ''] },
       lg: { m: 'pk = 1: the primary key' } },
+    { h: 'A primary key is unique and never NULL', fig: 'flow',
+      say: 'Which column of <code>listeners</code> could be its primary key? A primary key must be <b>unique</b> on every row and must <b>never be NULL</b>, because a row with a missing key cannot be identified. The query counts both things. <code>listener_id</code> has 3 different values in 3 rows and no gaps. <code>email</code> is missing for 2 listeners, so it cannot be the key, even though the one email that exists is unique.',
+      sql: 'SELECT COUNT(*) AS row_count,\n  COUNT(DISTINCT listener_id) AS distinct_ids,\n  COUNT(*) - COUNT(email) AS missing_emails\nFROM listeners;',
+      ins: [{ t: 'listeners', m: ['m', 'u', 'u'], role: 'listeners: listener_id is filled on every row; email is not' }],
+      out: { c: ['row_count', 'distinct_ids', 'missing_emails'], r: [[3, 3, 2]], m: ['m'] },
+      lg: { m: '✓ listener_id and email both filled', u: 'email is NULL (the row still has its own listener_id)' },
+      note: 'Standard SQL forbids NULL in a primary key, and Postgres and DuckDB enforce it. SQLite, the engine in this app, has an old exception: it accepts NULL in a primary-key column unless that column is an <code>INTEGER PRIMARY KEY</code>, the table is <code>WITHOUT ROWID</code> or <code>STRICT</code>, or the column is also declared <code>NOT NULL</code>. That is why SQLite schemas often say <code>PRIMARY KEY NOT NULL</code>.' },
     { h: 'One row = one what? (the grain)',
       say: 'Before adding any column, say what <b>one row</b> stands for. In <code>songs</code> one row is <b>one song</b>. In <code>chart_entries</code> one row is <b>one song on one chart day</b>, so Heaven Baby (song 1) appears once per day:',
       sql: 'SELECT chart_date, position\nFROM chart_entries\nWHERE song_id = 1;',
       ins: [{ t: 'songs', m: ['m', '', ''], role: 'songs: one row = one song' }, { t: 'chart_entries', m: ['m', '', 'm', '', ''], role: 'chart_entries: one row = one song on one day' }],
       out: { c: ['chart_date', 'position'], r: [['10-16', 1], ['10-17', 1]], m: ['m', 'm'] }, lg: { m: 'Heaven Baby: once in songs, once per day in chart_entries' } },
     { h: 'Before: one wide table',
-      say: 'Imagine one wide table for the chart. It works, but look at what is written on every row: the song\u2019s title and genre and the artist\u2019s name are <b>copied</b> each time the song charts. "Ayra Starr" is stored 3 times. If she changes her stage name, all 3 copies must change.',
-      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'one wide table' }], lg: { d: 'Ayra Starr copied again' },
+      say: 'Imagine one wide table for the chart. It works, but look at what is written on every row: the song\u2019s title and genre and the artist\u2019s name are <b>copied</b> each time the song charts. "Ayra Starr" is stored 3 times. If she changes her main stage name, all 3 copies must change.',
+      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'one wide table (a deliberately bad design)' }], lg: { d: 'Ayra Starr copied again' },
       note: 'Copies of the same fact are called <b>redundancy</b>. The next picture asks one question of every column.' },
     { h: 'Ask every column: what does it describe?', fig: 'place',
       fp: [['chart_date', 'the chart day', 'chart_entries', 'ev'], ['position', 'that song on that day', 'chart_entries', 'ev'], ['title', 'the song', 'songs', 'en'], ['artist', 'the artist', 'artists (as name)', 'en'], ['genre', 'the song (one main label)', 'songs', 'en']],
-      say: 'Go column by column. Is it a fact about the <b>artist</b>, about the <b>song</b>, or does it exist only because of <b>that day\u2019s chart</b>? The answer is the table it belongs in.' },
+      say: 'The picture takes each column of the wide table and asks one question: is it a fact about the <b>artist</b>, a fact about the <b>song</b>, or does it exist only because of <b>that day’s chart</b>? The answer, shown at the end of each line, is the table the column belongs in.' },
     { h: 'After: each fact lives in the table it describes',
       say: 'Split by the answers. The artist\u2019s name is stored <b>once</b> in <code>artists</code>. The title, duration and genre are stored once in <code>songs</code>, which points at the artist by ID. <code>chart_entries</code> keeps only what belongs to the chart day: date, position and which song.',
-      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'before: facts copied on every row' }],
+      ins: [{ t: 'chart_wide', m: ['d', '', 'd', '', 'd'], role: 'before: facts copied on every row (a deliberately bad design)' }],
       after: [{ t: 'artists', m: ['n', ''], role: 'artists: name stored once' }, { t: 'songs', role: 'songs: title, duration, genre once' }, { t: 'chart_entries', role: 'chart_entries: only chart-day facts + song_id' }],
       lg: { d: 'copied fact', n: 'stored once' } },
     { h: 'Facts that exist only because something happened', fig: 'events', fp: [['10-15', '📊 SLICK #1, Heaven Baby #2'], ['10-16', '📊 Heaven Baby #1, SLICK #2'], ['10-17', '📊 Heaven Baby #1 again']],
       say: 'A chart position is not a fact about the song itself. "Heaven Baby is #2" was true only on 15 October. It exists because that day\u2019s chart <b>happened</b>, so it is stored with that event: a new <code>chart_entries</code> row each day, holding the date, the position and the song_id.' },
     { h: 'What if position lived in songs?', fig: 'state', fp: { who: 'songs.position for Heaven Baby', thing: 'song', lost: 'lost', vals: [['10-15', '2'], ['10-16', '1'], ['10-17', '1']] },
-      say: 'Counter-example. Put <code>position</code> in <code>songs</code> and there is room for only <b>one</b> value per song. Every day an UPDATE overwrites yesterday, and the chart history is gone. That is the sign a column is in the wrong table: it describes an event, not the thing.' },
+      say: 'Here is what happens if you ignore that answer. Put <code>position</code> in <code>songs</code> and there is room for only <b>one</b> value per song. Every day an UPDATE overwrites yesterday’s position, and the chart history is gone. Losing history like this is the sign that a column is in the wrong table: it describes an event, not the thing.' },
     { h: 'Where does the ID go? On the many side',
-      say: 'A song has one artist; an artist has many songs. If <code>artists</code> held the songs, one cell would need a <b>list</b> ("1, 11") that cannot be checked or joined. Instead each song row holds <b>one</b> <code>artist_id</code>: the foreign key sits on the many side.',
+      say: 'A song has one main artist, and an artist has many songs. If <code>artists</code> held the songs, one cell would need a <b>list</b> ("1, 11") that cannot be checked or joined. Instead each song row holds <b>one</b> <code>artist_id</code>: the foreign key sits on the many side.',
       ins: [{ t: 'artists_bad', m: ['x', ''], role: 'wrong: a list of IDs in one cell' }],
-      after: [{ t: 'songs', m: ['n', '', 'n'], role: 'right: one artist_id per song row' }],
+      after: [{ t: 'songs', m: ['n', '', 'n'], role: 'right: one main artist_id per song row' }],
       lg: { x: '✕ list in one cell: cannot be checked or joined', n: '＋ one ID per row on the many side' } },
     { h: 'More than one value for one thing? Then it is not one column',
-      say: 'Ask of every fact: <b>can one thing have more than one?</b> Ayra Starr is described as Afrobeats <i>and</i> R&B. Try to store genre on <code>artists</code> and both ways break. A list in one cell cannot be filtered, counted or joined reliably. A second row copies her name and her <code>artist_id</code> is no longer unique. Each song, though, carries one main genre label, so genre is a column on <code>songs</code>.',
+      say: 'Ask of every fact: <b>can one thing have more than one?</b> Ayra Starr is described as Afrobeats <i>and</i> R&B. Try to store genre on <code>artists</code> and both ways break. A list in one cell cannot be filtered, counted or joined reliably. A second row copies her name and her <code>artist_id</code> is no longer unique. Each song, though, carries one main genre, so genre is a column on <code>songs</code>.',
       stack: true, ins: [{ t: 'artists_list', m: ['x', ''], role: 'wrong 1: a list in one cell' }, { t: 'artists_dup', m: ['d', 'd', ''], role: 'wrong 2: the artist copied once per genre' }],
       after: [{ t: 'songs', m: ['n', 'n', 'n'], role: 'right: one genre per song row' }],
       lg: { x: '✕ two values in one cell', d: '⧉ same artist, two rows: artist_id no longer unique', n: '＋ one value per cell' },
       note: 'The rule "every cell holds one value" is called <b>first normal form</b> (1NF). If a song could have several genres too, add <code>song_genres(song_id, genre)</code>: one row per pair, like <code>playlist_songs</code>.' },
     { h: 'The same test on any data', fig: 'multi',
-      say: 'Run the question on every fact before you give it a column: <b>for one of these things, can there be more than one?</b> One stage name per artist, one date of birth per patient: a column. Several categories per product, several phone numbers per student: a table of their own, one row per value, pointing back by ID.' },
+      say: 'Run the question on every fact before you give it a column: <b>for one of these things, can there be more than one?</b> Each line below asks it of one fact. An artist has one main stage name and a patient has one date of birth, so each of those is a column. An artist can have several other names, a song several featured artists, a product several categories and a student several phone numbers, so each of those gets a table of its own, with one row per value pointing back by ID.' },
+    { h: 'Other names: one main name, many aliases', fig: 'flow',
+      say: 'Here is the test on artist names. Wizkid is also known as Starboy and Big Wiz. The top table, <code>artists_names</code>, squeezes all three into one cell, which cannot be searched or joined reliably. Below it, <code>artists</code> keeps exactly one <b>main</b> stage name per artist in <code>name</code>, and <code>artist_aliases</code> holds every other name as its own row, pointing back by <code>artist_id</code>. A search for "Starboy" can now find artist 3.',
+      stack: true, ins: [{ tab: ILT('artists_names', ['artist_id', 'names'], [[3, 'Wizkid, Starboy, Big Wiz']]), m: ['x'], role: 'wrong: a list of names in one cell' }],
+      after: [{ tab: ILT('artists', ['artist_id', 'name'], [[3, 'Wizkid']]), m: ['n'], role: 'artists: one main stage name per artist' }, { tab: ILT('artist_aliases', ['artist_id', 'alias'], [[3, 'Starboy'], [3, 'Big Wiz']]), m: ['n', 'n'], role: 'artist_aliases: one row per other name' }],
+      lg: { x: '✕ several values in one cell', n: '＋ one value per cell' } },
     { h: 'Event tables carry the IDs of everything involved', fig: 'erd',
       fp: { boxes: [{ n: 'chart_entries', sub: 'events', x: 6, y: 6, cols: [['chart_date', 'PK'], ['position'], ['song_id', 'PK FK']] }, { n: 'songs', x: 214, y: 60, cols: [['song_id', 'PK'], ['title'], ['artist_id', 'FK']] },
           { n: 'streams', sub: 'events', x: 6, y: 96, cols: [['stream_id', 'PK'], ['song_id', 'FK'], ['listener_id', 'FK'], ['streamed_at']] }, { n: 'listeners', x: 214, y: 150, cols: [['listener_id', 'PK'], ['name']] }],
@@ -2111,17 +2206,29 @@ ILLUS.sqlt = {
         cap: 'Every event row holds the IDs of what took part: a chart entry holds <b>which song</b> (and the day); a stream holds <b>who</b> (listener_id) and <b>what</b> (song_id). The arrows always start at the event or the many side.' },
       say: 'Rule of thumb: <b>entities</b> hold facts about themselves. <b>Events</b> hold a time plus the IDs of everything involved. That is why <code>song_id</code> is in <code>chart_entries</code> and <code>streams</code>, but no stream ID is in <code>songs</code>.' },
     { h: 'Blueprints: the entity tables', fig: 'bp', fp: ['artists', 'songs', 'listeners', 'playlists'],
-      say: 'Every practice table, with each column\u2019s type and the reason it is there. Entities first: each describes one thing and has its own ID.' },
+      say: 'These cards show every practice table, with each column’s data type and the reason the column is there. The entity tables come first: each one describes one kind of thing and has its own ID as its primary key.' },
     { h: 'Blueprints: the event and linking tables', fig: 'bp', fp: ['chart_entries', 'streams', 'playlist_songs'],
-      say: 'Event tables hold one row per happening, with the IDs involved. The linking table holds one row per pair.' },
+      say: 'These cards show the event and linking tables. An event table holds one row per happening, with the IDs of everything involved, and a linking table holds one row per pair of IDs.' },
     { h: 'Three questions that work on any data', fig: 'ask',
       fp: { ex: [['email', 'the customer', 'customers'], ['price', 'the product', 'products'], ['ordered_at', 'the order (an event)', 'orders'], ['quantity', 'one product on one order', 'order_items'], ['customer_id', 'one customer, many orders', 'orders (many side)']], erd: SHOP_ERD },
-      say: 'Music was just the example. The same three questions place columns in a shop, a hospital, a school or a bank. Here they are on a shop. The questions after this picture use other kinds of data, to check you can do it on tables you have never seen.' }
+      say: 'Music was only the example. The same three questions place the columns of a shop, a hospital, a school or a bank. The picture applies them to a shop: each line names a column, what it describes, and the table it goes in. The questions after this picture use other kinds of data, to check that you can do it on tables you have never seen.' }
   ],
   qs: [
     { k: 'cls', q: 'Music: which table does each column belong in?', cats: ['artists', 'songs', 'chart_entries'],
-      items: [['genre (one main label per song)', 1, 'Each song carries one main genre label. An artist can have several genres, so it cannot be one column on artists.'], ['duration_sec', 1, 'Describes the song itself.'], ['position on 17 Oct', 2, 'Exists only because of that day\u2019s chart (an event).'], ['streams that day', 2, 'A count for one song on one day: event table.'], ['title', 1, 'Describes the song.'], ['name of the artist', 0, 'Describes the artist; songs point at it by ID.']],
-      why: 'Ask what each fact describes: the artist → artists; the song → songs; that song on that chart day → chart_entries.' },
+      items: [['genre (one main genre per song)', 1, 'Each song carries one main genre. An artist can have several genres, so it cannot be one column on artists.'], ['duration_sec', 1, 'Describes the song itself.'], ['position on 17 Oct', 2, 'Exists only because of that day\u2019s chart (an event).'], ['streams that day', 2, 'A count for one song on one day: event table.'], ['title', 1, 'Describes the song.'], ['name of the artist', 0, 'Describes the artist; songs point at it by ID.']],
+      why: 'Ask what each fact describes. A fact about the artist goes in artists, a fact about the song goes in songs, and a fact about that song on that chart day goes in chart_entries.' },
+    { k: 'mc', ref: false, q: 'Which column can be the primary key of <code>listeners</code> (listener_id, name, email)? Two listeners have no email yet.', o: ['listener_id: unique on every row and never NULL', 'email: the emails that exist are unique', 'name: everyone has a name', 'email, because SQLite would accept the NULLs'],
+      w: [null, 'A key must identify every row. Two rows with no email could not be told apart by email, and standard SQL forbids NULL in a primary key.', 'Names repeat: two listeners can both be called Ada.', 'SQLite\u2019s old exception only means it might not stop you. The key would still fail to identify those rows, and Postgres or DuckDB would reject it.'],
+      why: 'A primary key needs two things on every row: a value (never NULL) and a different value from every other row (unique). Only listener_id has both.' },
+    { k: 'mc', ref: false, q: '🏥 Hospital: <code>patients</code> has patient_id, national_id (new-born babies do not have one yet) and name. What is the primary key?', o: ['patient_id', 'national_id', 'name', '(national_id, name) together'],
+      w: [null, 'Some patients have no national_id yet, so it would be NULL for them, and a primary key may never be NULL.', 'Two patients can share a name.', 'Combining columns does not help when one of them is missing: every column of a primary key must be filled.'],
+      why: 'patient_id is given to every patient when the row is created, it is unique, and it is never missing.' },
+    { k: 'mc', ref: false, q: 'Wizkid is also known as Starboy and Big Wiz. How do you store the other names?', o: ['a table artist_aliases(artist_id, alias), one row per other name', 'a column aliases on artists holding "Starboy, Big Wiz"', 'you do not: an artist has exactly one stage name', 'a new artists row (with a new artist_id) for each name'],
+      w: [null, 'Several values in one cell cannot be searched, counted or joined reliably.', 'This was the simplified version. An artist has one main stage name, but can be known by several others.', 'That would make one person look like three artists, each with their own songs and streams.'],
+      why: 'Ask "can one artist have more than one?". For other names the answer is yes, so they get their own table, while artists.name keeps the one main stage name.' },
+    { k: 'mc', ref: false, q: '🏙️ Cities: Lagos is also called Èkó, and other cities have several names too. How do you store the extra names?', o: ['city_names(city_id, name): one row per extra name', 'a column names on cities holding "Lagos, Èkó"', 'a second cities row for Èkó with its own city_id', 'nowhere: a city has one name'],
+      w: [null, 'A list in one cell cannot be searched or joined reliably.', 'Two city_ids would make one city look like two, and orders or addresses would be split between them.', 'Many places have more than one name, so "one name" is only true for some cities.'],
+      why: 'Same test, other data: one city can have several names, so the names get their own table and point back by city_id.' },
     { k: 'tap', q: 'Tap every row of the wide table where Ayra Starr\u2019s name is a <b>copy</b> of the same fact.', t: 'chart_wide', ans: [0, 2, 4],
       why: 'Rows 1, 3 and 5 all repeat "Ayra Starr". That is redundancy: one fact, three copies. In artists it is stored once, and songs point at it by artist_id.' },
     { k: 'mc', ref: false, q: '🛒 Shop: <code>quantity</code> (how many of a product someone bought) belongs in which table?', o: ['order_items: it describes one product on one order', 'products', 'customers', 'orders'],
@@ -2129,10 +2236,10 @@ ILLUS.sqlt = {
       why: 'quantity exists only because a particular product was put on a particular order. The table whose row is "one product on one order" is order_items.' },
     { k: 'mc', ref: false, q: '🛒 Shop: one customer places many orders; each order is placed by one customer. Where does <code>customer_id</code> go?', o: ['orders: each order row holds the one customer who placed it (the many side)', 'customers: a list of order IDs per customer', 'products', 'both customers and products'],
       w: [null, 'A list of IDs in one cell cannot be checked or joined. The many side (orders) holds the single ID instead.', 'A product is bought by many customers; customer_id is not a fact about the product.', 'customers already has customer_id as its primary key. The link is a foreign key on orders, not a copy in products.'],
-      why: 'Foreign key on the many side: many orders → one customer, so orders.customer_id.' },
+      why: 'The foreign key goes on the many side. Many orders belong to one customer, so each order row holds one customer_id: orders.customer_id.' },
     { k: 'cls', ref: false, q: '🛒 Shop: which table does each column belong in?', cats: ['customers', 'products', 'orders', 'order_items'],
       items: [['email', 0, 'Describes the customer.'], ['list price', 1, 'The product\u2019s current price: a fact about the product.'], ['ordered_at', 2, 'When the order happened: a fact about the order event.'], ['quantity', 3, 'One product on one order.'], ['price_paid (the price at the time of that order)', 3, 'Exists only because of that order line; it must not change when the list price changes later.'], ['date of birth', 0, 'Describes the customer, and a person has only one.']],
-      why: 'Person facts → customers; product facts → products; when/who of the order → orders; facts about one product on one order → order_items. Note list price (products) vs price paid (order_items): one describes the product today, the other describes a past event.' },
+      why: 'Facts about the person go in customers, and facts about the product go in products. When the order was placed and who placed it go in orders, and facts about one product on one order go in order_items. Note list price (products) vs price paid (order_items): one describes the product today, the other describes a past event.' },
     { k: 'mc', ref: false, q: '🛒 Shop: a cart can hold many products and a product can sit in many carts. Where do "this product, 2 of them, in this cart" go?', o: ['cart_items(cart_id, product_id, quantity): a linking table, one row per product in a cart', 'a product_ids column in carts, like "4, 9, 12"', 'a cart_id column in products', 'a quantity column in customers'],
       w: [null, 'A list in one cell breaks keys and joins, and has nowhere to put the quantity of each product.', 'A product sits in many carts; one cart_id column could hold only one cart.', 'Quantity belongs to one product in one cart, not to the person.'],
       why: 'Many-to-many needs a linking table with one row per pair. The pair\u2019s own facts (quantity) live on that row.' },
@@ -2156,7 +2263,7 @@ ILLUS.sqlt = {
       w: [null, 'A 4th transaction needs a new column, most cells are NULL, and you cannot SUM or sort them as rows.', 'Balance is legitimate state: the current value, updated after each transaction.', 'Names repeat (two people called Ada). account_id is the right key.'],
       why: 'Repeated columns (txn1, txn2, txn3) are events squeezed into one row. Each deposit or withdrawal is a new row in transactions, with account_id pointing at accounts.' },
     { k: 'mc', ref: false, q: '🏦 Bank: an account\u2019s <code>balance</code> is…', o: ['state: a current value that changes after each transaction', 'an event', 'an entity', 'a relationship'],
-      w: [null, 'An event happens at a moment and never changes. The balance changes all the time; each transaction is the event.', 'The account is the entity. The balance is a fact about it.', 'It does not connect two things; it describes one account.'],
+      w: [null, 'An event happens at a moment and is recorded once as a new row. The balance changes all the time; each transaction is the event.', 'The account is the entity. The balance is a fact about it.', 'It does not connect two things; it describes one account.'],
       why: 'Transactions (events) are kept forever as rows; the balance (state) is the current result of them, stored on accounts or computed with SUM(amount).' },
     { k: 'mc', ref: false, q: '🎓 School: spot the problem.', show: BAD('students', ['student_id', 'name', 'courses'], [[1, 'Zainab', 'Maths, Physics'], [2, 'Chidi', 'Maths']]),
       o: ['courses holds a list in one cell: use an enrolments table with one row per student and course', 'nothing: it is fine', 'name should be split into two tables', 'student_id should be TEXT'],
@@ -2168,13 +2275,13 @@ ILLUS.sqlt = {
       why: 'Events hold the IDs of who was involved, not copies of their details. Facts about Ada belong once in patients.' },
     { k: 'mc', ref: false, q: '🛒 Shop: a product can be in several categories (a kettle is in Kitchen <b>and</b> Electricals). Where do categories go?', o: ['a product_categories table (product_id, category): one row per product and category', 'a category column in products holding "Kitchen, Electricals"', 'a second kettle row in products, one per category', 'a category column in products holding just the first one'],
       w: [null, 'Two values in one cell: you cannot filter "all Kitchen products" or count products per category reliably, and typos hide inside the text.', 'The kettle would have two rows: its product_id is no longer unique, and its price is copied (redundancy).', 'The other categories are lost: the table no longer tells the truth.'],
-      why: 'More than one value for one thing → its own rows. Like playlist_songs: one row per (product, category) pair.' },
+      why: 'One product can have more than one category, so the categories get their own rows instead of one column. Like playlist_songs, the table holds one row per (product, category) pair.' },
     { k: 'mc', ref: false, q: '🎓 School: a student can have several phone numbers (mum, dad). Which design is right?', show: BAD('students', ['student_id', 'name', 'phone1', 'phone2'], [[1, 'Zainab', '0803…', '0805…'], [2, 'Chidi', '0806…', null]]),
       o: ['student_phones(student_id, phone, who): one row per number', 'keep phone1, phone2 as shown', 'put both numbers in one phone cell', 'repeat the student row once per number'],
       w: [null, 'A third number needs a new column, most cells end up NULL, and "find the student with this number" must check every phone column.', 'Two values in one cell cannot be searched or validated reliably.', 'Zainab would have two rows: student_id is no longer unique and her name is copied.'],
-      why: 'Can a student have more than one? Yes → not a column on students. A student_phones table holds one row per number, with student_id pointing back.' },
+      why: 'Can a student have more than one phone number? Yes, so it cannot be a single column on students. A student_phones table holds one row per number, with student_id pointing back.' },
     { k: 'run', q: 'Each song\u2019s genre lives once, in the table it describes. Fill in ____ to read SLICK\u2019s genre.', code: "SELECT genre\nFROM ____\nWHERE title = 'SLICK';", sol: "SELECT genre FROM songs WHERE title = 'SLICK';",
-      why: 'Each song has one main genre label, so genre is a column on songs. Read it from there: one row, one cell.' }
+      why: 'Each song has one main genre, so genre is a column on songs. Read it from there: one row, one cell.' }
   ]
 };
 ILLUS.sql5.scenes.unshift({ h: 'Joins follow the arrow', fig: 'erd',
@@ -2233,14 +2340,14 @@ const ILL_FIGS = {
   state: sc => { const f = sc.fp; return '<div class="stf"><div class="stw">' + _h(f.who) + '</div><div class="stl">' + f.vals.map((v, i) => {
       const last = i === f.vals.length - 1; return '<div class="sts' + (last ? ' now' : ' old') + '"><div class="stt">' + _h(v[0]) + '</div><div class="stv">' + (last ? '' : '<s>') + _h(v[1]) + (last ? '' : '</s>') + '</div><div class="muted small">' + (last ? 'current value' : (f.lost || 'overwritten: lost')) + '</div></div>' + (last ? '' : '<div class="farr">→<div class="small muted">UPDATE</div></div>'); }).join('') + '</div></div>' +
     '<div class="figcap">Still <b>one</b> row for the ' + (f.thing || 'artist') + '. The column holds only the latest value.</div>'; },
-  // events: rows appearing along a time line, never changed afterwards
+  // events: rows appearing along a time line, not edited in normal use
   events: sc => '<div class="evf">' + sc.fp.map((e, i) => '<div class="evr"><div class="evt">' + _h(e[0]) + '</div><div class="evd"></div><div class="evx">' + e[1] + '</div><div class="evn">+ row ' + (i + 1) + '</div></div>').join('') + '</div>' +
-    '<div class="figcap">Each happening adds a <b>new row</b> with its time and the IDs involved. Old rows are never edited.</div>',
+    '<div class="figcap">Each happening adds a <b>new row</b> with its time and the IDs involved. Old rows are not edited in normal use; a mistake is fixed with a correction.</div>',
   // the three kinds of relationship
   kinds: () => [
-    ['One-to-many', { lt: 'artists', rt: 'songs', l: ['Burna Boy', 'Tems'], r: ['Last Last', 'City Boys', 'Free Mind'], e: [[0, 0], [0, 1], [1, 2]] }, 'Each song has exactly one artist; an artist has many songs. The FK sits on the <b>many</b> side: <code>songs.artist_id</code>.'],
+    ['One-to-many', { lt: 'artists', rt: 'songs', l: ['Burna Boy', 'Tems'], r: ['Last Last', 'City Boys', 'Free Mind'], e: [[0, 0], [0, 1], [1, 2]] }, 'Each song has one main artist, and an artist has many songs. The FK sits on the <b>many</b> side: <code>songs.artist_id</code>. (Featured artists are many-to-many, so they need a linking table such as <code>song_artists</code>.)'],
     ['One-to-one', { lt: 'artists', rt: 'profiles', l: ['Burna Boy', 'Tems'], r: ['profile 1', 'profile 2'], e: [[0, 0], [1, 1]] }, 'Each artist has one profile. <code>profiles.artist_id</code> is unique (often the profile\u2019s own PK).'],
-    ['Many-to-many', { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde'], r: ['Last Last', 'Free Mind'], e: [[0, 0], [0, 1], [1, 0]] }, 'Many on <b>both</b> sides. No single FK column can hold it: it needs a <b>linking table</b> of pairs (streams; for playlists, playlist_songs).']
+    ['Many-to-many', { lt: 'listeners', rt: 'songs', l: ['Ada', 'Tunde'], r: ['Last Last', 'Free Mind'], e: [[0, 0], [0, 1], [1, 0]] }, 'Many on <b>both</b> sides. No single FK column can hold it, so it needs a <b>linking table</b> with one row per pair. For listeners and songs that table is <code>streams</code>; for playlists and songs it is <code>playlist_songs</code>.']
   ].map(k => '<div class="kind"><div class="kh">' + k[0] + '</div>' + bipSVG(k[1]) + '<div class="figcap">' + k[2] + '</div></div>').join('')
 };
 
@@ -2282,12 +2389,12 @@ function bpFig(sc) {
       '<div class="lab small">Sample row</div><div class="ill-scroll">' + MT(b[2].map(c => c[0]), [b[3]]) + '</div></div>'; }).join('') + '</div>';
 }
 function askFig(sc) {
-  const Q = [['What does one row stand for?', 'Say the grain: one customer, one order, one product on one order.'], ['What does this fact describe?', 'A thing on its own → that thing\u2019s table. Exists only because something happened → the event table.'], ['One or many?', 'The ID goes on the <b>many</b> side. Many on both sides → a linking table, one row per pair.'], ['More than one value for one thing?', 'Then it is not one column on that thing (a cell holds one value): give it its own table, one row per value.']];
+  const Q = [['What does one row stand for?', 'Say the grain: one customer, one order, one product on one order.'], ['What does this fact describe?', 'A fact about a thing that exists on its own goes in that thing\u2019s table. A fact that exists only because something happened goes in the event table.'], ['One or many?', 'The ID goes on the <b>many</b> side. If both sides are many, add a linking table with one row per pair.'], ['More than one value for one thing?', 'Then it is not one column on that thing (a cell holds one value): give it its own table, one row per value.']];
   return '<ol class="ask">' + Q.map((q, i) => '<li>' + PIN(i + 1) + '<span><b>' + q[0] + '</b> ' + q[1] + '</span></li>').join('') + '</ol>' +
     '<div class="plc">' + sc.fp.ex.map(x => '<div class="plc-r"><code>' + _h(x[0]) + '</code><span class="farr">→</span><span>' + _h(x[1]) + '</span><span class="farr">→</span><code>' + _h(x[2]) + '</code></div>').join('') + '</div>' + erdSVG(sc.fp.erd);
 }
 // v8.1: the "more than one?" test on several kinds of data
-const MULTI_EX = [['genre', 'an artist', 'yes (Afrobeats, R&B)', 'not on artists: one main label per song → songs.genre'], ['stage name', 'an artist', 'no', 'artists.name'], ['category', 'a product', 'yes (Kitchen, Electricals)', 'product_categories(product_id, category)'], ['phone number', 'a student', 'yes (mum, dad)', 'student_phones(student_id, phone)'], ['date of birth', 'a patient', 'no', 'patients.date_of_birth']];
+const MULTI_EX = [['genre', 'an artist', 'yes (Afrobeats, R&B)', 'not on artists: one main genre per song → songs.genre'], ['main stage name', 'an artist', 'no', 'artists.name'], ['other names (aliases)', 'an artist', 'yes (Starboy, Big Wiz)', 'artist_aliases(artist_id, alias)'], ['featured artist', 'a song', 'yes (several)', 'song_artists(song_id, artist_id)'], ['category', 'a product', 'yes (Kitchen, Electricals)', 'product_categories(product_id, category)'], ['phone number', 'a student', 'yes (mum, dad)', 'student_phones(student_id, phone)'], ['date of birth', 'a patient', 'no', 'patients.date_of_birth']];
 function multiFig() {
   return '<div class="plc">' + MULTI_EX.map(x => '<div class="plc-r ' + (x[2] === 'no' ? 'en' : 'ev') + '"><code>' + _h(x[0]) + '</code><span>of ' + _h(x[1]) + ':</span><span>more than one? <b>' + _h(x[2]) + '</b></span><span class="farr">→</span><code>' + _h(x[3]) + '</code></div>').join('') + '</div>' +
     '<div class="figcap"><span class="plc-k en">one value</span> a column on that thing\u2019s table. <span class="plc-k ev">can be several</span> its own rows: one row per value.</div>';
@@ -2461,23 +2568,23 @@ function finishVQ(ok, msg) {
 const GROUND = {
   row: { name: 'row', tip: 'one line of a table: one record',
     teach: 'A <b>row</b> is one line across a table. It holds one record, here one song\u2019s streams on one day: its date, title and streams.' + SCENE,
-    qs: [{ q: 'Tap <b>one row</b> of the daily_streams table.', show: SC_SONGS, tap: [['title: Rush · Calm Down · Essence', 0], ['10-17 · Rush · 900', 1], ['streams: 900 · 1200 · 700', 0]], why: 'A row runs across: one song on one day, with all its values. A list down one field is a column.' },
+    qs: [{ q: 'Tap <b>one row</b> of the daily_streams table.', show: SC_SONGS, tap: [['song_id: 1 · 2 · 3', 0], ['10-17 · 1 · 900', 1], ['streams: 900 · 1200 · 700', 0]], why: 'A row runs across: one song on one day, with all its values. A list down one field is a column.' },
       { q: 'How many rows does the daily_streams table have?', show: SC_SONGS, o: ['3', '4', '2', '9'], why: 'The top line holds the column names (the header), so it is not a row. The 3 lines below are rows.' }] },
   column: { name: 'column', tip: 'one named field, read downwards',
     teach: 'A <b>column</b> is one named field that every row has, such as <code>streams</code>. You read it downwards.' + SCENE,
-    qs: [{ q: 'Tap the <b>column</b> <code>title</code>.', show: SC_SONGS, tap: [['Rush · Calm Down · Essence', 1], ['10-17 · Calm Down · 1200', 0], ['the whole daily_streams table', 0]], why: 'A column is one field read downwards: all the titles.' },
-      { q: 'songs has how many columns?', show: SC_SONGS, o: ['3', '4', '1', '9'], why: 'chart_date, title and streams: 3 named fields.' }] },
+    qs: [{ q: 'Tap the <b>column</b> <code>song_id</code>.', show: SC_SONGS, tap: [['1 · 2 · 3', 1], ['10-17 · 2 · 1200', 0], ['the whole daily_streams table', 0]], why: 'A column is one field read downwards: here, the song_id of every row.' },
+      { q: 'daily_streams has how many columns?', show: SC_SONGS, o: ['3', '4', '1', '9'], why: 'chart_date, song_id and streams: 3 named fields.' }] },
   value: { name: 'value', tip: 'one cell: one piece of data',
-    teach: 'A <b>value</b> is one cell: where one row meets one column, e.g. Rush\u2019s streams = 900.' + SCENE,
-    qs: [{ q: 'Tap <b>a single value</b>.', show: SC_SONGS, tap: [['900', 1], ['Rush · Ayra Starr · 900', 0], ['streams: 900 · 1200 · 700', 0]], why: 'A value is one cell. A row or a column holds several values.' },
-      { q: 'What is the value of streams for Calm Down?', show: SC_SONGS, o: ['1200', '10-17', 'streams', '3'], why: 'Find the row (Calm Down), then the column (streams): 1200.' }] },
+    teach: 'A <b>value</b> is one cell: where one row meets one column. For example, the streams value in song 1\u2019s row is 900.' + SCENE,
+    qs: [{ q: 'Tap <b>a single value</b>.', show: SC_SONGS, tap: [['900', 1], ['10-17 · 1 · 900', 0], ['streams: 900 · 1200 · 700', 0]], why: 'A value is one cell. A row or a column holds several values.' },
+      { q: 'What is the value of streams for song 2?', show: SC_SONGS, o: ['1200', '10-17', 'streams', '3'], why: 'Find the row (song_id 2), then the column (streams): 1200.' }] },
   table: { name: 'table', tip: 'stored rows and columns with a name',
     teach: 'A <b>table</b> is stored data with a name (<code>daily_streams</code>): rows and columns that stay in the database after the query finishes.' + SCENE,
     qs: [{ q: 'Tap the <b>stored table</b> the query reads from.', tap: [[QY(SC_Q), 0], [SC_SONGS, 1], ['the word doubled', 0]], why: 'The query is the instruction. daily_streams is the stored table it reads.' },
       { q: 'In <code>FROM songs</code>, what is songs?', o: ['a table', 'a column', 'a row', 'a value'], why: 'FROM names the table the rows come from.' }] },
   query: { name: 'query', tip: 'an instruction that asks the database for data',
     teach: 'A <b>query</b> is an instruction you send to the database, usually starting with SELECT. It asks for data; it does not store any.' + SCENE,
-    qs: [{ q: 'Which of these is a <b>query</b>?', o: ['SELECT title FROM daily_streams;', 'daily_streams', 'streams > 800', 'Calm Down'], why: 'A query is a full instruction (SELECT … FROM …). The others are a table name, a condition and a value.' },
+    qs: [{ q: 'Which of these is a <b>query</b>?', o: ['SELECT song_id FROM daily_streams;', 'daily_streams', 'streams > 800', '1200'], why: 'A query is a full instruction (SELECT … FROM …). The others are a table name, a condition and a value.' },
       { q: 'Tap the <b>query</b>.', tap: [[SC_SONGS, 0], [QY(SC_Q), 1], [SC_RES, 0]], why: 'The query is the text instruction; the tables are data.' }] },
   result: { name: 'result rows', tip: 'the rows a query returns, not the stored table',
     teach: 'The <b>result</b> (the <b>result rows</b>) is what a query returns. It is new output. The stored table is not changed: daily_streams still has 3 rows after this query.' + SCENE,
@@ -2485,15 +2592,15 @@ const GROUND = {
       { q: 'Why do we say ORDER BY sorts the <b>result rows</b>, not the table rows?', o: ['The query returns new rows; the stored table is never reordered', 'Because tables have no rows', 'Because ORDER BY deletes the table rows', 'Because the table is sorted first and then copied'], why: 'Queries read tables and return results. Sorting, filtering and limiting all shape the result only.' }] },
   expression: { name: 'expression', tip: 'anything that produces a value for each row',
     teach: 'An <b>expression</b> is anything that produces a value for each row: a column (<code>streams</code>), a calculation (<code>streams * 2</code>) or a function call (<code>UPPER(title)</code>). A table name is not an expression.' + SCENE,
-    qs: [{ q: 'Tap the expression that <b>calculates</b> a new value.', inline: true, tap: [['SELECT ', null], ['title', 0], [', ', null], ['streams * 2', 1], [' AS doubled FROM ', null], ['daily_streams', 0], [';', null]], why: 'streams * 2 computes a value for each row. title is a plain column; daily_streams is a table.' },
+    qs: [{ q: 'Tap the expression that <b>calculates</b> a new value.', inline: true, tap: [['SELECT ', null], ['song_id', 0], [', ', null], ['streams * 2', 1], [' AS doubled FROM ', null], ['daily_streams', 0], [';', null]], why: 'streams * 2 computes a value for each row. song_id is a plain column; daily_streams is a table.' },
       { q: 'Which of these can be <b>expressions</b>: price, price * qty, the table name orders?', o: ['price and price * qty', 'only price * qty', 'price, price * qty and orders', 'only orders'], why: 'A column is the simplest expression (it gives a value per row). A table name gives no value, so it is not one.' }] },
-  condition: { name: 'condition', tip: 'a test that is TRUE or FALSE for each row',
+  condition: { name: 'condition', tip: 'a test that is TRUE, FALSE or UNKNOWN for each row',
     teach: 'A <b>condition</b> is a test such as <code>streams &gt; 800</code>. It is checked for each row and gives TRUE or FALSE (or UNKNOWN with NULL).' + illFigHTML(ILL_COND, null),
-    qs: [{ q: 'Tap the <b>condition</b>.', inline: true, tap: [['SELECT ', null], ['title', 0], [' FROM ', null], ['daily_streams', 0], [' WHERE ', null], ['streams > 800', 1], [' ORDER BY ', null], ['streams DESC', 0]], why: 'streams > 800 is the test; WHERE uses it to keep rows.' },
-      { q: 'For the row Essence (700 streams), what is <code>streams &gt; 800</code>?', show: SC_SONGS, o: ['FALSE', 'TRUE', 'UNKNOWN', '700'], why: '700 is not greater than 800, so the test is FALSE for that row and WHERE drops it.' }] },
+    qs: [{ q: 'Tap the <b>condition</b>.', inline: true, tap: [['SELECT ', null], ['song_id', 0], [' FROM ', null], ['daily_streams', 0], [' WHERE ', null], ['streams > 800', 1], [' ORDER BY ', null], ['streams DESC', 0]], why: 'streams > 800 is the test; WHERE uses it to keep rows.' },
+      { q: 'For song 3\u2019s row (700 streams), what is <code>streams &gt; 800</code>?', show: SC_SONGS, o: ['FALSE', 'TRUE', 'UNKNOWN', '700'], why: '700 is not greater than 800, so the test is FALSE for that row and WHERE drops it.' }] },
   clause: { name: 'clause', tip: 'one part of a query that starts with a keyword',
     teach: 'A <b>clause</b> is one part of a query that starts with a keyword: <code>SELECT …</code>, <code>FROM …</code>, <code>WHERE …</code>, <code>ORDER BY …</code>.' + SCENE,
-    qs: [{ q: 'Tap the <b>WHERE clause</b>.', inline: true, tap: [['SELECT title', 0], [' ', null], ['FROM daily_streams', 0], [' ', null], ['WHERE streams > 800', 1], [' ', null], ['ORDER BY streams DESC', 0]], why: 'A clause is the keyword plus its part: WHERE streams > 800.' },
+    qs: [{ q: 'Tap the <b>WHERE clause</b>.', inline: true, tap: [['SELECT song_id', 0], [' ', null], ['FROM daily_streams', 0], [' ', null], ['WHERE streams > 800', 1], [' ', null], ['ORDER BY streams DESC', 0]], why: 'A clause is the keyword plus its part: WHERE streams > 800.' },
       { q: 'Which of these is a whole <b>clause</b>?', o: ['ORDER BY streams DESC', 'DESC', 'streams', '>'], why: 'A clause starts with its keyword and includes its part. DESC, streams and > are only pieces of clauses.' }] },
   key: { name: 'key', tip: 'a column whose values identify rows',
     teach: '<b>Key</b> columns identify rows. <code>artists.artist_id</code> gives every artist a unique number; <code>songs.artist_id</code> uses that number to point at an artist.' + '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>',
@@ -2505,7 +2612,7 @@ const GROUND = {
       { q: 'Which value is TEXT?', o: ["'Rush'", '900', 'TRUE', '2.5'], why: 'Text values are written in quotes in SQL.' }] },
   schema: { name: 'schema', tip: 'the structure, not the data',
     teach: 'The <b>schema</b> is the structure: which tables exist, their columns and data types. The rows are the data that fill that structure.',
-    qs: [{ q: 'Which of these is part of the <b>schema</b>, not the data?', o: ['streams is an INTEGER column of daily_streams', 'Rush had 900 streams on 10-17', 'there are 3 daily_streams today', 'Rema is an artist'], why: 'Column names and types are structure. The others are facts stored as data.' },
+    qs: [{ q: 'Which of these is part of the <b>schema</b>, not the data?', o: ['streams is an INTEGER column of daily_streams', 'song 1 had 900 streams on 10-17', 'there are 3 rows for 10-17', 'Rema is an artist'], why: 'Column names and types are structure. The others are facts stored as data.' },
       { q: 'Someone renames the column streams to plays. What changed?', o: ['the schema', 'only the data', 'nothing', 'only the query result'], why: 'Names and types of columns are the schema.' }] },
   func: { name: 'function', tip: 'takes input values and returns a value',
     teach: 'A <b>function</b> takes input values and returns a value: <code>UPPER(title)</code>, <code>ROUND(x, 1)</code>, in Python <code>len(rows)</code>.',
@@ -2524,7 +2631,7 @@ const GROUND = {
     qs: [{ q: 'Which is a <b>batch</b>?', o: ['all of yesterday\u2019s orders processed together at 01:00', 'each click processed the moment it happens', 'the database server', 'a column'], why: 'A batch is a bounded set handled together. Handling events one by one as they come is streaming.' },
       { q: 'A batch is <b>bounded</b>. That means…', o: ['it has a known start and end, such as one day of data', 'it never ends', 'it is always small', 'it is in memory'], why: 'Bounded = finite, with a clear start and end.' }] },
   partition: { name: 'partition', tip: 'the rows that share one value of a split column',
-    teach: 'A table split by a column (e.g. <code>chart_date</code>) has one <b>partition</b> per value: all rows of 10-16, all rows of 10-17 …' + SC_PART,
+    teach: 'When a table is split by a column such as <code>chart_date</code>, each <b>partition</b> is the set of rows that share one value: all the rows of 10-16 form one partition, and all the rows of 10-17 form another. In a small DuckDB table this is just a way of naming those rows; warehouses can also store each partition separately.' + SC_PART,
     qs: [{ q: 'The table is split by chart_date. Which rows form one partition?', show: SC_PART, o: ['all rows with chart_date 10-17', 'the first row', 'the streams column', 'every row in the table'], why: 'One partition = all rows that share one value of the split column.' },
       { q: 'Reloading only today\u2019s partition means…', o: ['only today\u2019s rows are replaced; other days are untouched', 'the whole table is replaced', 'a new column is added', 'today\u2019s rows are duplicated'], why: 'Partitions let a job touch only the part it needs.' }] },
   entity: { name: 'entity', tip: 'a thing that exists on its own, with its own table and ID',
@@ -2602,31 +2709,31 @@ const TERMS4 = {
     { a: ['something that exists by itself', 'a thing that exists independently'], d: [['a thing that only exists when something happens', 'That is an event. An entity (an artist) exists whether or not anything happens.'], ['a column that changes over time', 'That is state: a fact about an entity, not the entity itself.'], ['a link between two tables', 'That is a relationship.']],
       spot: { q: 'Which of these is an <b>entity</b>?', o: ['a listener', 'a stream at 21:14', 'an artist\u2019s current label', '"song belongs to artist"'], why: 'A listener exists on its own. The stream is an event, the label is state, and "belongs to" is a relationship.' } },
     { a: ['that we keep facts about', 'that we record facts about'], d: [['that we delete facts about', 'We store facts about it. Deleting is not the point.'], ['that we store queries about', 'We store facts (data), not queries.'], ['that stores no facts', 'An entity is exactly what the facts (columns) describe.']],
-      spot: { q: 'In <code>artists(artist_id, name, label)</code>, what are name and label?', o: ['facts about the artist entity', 'other entities', 'events', 'relationships'], why: 'Columns hold facts about the entity the row stands for.' } },
+      spot: { q: 'In <code>artists(artist_id, name, current_label)</code>, what are name and current_label?', o: ['facts about the artist entity', 'other entities', 'events', 'relationships'], why: 'Columns hold facts about the entity the row stands for: its main stage name and the label it is signed to now.' } },
     { a: ['with its own table and primary key', 'with its own table and its own ID'], d: [['with its own column and ID', 'An entity gets a whole table. One column is just a fact.'], ['sharing a table with every other entity', 'Each entity has its own table, so each fact is stored once.'], ['with its own table but no ID', 'The ID (primary key) is how other tables point at it.']],
       spot: { q: 'Listeners are a new entity. What do you create?', o: ['a listeners table with a listener_id primary key', 'a listener column in songs', 'a new row in artists', 'nothing: listeners are events'], why: 'A new entity gets its own table and its own ID.' } }] } },
   'sqlr-t2': { t1: { def: 'State is {a current fact about an entity that can change}; {an UPDATE overwrites the old value}.', ph: [
     { a: ['a current, changeable fact about an entity', 'a fact about an entity that can change'], d: [['a fact about an entity that never changes', 'State changes: current labels, cities, account balances.'], ['something that happened at a moment', 'That is an event: recorded once and never changed.'], ['a thing that exists on its own', 'That is an entity. State is a fact ABOUT an entity.']],
       spot: { q: 'Which is <b>state</b>?', o: ['Ada currently lives in Lagos', 'Ada streamed Calm Down at 21:14', 'Rema (an artist)', 'songs.artist_id points at artists'], why: 'Ada\u2019s current city is a fact about her that can change (state). The stream is an event, Rema is an entity, and the pointer is a relationship.' } },
     { a: ['an UPDATE replaces the old value', 'updating overwrites the previous value'], d: [['an UPDATE adds a new row', 'Adding a new row each time is how events are stored. UPDATE changes the existing row.'], ['an UPDATE keeps the old value automatically', 'The old value is lost unless you keep history on purpose.'], ['an INSERT overwrites the old value', 'INSERT adds rows. UPDATE overwrites values.']],
-      spot: { q: 'Imagine Burna Boy\u2019s label changes from Spaceship to Atlantic and we run <code>UPDATE artists SET label = \'Atlantic\' WHERE artist_id = 1</code>. Where is "Spaceship" now?', o: ['gone, unless we kept history on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the label column'], why: 'UPDATE overwrites. To keep the old value you need a history table (or a slowly changing dimension).' } }] } },
-  'sqlr-t3': { t1: { def: 'An event is {something that happened at a moment}; {it is stored as a new row with a timestamp} {and never changes}.', ph: [
+      spot: { q: 'Imagine Burna Boy\u2019s label changes from Spaceship to Atlantic and we run <code>UPDATE artists SET current_label = \'Atlantic\' WHERE artist_id = 1</code>. Where is "Spaceship" now?', o: ['gone, unless we kept history on purpose', 'in a second row for Burna Boy', 'in the streams table', 'still in the current_label column'], why: 'UPDATE overwrites. To keep the old value you need a history table (or a slowly changing dimension).' } }] } },
+  'sqlr-t3': { t1: { def: 'An event is {something that happened at a moment}; {it is stored as a new row with a timestamp} {and is normally not edited (mistakes get a correction)}.', ph: [
     { a: ['something that happened at a point in time', 'an occurrence at a specific moment'], d: [['something that exists on its own', 'That is an entity.'], ['a current fact that can change', 'That is state.'], ['something that will happen later', 'Events are recorded after they happen.']],
       spot: { q: 'Which is an <b>event</b>?', o: ['Ada streamed Last Last at 21:14', 'Ada (a listener)', 'Ada\u2019s current city', 'Last Last belongs to Burna Boy'], why: 'Only the stream happened at a moment. A current city is state; "belongs to" is a relationship.' } },
     { a: ['each one is a new row with a timestamp', 'it is recorded as a new row with its time'], d: [['it is stored by updating a row', 'Events add rows. Updating would erase the earlier event.'], ['it is stored as a new column', 'Each event is a row, not a column.'], ['it is stored as a new table', 'There is one events table with one row per event.']],
-      spot: { q: 'Ada streams Last Last again tomorrow. What happens in <code>streams</code>?', show: MT(['stream_id', 'listener_id', 'song_id', 'streamed_at'], [[1, 100, 10, '21:14']]), o: ['a new row is added', 'row 1 is updated with the new time', 'nothing: she already streamed it', 'a new column is added'], why: 'Every play is a new event row, and old events are never changed.' } },
-    { a: ['and is never updated', 'and is not changed afterwards'], d: [['and is updated when facts change', 'That describes state. An event stays as it happened.'], ['and is deleted after a day', 'Events are kept: they are the history.'], ['and changes when the entity changes', 'The event records what happened then. It does not follow later changes.']],
-      spot: { q: 'Tems changes her label next year. What happens to this year\u2019s stream rows for her songs?', o: ['nothing: past events stay as they were', 'they are updated to the new label', 'they are deleted', 'they move to a new table'], why: 'Events record what happened at that moment and do not change.' } }] } },
-  'sqlr-t4': { t1: { def: 'A relationship is {how entities connect}: {a fixed fact stored as a foreign key}, {or a link created by an event}.', ph: [
+      spot: { q: 'Ada streams Last Last again tomorrow. What happens in <code>streams</code>?', show: MT(['stream_id', 'listener_id', 'song_id', 'streamed_at'], [[1, 100, 10, '21:14']]), o: ['a new row is added', 'row 1 is updated with the new time', 'nothing: she already streamed it', 'a new column is added'], why: 'Every play is a new event row, and the earlier rows stay as they were.' } },
+    { a: ['and is not edited in normal use', 'and normally stays as it was recorded'], d: [['and can never be changed, even when it is wrong', 'Too strong. A wrong event is fixed deliberately: a new correcting row, or a controlled, logged update.'], ['and is updated whenever facts change', 'That describes state. An event stays as it happened.'], ['and changes when the entity changes', 'The event records what happened then. It does not follow later changes.']],
+      spot: { q: 'Tems changes her label next year. What happens to this year\u2019s stream rows for her songs?', o: ['nothing: past events stay as they were', 'they are updated to the new label', 'they are deleted', 'they move to a new table'], why: 'Events record what happened at that moment. A label change is new state; it is not a mistake in the old events, so they are not corrected.' } }] } },
+  'sqlr-t4': { t1: { def: 'A relationship is {how entities connect}: {a fact stored as a foreign key}, {or a link created by an event}.', ph: [
     { a: ['how entities are connected', 'the way entities link to each other'], d: [['how columns are sorted', 'Sorting is ORDER BY.'], ['how one entity changes over time', 'That is state changing.'], ['how tables are stored on disk', 'Storage is not the logical link.']],
       spot: { q: 'Which is a <b>relationship</b>?', o: ['Last Last belongs to Burna Boy', 'Burna Boy (an artist)', 'Burna Boy\u2019s current label', 'a stream at 21:14'], why: '"Belongs to" connects two entities. The others are an entity, state and an event.' } },
-    { a: ['a fixed fact stored in a foreign key', 'a permanent link held by a foreign key'], d: [['a fixed fact stored in a primary key', 'The primary key identifies the row itself. The link is the foreign key that points at another table.'], ['a fixed fact stored in a comment', 'It is stored as data, in a foreign key column.'], ['a fixed fact copied into every column', 'It is stored once, in one foreign key column.']],
-      spot: { q: 'Where is "song belongs to artist" stored?', show: MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2]]), o: ['songs.artist_id', 'songs.song_id', 'songs.title', 'nowhere'], why: 'The foreign key column songs.artist_id stores which artist each song belongs to.' } },
+    { a: ['a fact stored in a foreign key', 'a link held by a foreign key column'], d: [['a fact stored in a primary key', 'The primary key identifies the row itself. The link is the foreign key that points at another table.'], ['a fact stored in a comment', 'It is stored as data, in a foreign key column.'], ['a fact copied into every column', 'It is stored once, in one foreign key column.']],
+      spot: { q: 'Where is "this song\u2019s main artist" stored?', show: MT(['song_id', 'title', 'artist_id'], [[10, 'Last Last', 1], [11, 'Free Mind', 2]]), o: ['songs.artist_id', 'songs.song_id', 'songs.title', 'nowhere'], why: 'The foreign key column songs.artist_id stores each song\u2019s main artist.' } },
     { a: ['or a link that an event creates', 'or a connection made by events'], d: [['or a link that exists before anything happens', 'Listener–song links do not exist until a stream happens.'], ['or a link created by a query', 'Queries read links. They do not create them in the data.'], ['or a link created by sorting', 'Sorting creates nothing.']],
       spot: { q: 'Zainab has never streamed anything. How is she related to songs?', o: ['not at all yet: the link appears when a stream event is stored', 'through listeners.song_id', 'through artists', 'every listener is linked to every song'], why: 'Listener–song links are created by events. No stream row means no link.' } }] } },
   'sqlr-t5': { t1: { def: 'One-to-many means {one row on one side matches many rows on the other}; {the foreign key sits on the many side}.', ph: [
     { a: ['one row relates to many rows in the other table', 'one row on one side links to many on the other'], d: [['many rows on each side match many on the other', 'That is many-to-many.'], ['one row matches exactly one row', 'That is one-to-one.'], ['one column matches many columns', 'Relationships are between rows, not columns.']],
-      spot: { q: 'An artist has many songs, and each song has one artist. Which relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'], why: 'One artist row → many song rows.' } },
+      spot: { q: 'An artist has many songs, and each song has one main artist. Which relationship is that?', o: ['one-to-many', 'one-to-one', 'many-to-many', 'no relationship'], why: 'One artist row is linked to many song rows, and each song row points at one artist, so it is one-to-many.' } },
     { a: ['the foreign key is on the many side', 'the many side holds the foreign key'], d: [['the foreign key sits on the one side', 'An artists row cannot hold one song_id per song. Each song holds its artist_id.'], ['the foreign key sits in both tables', 'One foreign key on the many side is enough.'], ['the primary key sits on the many side', 'Both tables have primary keys. The point is where the FOREIGN key goes.']],
       spot: { q: 'Artist 1 has songs 10 and 13. Where is that link stored?', o: ['songs.artist_id, on each song row', 'artists.song_id', 'in a list inside artists.name', 'nowhere'], why: 'The many side (songs) holds the foreign key.' } }] } },
   'sqlr-t6': { t1: { def: 'An ERD is {a diagram of entities and their relationships}: {tables as boxes, relationships as lines}.', ph: [
@@ -2646,7 +2753,7 @@ const TERMS4 = {
       spot: { q: 'In playlist_songs, what does song_id point to?', o: ['songs.song_id', 'playlists.playlist_id', 'playlist_songs itself', 'nothing'], why: 'It is a foreign key to the songs table.' } }] } },
   'sql1-t1': { t1: { def: 'A table is {a named set of rows and columns}; {each row is one record}.', ph: [
     { a: ['a named collection of rows and columns', 'named rows and columns'], d: [['a named set of rows', 'A table has rows AND columns: columns name the fields, rows hold the records.'], ['a named list of columns', 'Columns alone are only the structure; the rows hold the data.'], ['a named set of files', 'A table lives inside the database; it is not a set of files.']],
-      spot: { q: 'Tap the <b>table</b>.', tap: [[QY('SELECT title FROM daily_streams;'), 0], [SC_SONGS, 1], ['Rush', 0]], why: 'The table is the stored grid of rows and columns. The query only reads it; Rush is one value.' } },
+      spot: { q: 'Tap the <b>table</b>.', tap: [[QY('SELECT song_id FROM daily_streams;'), 0], [SC_SONGS, 1], ['900', 0]], why: 'The table is the stored grid of rows and columns. The query only reads it, and 900 is one value in it.' } },
     { a: ['every row is one record', 'each row holds one record'], d: [['each column is one record', 'A column is one field (like streams). A record runs across a row.'], ['each row is one table', 'A row is one record inside the table.'], ['each row is many records', 'One row = one record, e.g. one song.']],
       spot: { q: 'In daily_streams, what does <b>one row</b> represent?', show: SC_SONGS, o: ['one song on one day', 'all days of one song', 'every song', 'one column of streams'], why: 'Each row is one record: here, one song\u2019s streams on one day.' } }] } },
   'sql1-t2': { t1: { def: 'A primary key is {a column or set of columns} {that uniquely identifies each row}; {it can never be NULL}.', ph: [
@@ -2654,20 +2761,20 @@ const TERMS4 = {
       spot: { q: 'chart_entries has one row per song per day, identified by (chart_date, song_id). What is (chart_date, song_id)?', o: ['a set of columns used as the primary key', 'two separate primary keys', 'one row', 'a foreign key'], why: 'Two columns together can form one primary key (a composite key).' } },
     { a: ['that identifies each row uniquely', 'whose value is unique for each row'], d: [['that uniquely identifies one row', 'It identifies EACH row: every row gets its own unique value, not just one row.'], ['that uniquely identifies each column', 'A key picks out rows, not columns.'], ['that sorts each row', 'Keys identify rows; sorting is ORDER BY.']],
       spot: { q: 'Which column could be the primary key of songs?', show: SC_SNG, o: ['song_id', 'artist_id (3 appears twice)', 'title', 'the whole table'], why: 'song_id is different on every row. artist_id repeats, so it cannot identify each row.' } },
-    { a: ['it is never NULL', 'it cannot be NULL'], d: [['it can sometimes be NULL', 'A missing key means a row you cannot identify, so NULL is never allowed.'], ['it can never be zero', '0 is a real value. The rule is about NULL (missing).'], ['it can never repeat in other tables', 'Repeating in other tables is fine (that is a foreign key). The rule here is: never NULL.']] }] } },
-  'sql1-t3': { t1: { def: 'A foreign key is {a column that points to the primary key} {of another table}.', ph: [
-    { a: ['a column that references the primary key', 'a column holding primary key values'], d: [['a column that points to any column', 'It points to the other table\u2019s PRIMARY key, so each value matches exactly one row there.'], ['a row that points to the primary key', 'A foreign key is a column: each row has its own value in it (or NULL when the row has no link).'], ['a column that replaces the primary key', 'It replaces nothing; it refers to a key elsewhere.']],
+    { a: ['it is never NULL', 'it cannot be NULL'], d: [['it can sometimes be NULL', 'A missing key means a row you cannot identify, so standard SQL never allows NULL in a primary key.'], ['it can never be zero', '0 is a real value. The rule is about NULL (missing).'], ['it can never repeat in other tables', 'Repeating in other tables is fine (that is a foreign key). The rule here is: never NULL.']] }] } },
+  'sql1-t3': { t1: { def: 'A foreign key is {a column that points to a key (usually the primary key)} {of another table (or, less often, of the same table)}.', ph: [
+    { a: ['a column that references a key, usually the primary key', 'a column holding the values of a key, usually the primary key'], d: [['a column that points to any column', 'It must point to a key: the other table\u2019s primary key, or a column declared UNIQUE. That is what makes each value match exactly one row there.'], ['a row that points to the primary key', 'A foreign key is a column: each row has its own value in it (or NULL when the row has no link).'], ['a column that replaces the primary key', 'It replaces nothing; it refers to a key elsewhere.']],
       spot: { q: 'Which column is the <b>foreign key</b>?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['songs.artist_id', 'songs.song_id', 'artists.artist_id', 'songs.title'], why: 'songs.artist_id holds values of artists\u2019 primary key. artists.artist_id is the primary key it points to.' } },
-    { a: ['in another table', 'of a different table'], d: [['of the same column', 'It links to a key in another table.'], ['of every table', 'It points to one specific table.'], ['of another database', 'Usually another table in the same database.']],
+    { a: ['in another table (or, less often, the same table)', 'of a different table, or sometimes its own table'], d: [['of the same column', 'It links to a key column, usually in another table. (A table can point at itself, for example employees.manager_id, but never a column at itself.)'], ['of every table', 'It points to one specific table.'], ['of another database', 'Usually another table in the same database.']],
       spot: { q: 'A song has artist_id = 3. Where do you look to find who that is?', show: '<div class="scene">' + LAB('artists', SC_ART) + LAB('songs', SC_SNG) + '</div>', o: ['the artists row whose artist_id is 3', 'the songs row whose song_id is 3', 'the 3rd row of songs', 'nowhere: 3 is just a number'], why: 'The foreign key value is looked up in the other table\u2019s primary key: artist 3 is Rema.' } }] } },
   'sql1-t5': { t1: { def: 'A schema is {the structure of a database}: {its tables, columns and data types}.', ph: [
     { a: ['the design of a database', 'the layout of a database'], d: [['the data in a database', 'The schema is the shape (tables, columns, types), not the rows of data.'], ['the speed of a database', 'Speed is performance, not structure.'], ['a copy of a database', 'A copy is a backup.']],
-      spot: { q: 'Which of these is part of the <b>schema</b>?', o: ['the daily_streams table has an INTEGER column streams', 'Rush had 900 streams on 10-17', 'there are 3 daily_streams', 'Rema sang Calm Down'], why: 'Tables, columns and types are structure; the rest are data.' } },
+      spot: { q: 'Which of these is part of the <b>schema</b>?', o: ['the daily_streams table has an INTEGER column streams', 'song 1 had 900 streams on 10-17', 'there are 3 rows', 'Rema sang Calm Down'], why: 'Tables, columns and types are structure; the rest are data.' } },
     { a: ['tables, columns and data types', 'its tables, columns and types'], d: [['its rows and values', 'Rows and values are the data; the schema describes their structure.'], ['its tables only', 'Columns and data types are part of the structure too.'], ['its queries and results', 'Queries read data; they are not the structure.']],
       spot: { q: 'Someone changes streams from TEXT to INTEGER. What changed?', o: ['the schema (a data type)', 'only the data', 'nothing', 'a query result'], why: 'Data types are part of the schema.' } }] } },
   'sql2-t1': { t1: { def: 'A predicate is {a condition that is TRUE, FALSE or UNKNOWN} {for each row}; {WHERE keeps only the rows where it is TRUE}.', ph: [
     { a: ['a condition that evaluates to TRUE, FALSE or UNKNOWN', 'a test that is TRUE, FALSE or UNKNOWN'], d: [['a condition that is TRUE or FALSE', 'SQL has a third result, UNKNOWN, when NULL is involved.'], ['a value that is TRUE, FALSE or UNKNOWN', 'A predicate is a test like streams > 800, not a stored value.'], ['a column that is TRUE, FALSE or UNKNOWN', 'The predicate is the test, not a column.']],
-      spot: { q: 'Tap the <b>predicate</b>.', inline: true, tap: [['SELECT ', null], ['title', 0], [' FROM ', null], ['daily_streams', 0], [' WHERE ', null], ['streams > 800', 1], [';', null]], why: 'streams > 800 is the condition WHERE checks.' } },
+      spot: { q: 'Tap the <b>predicate</b>.', inline: true, tap: [['SELECT ', null], ['song_id', 0], [' FROM ', null], ['daily_streams', 0], [' WHERE ', null], ['streams > 800', 1], [';', null]], why: 'streams > 800 is the condition WHERE checks.' } },
     { a: ['for every row', 'checked on each row'], d: [['for one row', 'WHERE checks each row; "one row" would mean only a single row is checked.'], ['for each column', 'The condition is checked row by row, not column by column.'], ['for the whole table at once', 'It gives one answer per row, not one answer for the table.']],
       spot: { q: '<code>WHERE streams &gt; 800</code> on daily_streams. How many times is the condition checked?', show: SC_SONGS, o: ['3, once per row', '1, once for the table', '2, once per kept row', '9, once per value'], why: 'The predicate is evaluated for each row; rows where it is TRUE are kept.' } },
     { a: ['WHERE keeps the rows where it is TRUE', 'WHERE returns only rows where it is TRUE'], d: [['WHERE keeps the rows where it is not FALSE', 'UNKNOWN rows are dropped too: only TRUE survives.'], ['WHERE keeps all rows and marks the TRUE ones', 'WHERE removes rows; it does not mark them.'], ['WHERE keeps only the rows where it is FALSE', 'Kept rows are the TRUE ones.']],
@@ -2686,24 +2793,24 @@ const TERMS4 = {
     { a: ['sorts the rows of the result', 'orders the result rows'], d: [['sorts the table rows', 'ORDER BY never changes the stored table; it orders the rows the query returns.'], ['filters the result rows', 'It keeps every row; filtering is WHERE.'], ['groups the result rows', 'Grouping is GROUP BY; ORDER BY only changes the order.']],
       spot: { q: 'This query has ORDER BY streams DESC. Tap what it sorts.', tap: [[LAB('Table daily_streams', SC_SONGS), 0], [QY(SC_Q), 0], [LAB('Output', SC_RES), 1]], why: 'It sorts the result rows (the output). The daily_streams table keeps its rows as they are.' } },
     { a: ['by one or more columns or expressions', 'by one or more columns'], d: [['by one expression', '"One or more": ORDER BY artist, streams DESC sorts by two.'], ['on one or more expressions', '"on" belongs to JOIN … ON. ORDER BY sorts BY something.'], ['by one or more tables', 'You sort by values (columns or expressions), not by tables.']],
-      spot: { q: 'How many sort expressions are in this ORDER BY?', show: QY('SELECT title FROM daily_streams\nORDER BY chart_date, streams * 2 DESC;'), o: ['2: chart_date, then streams * 2', '1: chart_date', '3', '0'], why: 'Two expressions, separated by a comma. The second only breaks ties of the first.' } }] },
+      spot: { q: 'How many sort expressions are in this ORDER BY?', show: QY('SELECT song_id FROM daily_streams\nORDER BY chart_date, streams * 2 DESC;'), o: ['2: chart_date, then streams * 2', '1: chart_date', '3', '0'], why: 'Two expressions, separated by a comma. The second only breaks ties of the first.' } }] },
     t3: 'ORDER BY {sorts the final result rows by one or more expressions}, {each ascending by default or DESC}, {with NULLs placed first or last depending on the database}; {without it no row order is guaranteed}.' },
   'sql3-t2': { t1: { def: 'LIMIT {returns only the first N rows} {of the result}.', ph: [
     { a: ['keeps only the first N rows', 'returns just the first N rows'], d: [['returns only the last N rows', 'LIMIT keeps the first N. For the "last" ones, reverse the ORDER BY.'], ['returns N random rows', 'Without ORDER BY the first N are arbitrary, but LIMIT still means "the first N".'], ['returns all rows except N', 'It keeps N; it does not remove N.']],
-      spot: { q: 'What does this return?', show: SC_SONGS + QY('SELECT title FROM daily_streams\nORDER BY streams DESC\nLIMIT 1;'), o: ['Calm Down', 'Rush', 'Essence', 'all three titles'], why: 'Sorted by streams, the first row is Calm Down (1200).' } },
+      spot: { q: 'What does this return?', show: SC_SONGS + QY('SELECT song_id FROM daily_streams\nORDER BY streams DESC\nLIMIT 1;'), o: ['2', '1', '3', 'all three song IDs'], why: 'Sorted by streams, highest first, the first row is song 2 (1200 streams). LIMIT 1 keeps only that row.' } },
     { a: ['of the query result', 'of the result rows'], d: [['of the table', 'LIMIT trims the result after sorting; the table is untouched.'], ['of each group', 'LIMIT applies once to the whole result.'], ['of each column', 'LIMIT counts rows.']],
       spot: { q: 'After <code>SELECT * FROM daily_streams LIMIT 2</code>, how many rows does the daily_streams table have?', o: ['still 3', '2', '1', '0'], why: 'LIMIT only trims the result. The stored table keeps its 3 rows.' } }] } },
   'sql3-t3': { t1: { def: 'DISTINCT {removes duplicate rows} {from the result}.', ph: [
     { a: ['drops duplicate rows', 'removes repeated rows'], d: [['removes duplicate columns', 'It compares whole rows of the result, not columns.'], ['removes NULL rows', 'It targets duplicates; one copy of each row stays, NULLs included.'], ['counts duplicate rows', 'Counting is COUNT; DISTINCT removes.']],
-      spot: { q: '<code>SELECT DISTINCT artist FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: 'Rema, Rema, Tems → duplicates removed → Rema, Tems.' } },
+      spot: { q: '<code>SELECT DISTINCT artist FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: 'The artist column reads Rema, Rema, Tems. DISTINCT removes the repeated Rema, leaving 2 rows: Rema and Tems.' } },
     { a: ['from the query result', 'from the result rows'], d: [['from the table', 'Only the result is de-duplicated; the table keeps all rows.'], ['from each column separately', 'It removes rows where ALL selected columns repeat together.'], ['from the database', 'Nothing is deleted from storage.']],
-      spot: { q: '<code>SELECT DISTINCT artist, title FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: '(Rema, Calm Down) appears twice → one copy; plus (Tems, Free Mind).' } }] } },
-  'sql3-t4': { t1: { def: 'Logical query order is {the order the database evaluates clauses}: {FROM, WHERE, GROUP BY, HAVING}, {then SELECT, ORDER BY, LIMIT}.', ph: [
-    { a: ['the order SQL clauses are evaluated', 'the order in which clauses are evaluated'], d: [['the order you write the clauses', 'You write SELECT first, but it is evaluated after FROM, WHERE, GROUP BY and HAVING.'], ['the order of rows in the result', 'That is ORDER BY.'], ['the order tables are created', 'That is DDL.']] },
+      spot: { q: '<code>SELECT DISTINCT artist, title FROM chart;</code> How many rows?', show: SC_CHART, o: ['2', '3', '1', '4'], why: 'The pair (Rema, Calm Down) appears twice, so DISTINCT keeps one copy. Add the pair (Tems, Free Mind) and the result has 2 rows.' } }] } },
+  'sql3-t4': { t1: { def: 'Logical query order is {the order in which SQL clauses are logically evaluated}: {FROM, WHERE, GROUP BY, HAVING}, {then SELECT, ORDER BY, LIMIT}.', ph: [
+    { a: ['the order SQL clauses are logically evaluated', 'the conceptual order in which clauses are evaluated'], d: [['the order you write the clauses', 'You write SELECT first, but it is evaluated after FROM, WHERE, GROUP BY and HAVING.'], ['the order of rows in the result', 'That is ORDER BY.'], ['the order tables are created', 'That is DDL.']] },
     { ord: true, a: [], d: [['WHERE, FROM, GROUP BY, HAVING', 'FROM comes first: rows must be read before they can be filtered.'], ['FROM, GROUP BY, WHERE, HAVING', 'WHERE filters rows before grouping; HAVING filters groups after.'], ['FROM, HAVING, GROUP BY, WHERE', 'HAVING needs groups, so it comes after GROUP BY.']],
-      spot: { q: 'Why can WHERE not use SUM(streams)?', o: ['WHERE runs before GROUP BY, so no groups or sums exist yet', 'SUM only works in ORDER BY', 'WHERE runs after SELECT', 'SUM needs a JOIN'], why: 'FROM → WHERE → GROUP BY: aggregates appear only after grouping. Filter them with HAVING.' } },
+      spot: { q: 'Why can WHERE not use SUM(streams)?', o: ['WHERE runs before GROUP BY, so no groups or sums exist yet', 'SUM only works in ORDER BY', 'WHERE runs after SELECT', 'SUM needs a JOIN'], why: 'The query is logically evaluated as FROM, then WHERE, then GROUP BY. Sums exist only after grouping, so WHERE cannot see them; filter them with HAVING.' } },
     { ord: true, a: ['then SELECT, then ORDER BY, then LIMIT'], d: [['then ORDER BY, SELECT, LIMIT', 'SELECT comes before ORDER BY; that is why ORDER BY can use a SELECT alias.'], ['then LIMIT, SELECT, ORDER BY', 'LIMIT is last: it keeps the first N rows after sorting.'], ['then SELECT, LIMIT, ORDER BY', 'Sorting must happen before you can take the first N.']],
-      spot: { q: 'Why can ORDER BY use the alias <code>doubled</code> from SELECT, but WHERE cannot?', show: QY(SC_Q), o: ['ORDER BY is evaluated after SELECT; WHERE is evaluated before it', 'ORDER BY ignores aliases', 'WHERE runs last', 'aliases only work in LIMIT'], why: '… WHERE … → SELECT (alias created) → ORDER BY (alias exists).' } }] } },
+      spot: { q: 'Why can ORDER BY use the alias <code>doubled</code> from SELECT, but WHERE cannot?', show: QY(SC_Q), o: ['ORDER BY is evaluated after SELECT; WHERE is evaluated before it', 'ORDER BY ignores aliases', 'WHERE runs last', 'aliases only work in LIMIT'], why: 'WHERE is logically evaluated before SELECT, when the alias does not exist yet. SELECT creates the alias, and ORDER BY comes after SELECT, so it can use it.' } }] } },
   'sql4-t1': { t1: { def: 'An aggregate function {takes many rows} {and returns one value}, {like COUNT, SUM or AVG}.', ph: [
     { a: ['reads many rows', 'works over many rows'], d: [['takes one row', 'Aggregates combine many rows. A normal function like UPPER works on one row at a time.'], ['takes many tables', 'It combines rows, usually from one result.'], ['takes many columns', 'It combines the values of many ROWS (one column usually).']],
       spot: { q: 'Which is an <b>aggregate</b> function call?', o: ['SUM(streams)', 'UPPER(title)', 'streams * 2', 'ROUND(streams, 0)'], why: 'SUM reads many rows. UPPER and ROUND work on one value per row.' } },
@@ -2791,7 +2898,7 @@ const TERMS4 = {
     { a: ['a subset of a table', 'a part of a table'], d: [['a copy of a table', 'A partition is part of the same table, not a copy.'], ['a column of a table', 'A partition is a set of rows.'], ['a whole table', 'It is only part of it.']] },
     { a: ['divided by a column such as date', 'split by a column like date'], d: [['split by row count', 'Partitions are split by a column\u2019s value (e.g. chart_date).'], ['split on a column such as date', '"by" names the column that decides the split, as in PARTITION BY chart_date.']],
       spot: { q: 'chart_entries is partitioned by chart_date. How many partitions?', show: SC_PART, o: ['2 (10-16 and 10-17)', '3', '1', '4'], why: 'One partition per date value.' } }] },
-    t3: 'A partition is {a physically separate slice of a table keyed by a column such as date}, {which lets jobs overwrite or scan only that slice (partition pruning)} {and makes reruns of one day cheap and idempotent}.' }
+    t3: 'A partition is {the rows that share one value of the partition key, such as a date (warehouses like BigQuery may store each one physically apart)}, {which lets jobs overwrite only that slice and lets the engine scan only that slice (partition pruning)} {and makes reruns of one day cheap and idempotent}.' }
 };
 
 const CURRICULUM = { modules: [
@@ -3543,7 +3650,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v8.1</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v8.2</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */

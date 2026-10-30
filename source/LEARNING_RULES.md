@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v8)
+# DE Daily: learning rules (v8.2)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -84,10 +84,19 @@ The learner is new to most of this material and cannot catch our mistakes, so ev
 1. **Modelling sanity test for every column.** Ask: *can this fact have more than one value for one thing?* If yes (an artist's genres, a product's categories, a student's phone numbers), it cannot be one column on that thing's table. Put it on the thing it really describes (genre on songs) or in its own table with one row per value (`song_genres(song_id, genre)`). Never show a list in a cell or a duplicated entity row as correct design. The rule is called first normal form (1NF); name it, but teach the test. The same care applies to every pictured table, even a 3-row teaching example: a count that changes every day (streams) never sits on an entity table such as songs; it goes in a daily/event table (`daily_streams`, `chart_entries`). A table that shows the artist name next to song facts must be labelled a view or a query result (or the deliberate wide-table bad example).
 2. **Verify every claim against the data.** Every number, name, ranking or "X has no Y" in a theory text, explanation or picture must be checked against the real dataset (`DATASET_SQL`, `PROJECT_SQL`). Every SQL card, solution and placement answer must run in sql.js (`t9_content.js`).
 3. **Engine differences.** When a rule depends on the engine (integer division, NULL sort order, LIKE case, type enforcement, GROUP BY strictness), say which engines behave which way, especially SQLite (this app) and DuckDB (the learner's pipeline).
-4. **Label simplifications.** If a sentence simplifies (for example "events never change", or a made-up label change), say so in the text. Do not present a teaching example as a real-world fact.
+4. **No useful lies; label made-up examples.** Never simplify a statement into something false (see §0d): say "events are normally not edited; mistakes get a correction", not "events never change". A made-up example (such as a label change) must say it is made up. Do not present a teaching example as a real-world fact.
 5. **Consistency across lessons.** The same fact must be classified the same way everywhere (e.g. a chart position is an event fact, not state).
 6. **Audit, then list.** Before a release, read all content. Fix clear errors. List debatable points for the owner instead of changing them silently.
-7. **Never break progress.** Content fixes keep every lesson, item and term id; deLearn.v1/.ext/.terms stay byte-identical on update.
+7. **Never break progress.** Content fixes keep every lesson, item and term id; deLearn.v1/.ext/.terms stay byte-identical on update. A curriculum definition of 15 or more words, or a new `TERM_BITES` entry, turns a term into a bite item, and `migrateExt()` then writes a new `deLearn.ext.bites` record on load. When you reword a definition, keep it on the same side of 15 words (v8.2: found by `browser_test.py`; `t9_content.js` now guards the bite count).
+
+## 0d. STANDING RULES (v8.2): strict but simple
+The owner approved these wordings. Apply them to every new or changed lesson, picture, question and term.
+1. **"Strict but simple: tier 1 must be correct, never false-for-simplicity; nuance goes in deeper tiers."** Teach the standard version from the first exposure. A tier-1 definition may leave detail out, but it must never say something false (no "never changes", no "a primary key cannot be NULL in SQLite" without the quirk, no "GROUP BY needs every column" as a law). Engine quirks (SQLite accepting NULL in a primary key, lenient GROUP BY) go in a footnote or a deeper tier. Example models are normalized and keyed by an ID (`song_id`, `artist_id`) unless the table is labelled a deliberately bad design, a view, a query result or raw source data. Titles and names are attributes, not keys.
+2. **"Make it easy with illustrations, never with inaccurate simplification."** When a stricter statement is harder to read, add a picture (a before/after table, a correction row, a partition diagram) instead of making the sentence less true. Each stricter idea gets its own picture.
+3. **"Show it (picture), then test it (choose between alternatives) for every idea."** After each picture comes at least one multiple-choice question whose distractors are near misses, including the old simplified version. Every wrong option is explained (`w`). At least one question per idea uses non-music data (shop, hospital, bank, school, cities) to test transfer.
+4. **"Text must be coherent: connected sentences that walk through the picture."** Each say/caption/note and theory paragraph reads in order: what you see, what it shows, why it matters, and the link to the next step. Name the tables, rows and columns you mean. Define a term before using it. No fragments, and no arrows (→) used as prose; arrows are fine inside diagrams, schema lists and ordered-step notation. Rewriting for coherence never changes meaning or IDs.
+
+`node source/tests/t9_content.js` checks parts of these rules automatically (title-keyed tables are labelled, each v8.2 item has a picture, an explained mc and a transfer question, no tier-1 "never changes").
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
@@ -227,6 +236,8 @@ The learner is new to most of this material and cannot catch our mistakes, so ev
 - Terms without `TERMS4` still work: tier 1 is the existing definition, split by `TERM_BITES` pieces or `autoPieces()`. SPOT comes from v3 aspects, otherwise "spot the accurate definition" among versions with this phrase swapped for its near-misses.
 
 ## 9. Tests
+
+v8.2: `t9_content.js` adds the strict-but-simple checks (§0d): every pictured table keyed by a title is labelled a view, result, raw data or bad design; events, primary-key NULL, GROUP BY, partitions, record labels, aliases and song_id each have a picture, an mc with every wrong option explained and a non-music transfer question; no tier-1 definition says something "never changes"; the pipeline wording matches the repo. `browser_test.py` adds v8.1 (1f045a9) saved state: deLearn.v1, .ext and .terms byte-identical after loading v8.2, no lesson, item, module or term step lowered.
 
 v8.1: `node source/tests/t9_content.js` runs every SQL code card, problem solution and placement answer on a fresh copy of its dataset, checks that genre lives on songs (artists has only artist_id and name, one song has a NULL genre, nothing refers to artists.genre), and that sqlt teaches the "more than one?" test with the genre before/after picture and transfer questions. `browser_test.py` adds v8 (60df8f4) saved state: deLearn.v1, .ext and .terms byte-identical after loading v8.1, no lesson, item or module % lowered.
 
