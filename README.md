@@ -18,3 +18,4 @@ A 10-lesson module that teaches your own repo, [naija-chart-pipeline](https://gi
 - The sample chart's songs are real, but the positions are invented. They're set up so that every case shows: a new entry, a re-entry, droppers with a tie, and songs that drop out.
 - The module appears in the daily flow once you've started ETL lessons 1–4. You can open it from the Roadmap at any time.
 - Your progress carries over. The v1 save data is upgraded in place, with nothing lost.
+- AWS Course 4 Module 1 has an optional "Unlock next lesson now" button after each finished lesson, to keep pace with Coursera deadlines. Spaced review is unchanged and progress is never reset.

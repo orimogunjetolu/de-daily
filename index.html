@@ -4734,7 +4734,7 @@ function viewHome() {
 
 /* ============================ SESSION ============================ */
 function startSession(plan) {
-  SESSION = { steps: plan.steps.slice(), i: 0, mode: plan.mode, start: Date.now(), xp: 0, requeued: {}, second: {},
+  SESSION = { steps: plan.steps.slice(), i: 0, mode: plan.mode, lid: plan.lesson ? plan.lesson.id : (plan.counts && plan.counts.lesson ? plan.counts.lesson.id : null), start: Date.now(), xp: 0, requeued: {}, second: {},
     stats: { right: 0, wrong: 0, ups: 0, mastered: 0, cards: 0, problems: 0, solved: 0, theory: 0 } };
   F = null; go('session');
 }
@@ -4936,6 +4936,7 @@ function viewProblem(step) {
 }
 
 /* ---------- summary ---------- */
+function summaryLessonId(s) { return s.lid || null; }
 function viewSummary() {
   const s = UI.last; if (!s) return viewHome();
   const st = s.stats; const tot = st.right + st.wrong; const acc = tot ? Math.round(st.right / tot * 100) : null;
@@ -4951,6 +4952,7 @@ function viewSummary() {
     (st.problems ? '<li>🧩 Problems: <b>' + st.solved + '/' + st.problems + '</b> solved</li>' : '') +
     (T.fast && T.fast.on ? '<li>⚡ Fast lane on: consistent accuracy</li>' : T.fast && T.fast.off === today() ? '<li>⚡ Fast lane off: ' + esc(T.fast.why || 'accuracy dipped') + '. Back to the normal pace.</li>' : '') +
     '<li>📅 Tomorrow: about <b>' + dueT + '</b> reviews waiting</li></ul>' +
+    (summaryLessonId(s) ? unlockBtnHTML(summaryLessonId(s)) : '') +
     '<button class="btn primary big" data-act="go" data-to="home">Back home</button></main>';
 }
 
@@ -4980,7 +4982,7 @@ function viewAws() {
   const cs = AWS_TRACK.courses.map(c => '<section class="card mod aw-course"><div class="row"><h3>' + esc(c.title) + '</h3><span class="pill grey">' + esc(c.state) + '</span></div>' +
     (c.modules.length ? c.modules.map(m => { const ready = m.status === 'ready' && m.lessons.length; const p = ready ? moduleProgress(m) : 0;
       return '<div class="aw-mod"><div class="row"><b>' + esc(m.num + ' · ' + m.title) + '</b>' + (ready ? '<small>' + Math.round(p * 100) + '%</small>' : '<span class="pill grey">' + (m.status === 'ready' ? 'Lessons being aligned to Coursera' : 'Coming soon') + '</span>') + '</div>' +
-        (ready ? bar(p) + '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (l.cz ? ' <small class="muted">(Coursera: ' + esc(l.cz) + ')</small>' : '') + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>' : '') + '</div>'; }).join('')
+        (ready ? bar(p) + '<ol class="lessons">' + m.lessons.map(l => { const lp = lessonProgress(l); return '<li data-act="go" data-to="lesson" data-l="' + l.id + '" class="' + (nl && nl.id === l.id ? 'next' : '') + '"><span>' + esc(l.title) + (l.cz ? ' <small class="muted">(Coursera: ' + esc(l.cz) + ')</small>' : '') + (nl && nl.id === l.id ? ' <b class="new">NEXT</b>' : '') + (A.unl && A.unl[l.id] ? ' <small class="ok">⏩ unlocked early</small>' : '') + '</span>' + lvBadge(lp) + bar(lp, 'thin') + '</li>'; }).join('') + '</ol>' : '') + '</div>'; }).join('')
       : '<div class="muted small">Coming soon. Module names will follow Coursera when this course is built.</div>') + '</section>').join('');
   return '<header class="top"><button class="back" data-act="go" data-to="roadmap">‹ Roadmap</button><h1>' + AWS_TRACK.icon + ' ' + esc(AWS_TRACK.title) + '</h1><div class="muted small">' + esc(AWS_TRACK.blurb) + '</div></header><main>' +
     '<section class="card"><button class="btn primary big" data-act="startAws"' + (n ? '' : ' disabled') + '>▶ AWS session' + (n ? ' (~' + plan.mins + ' min)' : '') + '</button>' +
@@ -5003,6 +5005,7 @@ function viewLesson() {
     '<section class="card">' + lvBadge(lp) + bar(lp) +
     '<button class="btn primary big" data-act="startLesson" data-l="' + l.id + '">▶ Practise this lesson</button>' +
     '<div class="muted small center">Theory, every item at its current level, a few term steps, then the problems.</div></section>' +
+    (awsL ? unlockBtnHTML(l.id) : '') +
     '<section class="card"><details><summary><b>📘 Read the theory</b></summary>' + theoryHTML(l) + '</details></section>' +
     '<section class="card">' + (l.terms.length ? '<h3>Terms</h3><ul class="items">' + l.terms.map(t => '<li><span>' + esc(t.term) + '</span>' + lvlTxt(t.id) + '</li>').join('') + '</ul>' : '') +
     (l.code.length ? '<h3>Code</h3><ul class="items">' + l.code.map(c => '<li><span>' + esc(c.task) + '</span>' + lvlTxt(c.id) + '</li>').join('') + '</ul>' : '') +
@@ -5066,7 +5069,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v9.0</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v9.1</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -5905,6 +5908,7 @@ function learnHowHTML() {
     '<li><b>🐢 Automatic pacing.</b> If you miss many recent term answers (over 35% of the last 20), no new term starts and weak phrases get extra review. Code practice is never slowed down.</li>' +
     '<li><b>🧭 Placement test.</b> Real SQL, output prediction and scenario questions place you at a level and unlock lessons up to it. Tested-out items are still scheduled for review. It only ever unlocks.</li>' +
     '<li><b>☁️ AWS track and memory hooks.</b> The AWS track runs in its own session. Each AWS term opens with a memory hook before its definition (a documented name origin, or a labelled memory aid), and you can write your own. Hooks are an extra layer: every AWS term still goes through pick → type → spot, flashcards and spaced reviews. A short name drill (see the job, name the service) has its own schedule and never skips or shortens a term\'s reviews. Console click-throughs are practice drawings, not real AWS screenshots.</li>' +
+    '<li><b>⏩ Faster unlock (AWS Course 4 Module 1 only).</b> After you finish a lesson in this module, an optional button, Unlock next lesson now, opens the next lesson of the module straight away instead of waiting for a later session. It is off unless you tap it. ' + UNLOCK_NOTE + ' It never moves a flashcard, term or name-drill date, and it does not change the fast lane, your SQL lessons, streak, XP or percentages.</li>' +
     '<li><b>🔒 Progress is never reset.</b> Updates keep your streak, XP, levels, flashcards and term progress. Earlier term progress keeps its credit: you only add the missing steps.</li></ul>';
 }
 function viewLearn() {
@@ -5999,11 +6003,35 @@ function awsExtras(p) {
   return p;
 }
 
+/* ---------- v9.1: opt-in faster unlock, AWS Course 4 Module 1 only ----------
+   Off unless tapped. Tapping writes only deLearn.aws (A.unl[lessonId] = date) and opens the next C4M1 lesson.
+   It never moves a flashcard, term, name-drill or review date; the fast lane, SQL session, streak, XP and % are untouched. */
+const UNLOCK_NOTE = 'Your spaced review still runs on its normal schedule, and this button only exists so you can keep pace with your Coursera deadlines.';
+function c4m1Finished(l) { return !!(l && S.theory[l.id] && codeIds(l).every(id => S.items[id])); }
+function c4m1NextAfter(lid) {
+  const i = AWS_C4M1.findIndex(l => l.id === lid); if (i < 0 || !c4m1Finished(AWS_C4M1[i])) return null;
+  const n = AWS_C4M1[i + 1]; return n && !c4m1Finished(n) ? n : null;
+}
+function unlockBtnHTML(lid) {
+  const n = c4m1NextAfter(lid); if (!n) return '';
+  const done = A.unl && A.unl[n.id];
+  return '<section class="card aw-unlock"><div class="aw-lab">⏩ Faster unlock · Course 4 Module 1 only</div>' +
+    '<button class="btn primary big" data-act="awsUnlock" data-l="' + n.id + '" data-from="' + lid + '">' + (done ? 'Open next lesson: ' : 'Unlock next lesson now: ') + esc(n.title) + '</button>' +
+    '<p class="small muted">' + UNLOCK_NOTE + '</p></section>';
+}
+function awsUnlock(nid, from) {
+  if (!c4m1NextAfter(from) || c4m1NextAfter(from).id !== nid) return false;
+  if (!A.unl || typeof A.unl !== 'object') A.unl = {};
+  if (!A.unl[nid]) { A.unl[nid] = today(); saveAws(); }
+  return true;
+}
+
 /* ============================ ACTIONS ============================ */
 const ACT = {
   go: el => go(el.dataset.to, el.dataset.l ? { l: el.dataset.l } : {}),
   startDaily: () => { const p = buildDailySession(); if (p.steps.length) { commitTermPlan(p.terms); startSession(p); } },
   startLesson: el => startSession(buildLessonSession(el.dataset.l)),
+  awsUnlock: el => { if (awsUnlock(el.dataset.l, el.dataset.from)) startSession(buildLessonSession(el.dataset.l)); },
   startAws: () => { const p = buildAwsSession(true); if (p.steps.length) { commitTermPlan(p.terms); startSession(p); } },
   startCards: () => { const p = buildCardSession(); if (p.steps.length) startSession(p); },
   quit: () => { if (confirm('End the session now? Everything you answered is already saved.')) { SESSION.stats.quit = true; endSession(); } },

@@ -11,13 +11,14 @@ It builds a scratch web root in source/tests/.www with
   v8/  = index.html of commit 60df8f4 (v8: What's inside a table + transfer test)
   v81/ = index.html of commit 1f045a9 (v8.1: genre on songs, content audit)
   v82/ = index.html of commit b4f492d (v8.2: last version before the AWS track)
+  v9/  = index.html of commit 7f59624 (v9.0: + deLearn.aws, AWS track)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -335,7 +336,7 @@ def aws9(br):
     page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
     v1, ext, tr = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), get(page, 'deLearn.terms'); sqlplan = None
     page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
-    check(get(page, 'deLearn.v1') == v1 and get(page, 'deLearn.ext') == ext and get(page, 'deLearn.terms') == tr, '[aws9] v8.2 stores byte-identical after loading v9.0')
+    check(get(page, 'deLearn.v1') == v1 and get(page, 'deLearn.ext') == ext and get(page, 'deLearn.terms') == tr, '[aws9] v8.2 stores byte-identical after loading v9.1')
     check(get(page, 'deLearn.aws') is None, '[aws9] no deLearn.aws key until the AWS track is used')
     sql1 = page.evaluate("JSON.stringify(buildDailySession().steps)")
     ov = lambda: page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
@@ -414,7 +415,7 @@ def preserve_v8(br, extra=None):
     check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
     newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
     check(not lowm, f'[{label}] no module % lowered by v8.2 ' + str(lowm))
-    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v9.0' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v9.0 build loaded')
+    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v9.1' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v9.1 build loaded')
     page.click('#startBtn'); n, seen = drive(page); check(n > 0, f'[{label}] daily session after the update completes ({n} steps)')
     after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1)
     check(after['xp'] >= old['xp'] and all(after['theory'].get(k) == v for k, v in old['theory'].items()), f'[{label}] XP {old["xp"]}→{after["xp"]}, theory marks kept')
@@ -487,8 +488,46 @@ def fast_lane_ui(br):
     txt = page.inner_text('main'); check('Fast lane off' in txt and 'Fast lane on' not in txt, 'a slip (4/5 today) turns it off at once, with a note')
     check(not errs, 'no JS errors (fast lane): ' + '; '.join(errs[:5])); ctx.close()
 
+def unlock91(br):
+    # v9.1 faster unlock (AWS C4M1 only), from a real v9.0 (7f59624) saved state that used the AWS track
+    K = os.environ.get('KEEP91') or '/workspace/dd-test/shots91-keep'; os.makedirs(K, exist_ok=True)
+    ctx = br.new_context(service_workers='block', viewport={'width': 390, 'height': 844}, device_scale_factor=2); page = ctx.new_page(); errs = []
+    page.on('pageerror', lambda e: errs.append(str(e))); page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    page.goto(f'{BASE}/v9/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    page.evaluate("T.log = Array.from({ length: 20 }, () => ({ d: today(), ok: 1 })); saveTerms(); go('aws')")
+    page.click('[data-act="startAws"]'); n, _ = drive(page); page.click('main.summary [data-to="home"]')
+    page.evaluate("(() => { A.hooks['aws0-t1'] = 'my v9 hook'; A.nr['aws0-t1'] = { s: 1, ivl: 1, n: 1, ok: 1, due: '2026-11-03' }; A.ct.awsP1 = { done: '2026-11-01' }; saveAws(); })()")
+    keys = ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws']; old = {k: get(page, k) for k in keys}
+    check(n > 0 and old['deLearn.aws'] is not None, f'[unlock91] v9.0 state built with an AWS session ({n} steps) and deLearn.aws')
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    for k in keys: check(get(page, k) == old[k], f'[unlock91] {k} byte-identical after loading v9.1')
+    check('v9.1' in page.evaluate("document.documentElement.innerHTML"), '[unlock91] v9.1 build loaded')
+    # SQL lesson summary: no button
+    page.evaluate("startSession(buildLessonSession('sql1'))"); drive(page)
+    check(page.locator('[data-act="awsUnlock"]').count() == 0, '[unlock91] no unlock button after a SQL lesson')
+    page.click('main.summary [data-to="home"]')
+    # finish aws0 through the UI, then the summary shows the button
+    page.evaluate("startSession(buildLessonSession('aws0'))"); drive(page)
+    sched = "JSON.stringify([S.cards, Object.fromEntries(Object.entries(S.items).filter(([k]) => !k.startsWith('aws1')).map(([k, v]) => [k, v.due])), T.terms, T.fast, A.nr, S.xp, S.streak, localStorage.getItem('deLearn.ext')])"
+    btn = page.locator('[data-act="awsUnlock"]'); check(btn.count() == 1 and page.get_attribute('[data-act="awsUnlock"]', 'data-l') == 'aws1', '[unlock91] after finishing aws0 the summary shows one button, for aws1 only')
+    txt = page.inner_text('main'); check('Unlock next lesson now' in txt and 'Your spaced review still runs on its normal schedule, and this button only exists so you can keep pace with your Coursera deadlines.' in txt, '[unlock91] button label and the full etiquette sentence shown')
+    ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"); check(ov <= 390, f'[unlock91] summary fits 390px ({ov})')
+    page.locator('.aw-unlock').scroll_into_view_if_needed(); page.screenshot(path=f'{K}/unlock-button.png', full_page=True)
+    b4 = page.evaluate(sched); v1b, extb, trb = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), get(page, 'deLearn.terms')
+    btn.click(); page.wait_for_timeout(300)
+    check(page.evaluate("SESSION && SESSION.mode === 'lesson' && SESSION.lid") == 'aws1', '[unlock91] tapping opens aws1')
+    check(page.evaluate(sched) == b4 and get(page, 'deLearn.v1') == v1b and get(page, 'deLearn.ext') == extb and get(page, 'deLearn.terms') == trb, '[unlock91] the tap changes no review schedule, term, name drill, fast lane, XP or streak')
+    aw = json.loads(get(page, 'deLearn.aws')); check(list(aw.get('unl', {}).keys()) == ['aws1'] and aw['hooks'].get('aws0-t1') == 'my v9 hook' and aw['ct'].get('awsP1'), '[unlock91] only aws1 flagged; earlier deLearn.aws data kept')
+    page.evaluate("SESSION = null; go('aws')"); check('unlocked early' in page.inner_text('main'), '[unlock91] AWS screen marks aws1 as unlocked early')
+    page.evaluate("go('learn')"); check('Faster unlock' in page.inner_text('main'), '[unlock91] How learning works explains the faster unlock')
+    check(not errs, '[unlock91] no page errors ' + str(errs[:3])); ctx.close()
+
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
+    if os.environ.get('ONLY') == 'unlock91':
+        unlock91(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     if os.environ.get('ONLY') == 'aws9':
         aws9(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -516,6 +555,7 @@ with sync_playwright() as p:
     preserve_v8(br, 'v81')
     preserve_v8(br, 'v82')
     aws9(br)
+    unlock91(br)
     joins_390(br)
     k1 = lesson_390(br, 'sqlr', 13, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
     lesson_390(br, 'sqlm', 5, 'v7-sqlm')
@@ -544,7 +584,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v9' in caches, 'service worker cache de-daily-v9: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v9-1' in caches, 'service worker cache de-daily-v9-1: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()

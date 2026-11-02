@@ -112,6 +112,11 @@ The owner approved these wordings. Apply them to every new or changed lesson, pi
 
 **Storage.** One new key, `deLearn.aws` = `{ v: 1, hooks, nr, ct }`, created only when the learner uses a hook, drill or click-through. `deLearn.v1/.ext/.terms` stay byte-identical on load. AWS term definitions stay under 15 words (no new bite records).
 
+
+## 0f. STANDING RULE (v9.1): faster unlock, AWS Course 4 Module 1 only
+
+To keep pace with Coursera deadlines, a finished C4M1 lesson (theory read and every code/Q&A item started) shows an opt-in button, **Unlock next lesson now**, on the session summary and the lesson page. It is off unless tapped, appears only for `AWS_C4M1` (aws0–aws14), and opens only the next C4M1 lesson. Next to it the learner reads: "Your spaced review still runs on its normal schedule, and this button only exists so you can keep pace with your Coursera deadlines." The tap writes only `deLearn.aws.unl[lessonId] = date` (inside the existing key; created on first use). It never moves an SM-2 flashcard, item, term, tier or name-drill date and never touches the fast lane, the SQL session or lessons, streak, XP or percentages. Tests: `node source/tests/t11_unlock.js`; `browser_test.py` `unlock91` (from a v9.0 7f59624 saved state).
+
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
 - Each block has a teach card and 2 questions built on a real mini table, query and output. A question is either "tap the actual thing" (`tap`) or multiple choice (`o`).
