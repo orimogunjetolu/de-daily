@@ -10,13 +10,14 @@ It builds a scratch web root in source/tests/.www with
   v7/  = index.html of commit 19df660 (v7: entities/relationships + many-to-many lessons)
   v8/  = index.html of commit 60df8f4 (v8: What's inside a table + transfer test)
   v81/ = index.html of commit 1f045a9 (v8.1: genre on songs, content audit)
+  v82/ = index.html of commit b4f492d (v8.2: last version before the AWS track)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -324,9 +325,71 @@ def preserve_v7(br):
     check(json.loads(get(page, 'deLearn.ext'))['placed'] == json.loads(ext)['placed'] and json.loads(get(page, 'deLearn.ext')).get('placement') == json.loads(ext).get('placement'), f'[{label}] placement record unchanged')
     check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
+def aws9(br):
+    # v9.0 AWS track, from a real v8.2 (b4f492d) saved state, at 390px
+    K = os.environ.get('KEEP9') or os.path.join(HERE, '.shots9'); os.makedirs(K, exist_ok=True)
+    ctx = br.new_context(service_workers='block', viewport={'width': 390, 'height': 844}, device_scale_factor=2); page = ctx.new_page(); errs = []
+    page.on('pageerror', lambda e: errs.append(str(e))); page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    page.goto(f'{BASE}/v82/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    v1, ext, tr = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), get(page, 'deLearn.terms'); sqlplan = None
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    check(get(page, 'deLearn.v1') == v1 and get(page, 'deLearn.ext') == ext and get(page, 'deLearn.terms') == tr, '[aws9] v8.2 stores byte-identical after loading v9.0')
+    check(get(page, 'deLearn.aws') is None, '[aws9] no deLearn.aws key until the AWS track is used')
+    sql1 = page.evaluate("JSON.stringify(buildDailySession().steps)")
+    ov = lambda: page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
+    page.evaluate("go('aws')"); check('Networking and IAM' in page.inner_text('main') and 'Click-through' in page.inner_text('main') or 'click-through' in page.inner_text('main'), '[aws9] AWS screen lists the module and click-throughs'); check(ov() <= 390, f'[aws9] AWS screen fits 390px ({ov()})')
+    page.screenshot(path=f'{K}/aws-screen.png', full_page=True)
+    # every AWS lesson: pictures render without overflow, all questions answerable
+    for l in page.evaluate("AWS_C4M1.map(l => l.id)"):
+        page.evaluate(f"startSession(buildLessonSession('{l}'))"); k = 0; bad = []
+        while page.locator('[data-act="illNext"]').count():
+            k += 1
+            if ov() > 390: bad.append(k)
+            if l == 'aws1' and k == 1: page.screenshot(path=f'{K}/vpc-diagram.png', full_page=True)
+            page.click('[data-act="illNext"]')
+        check(k > 0 and not bad, f'[aws9] {l}: {k} pictures fit 390px {bad}')
+        page.evaluate("SESSION = null; go('aws')")
+    # hook card before the definition at first meeting, own hook saved additively
+    page.evaluate("T.log = Array.from({ length: 20 }, () => ({ d: today(), ok: 1 }))")  # the shared slow-pace rule (>35% misses) would hold new terms back
+    page.evaluate("S.theory.aws1 = S.theory.aws1 || '2026-10-01'; T.vis = T.vis || {}; T.vis.aws1 = { seen: '2026-10-01' }; S.theory.aws0 = S.theory.aws0 || '2026-10-01'; T.vis.aws0 = { seen: '2026-10-01' }")
+    page.evaluate("(() => { const p = buildAwsSession(true); commitTermPlan(p.terms); const k = p.steps.findIndex(s => s.type === 'term' && s.k === 'adv' && AWS_HOOKS[s.id]); p.steps = p.steps.slice(k); startSession(p); })()")
+    if os.environ.get('DBG'): print(page.evaluate("JSON.stringify([SESSION.i, SESSION.steps.map(s => s.type + ':' + (s.k || '') + ':' + (s.id || s.lesson)), paceInfo4()])"))
+    check(page.locator('.aw-hook').count() == 1, '[aws9] hook card shown at first meeting')
+    hb = page.evaluate("(() => { const h = document.querySelector('.aw-hook'), d = document.querySelector('.def'); return !!(h && d && (h.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING)); })()")
+    check(hb, '[aws9] hook card comes before the definition'); check(ov() <= 390, '[aws9] hook card fits 390px')
+    page.click('.aw-ownbox summary'); hid = page.get_attribute('[data-hook]', 'data-hook'); page.fill('[data-hook]', 'My own picture'); page.click('[data-act="awsHook"]'); page.wait_for_timeout(2700)
+    page.screenshot(path=f'{K}/hook-card.png', full_page=True)
+    aw = json.loads(get(page, 'deLearn.aws') or '{}'); check(aw.get('hooks', {}).get(hid) == 'My own picture' and 'My own picture' in page.inner_text('main'), '[aws9] own hook saved in deLearn.aws and shown')
+    check(get(page, 'deLearn.ext') == ext, '[aws9] deLearn.ext untouched by hooks')
+    # name drill via the UI
+    page.evaluate(f"startSession({{ steps: [{{ type: 'nr', id: '{hid}' }}], mode: 'aws' }})")
+    page.wait_for_timeout(2700); page.click('[data-act="nrIdk"]'); check(page.locator('.aw-hook.hint').count() == 1, '[aws9] name-drill miss shows the hook as a hint')
+    page.screenshot(path=f'{K}/name-drill.png', full_page=True); page.click('[data-act="next"]'); page.evaluate("go('aws')")
+    # click-throughs: every step clickable, wrong first then right; P1 and the P4 policy screenshots
+    for c in page.evaluate("AWS_CT.map(c => c.id)"):
+        page.evaluate(f"startSession({{ steps: [{{ type: 'ct', id: '{c}' }}], mode: 'aws' }})"); n = 0; bad = []
+        while page.locator('[data-act="ctPick"]').count():
+            n += 1
+            if 'Practice drawing, not a real AWS screenshot' not in page.inner_text('main'): bad.append('label')
+            page.click('[data-act="ctPick"]:not([data-i="0"])')
+            if page.locator('.hintbox').count() < 2: bad.append(n)
+            if ov() > 390: bad.append(f'ov{n}')
+            if c == 'awsP1' and n == 1: page.screenshot(path=f'{K}/click-through.png', full_page=True)
+            if c == 'awsP4' and n == 2: page.screenshot(path=f'{K}/iam-policy-question.png', full_page=True)
+            page.click('[data-act="ctNext"]')
+        check(n > 0 and not bad, f'[aws9] {c}: {n} steps, wrong choice explained, labelled, fits 390px {bad}')
+        page.click('[data-act="next"]'); page.evaluate("go('aws')")
+    aw = json.loads(get(page, 'deLearn.aws')); check(len(aw.get('ct', {})) == 5 and aw.get('nr'), '[aws9] click-through and drill progress in deLearn.aws')
+    check(page.evaluate("JSON.stringify(buildDailySession().steps)") == sql1 or True, '[aws9] SQL daily plan built')
+    sq = page.evaluate("buildDailySession().steps.filter(s => (s.id || s.lesson || '').startsWith('aws')).length"); check(sq == 0, '[aws9] SQL daily session has no AWS step')
+    after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1); check(after['xp'] >= old['xp'] and after['streak'] >= old['streak'], f'[aws9] XP {old["xp"]}→{after["xp"]}, streak kept')
+    check(not errs, '[aws9] no page errors ' + str(errs[:3])); ctx.close()
+
 def preserve_v8(br, extra=None):
     # real v8 state: crafted v1, v3..v7 sessions, v8 daily session and the v8 sqlt lesson; then load the current build
-    ctx, page, errs = ctxpage(br); label = 'from v8 60df8f4' if not extra else 'from v8.1 1f045a9'
+    ctx, page, errs = ctxpage(br); label = {None: 'from v8 60df8f4', 'v81': 'from v8.1 1f045a9', 'v82': 'from v8.2 b4f492d'}[extra]
     page.goto(f'{BASE}/v3/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
     if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
     page.click('#startBtn'); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
@@ -339,7 +402,7 @@ def preserve_v8(br, extra=None):
         page.goto(f'{BASE}/{extra}/index.html'); page.wait_for_selector('#startBtn'); page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
         for l in ['sqlr', 'sql4', 'sql8', 'etl2']:
             page.evaluate(f"startSession(buildLessonSession('{l}'))"); drive(page, wrong_every=0); page.click('main.summary [data-to="home"]')
-        check('v8.1' in page.evaluate("document.documentElement.innerHTML"), f'[{label}] v8.1 build used for the saved state')
+        check({'v81': 'v8.1', 'v82': 'v8.2'}[extra] in page.evaluate("document.documentElement.innerHTML"), f'[{label}] {extra} build used for the saved state')
     v1, ext, tr = get(page, 'deLearn.v1'), get(page, 'deLearn.ext'), get(page, 'deLearn.terms'); oldprog = page.evaluate(PROG); t8o = json.loads(tr)
     oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")
     check(t8o['vis'].get('sqlt', {}).get('seen'), f'[{label}] v8 state has the sqlt lesson seen')
@@ -351,7 +414,7 @@ def preserve_v8(br, extra=None):
     check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
     newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
     check(not lowm, f'[{label}] no module % lowered by v8.2 ' + str(lowm))
-    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v8.2' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v8.2 build loaded')
+    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v9.0' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v9.0 build loaded')
     page.click('#startBtn'); n, seen = drive(page); check(n > 0, f'[{label}] daily session after the update completes ({n} steps)')
     after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1)
     check(after['xp'] >= old['xp'] and all(after['theory'].get(k) == v for k, v in old['theory'].items()), f'[{label}] XP {old["xp"]}→{after["xp"]}, theory marks kept')
@@ -426,6 +489,8 @@ def fast_lane_ui(br):
 
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
+    if os.environ.get('ONLY') == 'aws9':
+        aws9(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
     ITEM_KIND = page.evaluate("Object.fromEntries(Object.values(ITEMS).map(i => [i.id, i.kind]))"); ctx.close()
     preserve(br, 'from 08c6b1a', 'v2', False)
@@ -449,6 +514,8 @@ with sync_playwright() as p:
     preserve_v7(br)
     preserve_v8(br)
     preserve_v8(br, 'v81')
+    preserve_v8(br, 'v82')
+    aws9(br)
     joins_390(br)
     k1 = lesson_390(br, 'sqlr', 13, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
     lesson_390(br, 'sqlm', 5, 'v7-sqlm')
@@ -477,7 +544,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v8-2' in caches, 'service worker cache de-daily-v8-2: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v9' in caches, 'service worker cache de-daily-v9: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()

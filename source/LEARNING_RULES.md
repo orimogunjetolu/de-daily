@@ -98,6 +98,20 @@ The owner approved these wordings. Apply them to every new or changed lesson, pi
 
 `node source/tests/t9_content.js` checks parts of these rules automatically (title-keyed tables are labelled, each v8.2 item has a picture, an explained mc and a transfer question, no tier-1 "never changes").
 
+## 0e. STANDING RULES (v9.0): the AWS track and memory hooks
+
+**A separate track.** "AWS for Data Engineering" follows the Coursera specialization *AWS Certified Data Engineer Associate Exam Prep* (LearnKartS) lesson by lesson, in Coursera's order and vocabulary. Coursera is the baseline; where a lesson is wrong or vague we keep its words and add a "Coursera says / Precisely" note checked against AWS documentation. All text is our own words. AWS lessons, items and problems carry `track: 'aws'` and never appear in the SQL daily session, READY, CURRICULUM, module % or the Roadmap progress; the AWS session is started from the AWS screen. New-term counts for AWS go to `T.dayAws`.
+
+**Memory hooks reinforce spaced repetition; they never replace or reduce it.**
+- Every AWS term has a hook (`AWS_HOOKS[id] = { k, t, j }`). Vary the kind: `origin` (a documented name origin, fact only, with its source), `image`, `split`, `contrast`. Anything that is not a documented fact is labelled "Memory aid".
+- The hook card is shown at the first meeting of a term (tier 1, phrase 1), **before** the definition, and again as a hint after a miss. "Use my own hook" saves the learner's own hook next to ours.
+- Every AWS term still gets its normal path: building blocks, phrases with pick → type → spot on different days, tiers, flashcards and SM-2 reviews in `deLearn.terms`, exactly like the SQL terms.
+- The **name-recall drill** (step `nr`: show the job, pick the name, later type it) is an extra step. It keeps its own interval in `deLearn.aws.nr` (pick right: 1 day; first typed right: 2 days; later typed right: ×2, or ×3 under 8 seconds, max 60; a miss: back to 1 day, hook shown). It never writes term state, never logs to `T.log` and never feeds the fast lane, so fast recall cannot skip any flashcard or review step. The term engine's own fast-lane rules (§5) are unchanged.
+
+**Console click-throughs** (step `ct`, `AWS_CT`) are drawn screens labelled "Practice drawing, not a real AWS screenshot". Each opens after the theory of its lesson is read; every wrong choice is explained; the Coursera demo's slips are corrected in place (e.g. 10.0.0.1.0/24, us-east-1a in a us-west-1 VPC, `s3:*` shown as the "before").
+
+**Storage.** One new key, `deLearn.aws` = `{ v: 1, hooks, nr, ct }`, created only when the learner uses a hook, drill or click-through. `deLearn.v1/.ext/.terms` stay byte-identical on load. AWS term definitions stay under 15 words (no new bite records).
+
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
 - Each block has a teach card and 2 questions built on a real mini table, query and output. A question is either "tap the actual thing" (`tap`) or multiple choice (`o`).
@@ -249,3 +263,5 @@ v7: `node source/tests/t7_relations.js` checks lesson order, gap scheduling for 
 - `node source/tests/t5_fastlane.js`: fast lane. It turns on only after a consistent run (a small day neither counts nor breaks the run; a counted slip resets it) and turns off at once on a slip or a rolling dip. It also checks the caps (5 active, 2 new a day), the term budget, one step a day, identical code, and that paused terms keep their credit.
 - `node source/tests/t6_illus.js`: illustrations. Every scene's SQL runs on real sql.js and must match the drawn result. Every visual question's answer is checked (tap indexes, unique mc options, `run` solutions run and respect `forbid`). It also checks the flow: pictures → questions → theory in lesson and daily sessions, no terms from a lesson on the day its pictures are first shown, and terms starting once the pictures are seen. For existing learners it checks one catch-up lesson a day, terms in progress first, catch-up before term practice, and no progress lowered.
 - `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a, 371b94a, c35b2c9 (v4) and 051a0fb (v5) survives untouched (v5→v6: one lesson's pictures, `vis` added, nothing lowered); the joins lesson at 390px (no page overflow, RIGHT/FULL JOIN run in the app, screenshots `v6-joins-*.png` when `SHOTS` is set); that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.
+
+v9.0: `node source/tests/t10_aws.js` checks the AWS track is separate from the SQL session, stores stay byte-identical, every AWS lesson has pictures and explained wrong options, every term has a labelled hook and the full pick/type/spot path, the name drill is additive (intervals, never touches term state or the fast lane), the hook card comes before the definition, and every click-through step is explained and labelled. `browser_test.py` adds a v8.2 (b4f492d) saved state and the `aws9` checks (`ONLY=aws9` runs just those).
