@@ -397,6 +397,41 @@ const SQL_LESSONS_B = [
       explain:'The listener–artist link is not stored anywhere. It exists only because of stream events plus the foreign key from each song to its main artist (songs.artist_id). The row for Ada and Rema shows 2 plays because she streamed Calm Down twice. Zainab is missing: she has no stream events, so she has no link to any artist.' }
   ]
 },
+{ id:'sqlc', title:'Joins in combination', added:10, rung:2,
+  theory:{
+    why:'Real questions combine a join with a count, a filter or a second join. Each piece is simple on its own; the mistakes happen where they meet, usually because the join changed the number of rows before something counted or added them up.',
+    body:[
+      'Before writing a query, decide what <b>one result row</b> stands for (the grain): one listener, one stream, one customer. Then check what one row stands for <b>after each join</b>.',
+      'Joining from the many side to the one side (streams to listeners) keeps one row per many-side row. Joining from the one side to the many side repeats each one-side row once per match (<b>fan-out</b>).',
+      '<code>COUNT(*)</code> counts rows. <code>COUNT(DISTINCT x)</code> counts different values of x. After a fan-out these can differ, so choose the one that matches the question.',
+      'A <code>SUM</code> over a column of the one side (an order total) after joining to its many side (order items) adds that value once per matching row. Sum before joining, or do not join the table you do not need.'
+    ],
+    pro:'"Before I aggregate, I check the grain after every join. If a join to a child table repeats the parent rows, I sum at the parent level first or drop the join."',
+    q:{ q:'A report sums orders.total after joining orders to order_items, and the totals are too high. Explain the cause and the fix.', a:'Each order is repeated once per item, so its total is added once per item. Sum the totals without the order_items join (or aggregate items in a subquery first and then join one row per order).' }
+  },
+  terms:[], code:[], problems:[]
+},
+{ id:'sqlrt', title:'Real task: the shop’s best customers', added:10, rung:3,
+  theory:{
+    why:'At work a request arrives as one sentence, not as a list of SQL clauses. Turning the sentence into a short plan first (grain, tables, filter, test) and then building the query one piece at a time, checking the rows after each piece, is how analysts avoid wrong answers that look right.',
+    body:[
+      'Plan with four questions: <b>What is one result row?</b> <b>Which tables hold the facts?</b> <b>Which rows count?</b> (WHERE) <b>Which test picks the groups?</b> (HAVING).',
+      'Build in this order and look at the rows each time: filter the rows, group and count, keep the groups that pass the test, then join in names for the people reading the result.',
+      'Use a half-open range for dates: <code>order_date &gt;= \'2026-10-01\' AND order_date &lt; \'2026-11-01\'</code>. It includes every moment of October and nothing of November, whether the column holds dates or date-times.',
+      '“More than two” is <code>&gt; 2</code>, not <code>&gt;= 2</code>. A count belongs to a group, so a test on <code>COUNT(*)</code> goes in HAVING; WHERE runs on single rows before groups exist.'
+    ],
+    pro:'"I restated the request as a grain (one customer), a filter (October orders), a group (customer_id) and a test (COUNT(*) > 2), built it step by step and checked the counts at each step."',
+    q:{ q:'Which artists had a song in the top 5 on more than one chart day? Describe the plan before writing SQL.', a:'One row per artist. Tables: chart_entries (positions and days), songs (to reach the artist) and artists (names). Filter: position <= 5. Group by artist. Test: COUNT(DISTINCT chart_date) > 1, because an artist with two top-5 songs on the same day has two entries for one day.' }
+  },
+  terms:[], code:[],
+  problems:[
+    { id:'sqlrt-p1', kind:'sql', title:'Top-5 artists on more than one day',
+      scenario:'Which artists had a song in the top 5 of the chart on more than one chart day? Return the artist name (artist) and the number of different days (days). Plan first: one row per artist; a top-5 entry is position <= 5.',
+      hint:'chart_entries → songs on song_id → artists on artist_id. WHERE c.position <= 5. GROUP BY the artist. HAVING COUNT(DISTINCT c.chart_date) > 1: an artist with two top-5 songs on one day has two entries for one day.',
+      solution:'SELECT a.name AS artist, COUNT(DISTINCT c.chart_date) AS days\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.position <= 5\nGROUP BY a.artist_id, a.name\nHAVING COUNT(DISTINCT c.chart_date) > 1;',
+      explain:'One row per artist, counted in days, not in entries. COUNT(*) would count chart entries: an artist with two songs in the top 5 on the same day would get 2 for a single day and pass the test wrongly.' }
+  ]
+},
 { id:'sql6', title:'Subqueries',
   theory:{
     why:'Some questions need a value you have to <b>compute first</b>. "Songs longer than <i>average</i>" means you need the average before you can compare. A subquery is a query inside another query, and its result feeds the outer one, like a function call.',
@@ -1801,9 +1836,9 @@ const ILLUS = {
         out: { c: ['artist', 'total'], r: [['Rema', 1700], ['Tems', 1100]], m: ['g0', 'g1'] } },
       { h: 'UNION ALL stacks every row', fig: 'flow', say: 'UNION ALL places the rows of the second query <b>under</b> the rows of the first. Calm Down is on both Monday’s and Tuesday’s chart, so it appears twice in the result, which has 4 rows.',
         sql: 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'], role: 'chart_mon: a view (titles on Monday\u2019s chart)' }, { t: 'chart_tue', m: ['g1', 'g2'], role: 'chart_tue: a view (titles on Tuesday\u2019s chart)' }],
-        out: { c: ['title'], r: [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']], m: ['g0', 'g1', 'd', 'g2'] }, lg: { d: '⧉ duplicate: UNION ALL keeps it' } },
+        out: { c: ['title'], r: [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']], m: ['g0', 'g1', 'd', 'g2'] }, lg: { d: '2× duplicate: UNION ALL keeps it' } },
       { h: 'UNION removes duplicates', fig: 'flow', say: 'UNION also stacks the two results, but then <b>removes duplicate rows</b>, so Calm Down appears once and the result has 3 rows. Removing duplicates is an extra step that usually costs time, so use UNION ALL unless you need the duplicates removed.',
-        sql: 'SELECT title FROM chart_mon\nUNION\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'], role: 'chart_mon: a view (titles on Monday\u2019s chart)' }, { t: 'chart_tue', m: ['d', 'g2'], role: 'chart_tue: a view (titles on Tuesday\u2019s chart)' }], lg: { d: '⧉ duplicate: UNION removes it' },
+        sql: 'SELECT title FROM chart_mon\nUNION\nSELECT title FROM chart_tue;', ins: [{ t: 'chart_mon', m: ['g0', 'g1'], role: 'chart_mon: a view (titles on Monday\u2019s chart)' }, { t: 'chart_tue', m: ['d', 'g2'], role: 'chart_tue: a view (titles on Tuesday\u2019s chart)' }], lg: { d: '2× duplicate: UNION removes it' },
         out: { c: ['title'], r: [['Calm Down'], ['Essence'], ['Rush']], m: ['g1', 'g2', 'g0'] } }
     ],
     qs: [
@@ -1912,7 +1947,7 @@ const ILLUS = {
     scenes: [
       { h: 'The primary key refuses a duplicate load', fig: 'flow', say: 'In <code>chart_entries</code> the primary key is <code>(chart_date, track_id)</code>, so a track can appear only once per day: that is the table’s grain. The batch tries to insert the 10-17 rows again. Because those keys already exist, the database refuses the insert instead of silently storing duplicates.',
         sql: 'INSERT INTO chart_entries SELECT * FROM batch;', ins: [{ t: 'chart_entries', role: 'chart_entries (PK chart_date, track_id)' }, { t: 'batch', m: ['d', 'd', 'n'], role: 'rerun batch for 10-17' }],
-        out: { err: 'UNIQUE constraint failed' }, lg: { d: '⧉ key already exists' } },
+        out: { err: 'UNIQUE constraint failed' }, lg: { d: '2× key already exists' } },
       { h: 'load.py: delete the date, then insert', fig: 'flow', say: 'This is what load.py does. It first deletes every <code>chart_entries</code> row for the run date, 10-17, and then inserts the fresh batch, which now also contains Charm, a song that arrived late. The 10-16 rows are not touched, and running it again gives the same table.',
         sql: "DELETE FROM chart_entries WHERE chart_date = '10-17';\nINSERT INTO chart_entries SELECT * FROM batch;\nSELECT * FROM chart_entries;", ins: [{ t: 'chart_entries', m: ['m', 'x', 'x'] }, { t: 'batch', m: ['n', 'n', 'n'] }],
         out: { c: ['chart_date', 'track_id', 'title'], r: [['10-16', 1, 'Rush'], ['10-17', 1, 'Rush'], ['10-17', 2, 'Calm Down'], ['10-17', 3, 'Charm']], m: ['m', 'n', 'n', 'n'] }, lg: { x: '✕ deleted first', n: '＋ inserted' } }
@@ -1936,8 +1971,8 @@ const ILLUS = {
 };
 // a before/after figure for building blocks (grounding) as well
 const ILL_COND = { h: '', fig: 'flow', sql: 'SELECT song_id, streams\nFROM daily_streams\nWHERE streams > 800;', norun: true,
-  ins: [{ tab: ILT('daily_streams', ['chart_date', 'song_id', 'streams'], [['10-17', 1, 900], ['10-17', 2, 1200], ['10-17', 3, 700]]), m: ['m', 'm', 'x'], role: 'Before: table daily_streams' }],
-  out: { c: ['song_id', 'streams'], r: [[1, 900], [2, 1200]], m: ['m', 'm'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
+  ins: [{ tab: ILT('daily_streams', ['chart_date', 'song_id', 'streams'], [['10-17', 1, 900], ['10-17', 2, 1200], ['10-17', 3, 700]]), m: ['m', 'm', 'x'], role: 'Before: table daily_streams', why: ['900 > 800 is TRUE', '1200 > 800 is TRUE', '700 > 800 is FALSE'] }],
+  out: { c: ['song_id', 'streams'], r: [[1, 900], [2, 1200]], m: ['m', 'm'], why: ['kept: song 1', 'kept: song 2'] }, lg: { m: '✓ condition TRUE: kept', x: '✕ condition FALSE: dropped' } };
 
 /* v7: entities, state, events, relationships (before joins) and many-to-many (after joins) */
 const ERD_ART = { n: 'artists', cols: [['artist_id', 'PK'], ['name'], ['current_label']] };
@@ -2190,7 +2225,7 @@ ILLUS.sqlt = {
       say: 'Ask of every fact: <b>can one thing have more than one?</b> Ayra Starr is described as Afrobeats <i>and</i> R&B. Try to store genre on <code>artists</code> and both ways break. A list in one cell cannot be filtered, counted or joined reliably. A second row copies her name and her <code>artist_id</code> is no longer unique. Each song, though, carries one main genre, so genre is a column on <code>songs</code>.',
       stack: true, ins: [{ t: 'artists_list', m: ['x', ''], role: 'wrong 1: a list in one cell' }, { t: 'artists_dup', m: ['d', 'd', ''], role: 'wrong 2: the artist copied once per genre' }],
       after: [{ t: 'songs', m: ['n', 'n', 'n'], role: 'right: one genre per song row' }],
-      lg: { x: '✕ two values in one cell', d: '⧉ same artist, two rows: artist_id no longer unique', n: '＋ one value per cell' },
+      lg: { x: '✕ two values in one cell', d: '2× same artist, two rows: artist_id no longer unique', n: '＋ one value per cell' },
       note: 'The rule "every cell holds one value" is called <b>first normal form</b> (1NF). If a song could have several genres too, add <code>song_genres(song_id, genre)</code>: one row per pair, like <code>playlist_songs</code>.' },
     { h: 'The same test on any data', fig: 'multi',
       say: 'Run the question on every fact before you give it a column: <b>for one of these things, can there be more than one?</b> Each line below asks it of one fact. An artist has one main stage name and a patient has one date of birth, so each of those is a column. An artist can have several other names, a song several featured artists, a product several categories and a student several phone numbers, so each of those gets a table of its own, with one row per value pointing back by ID.' },
@@ -2402,8 +2437,8 @@ function multiFig() {
 Object.assign(ILL_FIGS, { anat: anatFig, ddl: ddlFig, place: placeFig, bp: bpFig, ask: askFig, multi: multiFig });
 
 /* ---------- v6 illustration rendering (before → query → after) ---------- */
-const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '⧉ duplicate', n: '＋ new or changed', g: '🎨 same colour = same group' };
-const ILL_ICON = { m: '✓', u: '◐', x: '✕', d: '⧉', n: '＋' };
+const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '2× appears twice (a duplicate)', n: '＋ new or changed', g: '🎨 same colour = same group' };
+const ILL_ICON = { m: '✓', u: '◐', x: '✕', d: '2×', n: '＋' };
 function illCell(v) {
   if (v === null || v === undefined) return '<td class="null"><span>NULL</span></td>';
   const s = String(v); const vis = s.replace(/^ +| +$/g, m => '␣'.repeat(m.length));
@@ -2418,7 +2453,8 @@ function illTable(t, m, o) {
     t.r.map((r, i) => {
       const mk = m[i] || ''; let cls = mk ? 'mk-' + mk : ''; let attr = '';
       if (o.tap) { const on = o.tap.sel.includes(i); cls += ' tapr' + (on ? ' on' : ''); if (o.tap.done) { const want = o.tap.ans.includes(i); cls += want === on ? (want ? ' good' : '') : ' wrong'; } else attr = ' data-act="vqTap" data-r="' + i + '" tabindex="0" role="button" aria-pressed="' + on + '"'; }
-      return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>';
+      const why = o.why && o.why[i] ? '<tr class="why mk-' + mk + '"><td colspan="' + (r.length + (hasMk ? 1 : 0)) + '">' + (ILL_ICON[mk] ? '<b>' + ILL_ICON[mk] + '</b> ' : '') + o.why[i] + '</td></tr>' : '';
+      return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>' + why;
     }).join('') + '</table></div></div>';
 }
 function illThTap(tc, i) { const on = tc.sel.includes(i); let c = 'tapc' + (on ? ' on' : ''); if (tc.done) { const want = tc.ans.includes(i); c += want === on ? (want ? ' good' : '') : ' wrong'; return ' class="' + c + '"'; }
@@ -2450,24 +2486,32 @@ function flowFig(ins, out) {
   return '<div class="flow" aria-hidden="true"><div class="fcol">' + ins.map(x => '<div class="fstack">' + Array.from({ length: x.rows }, (_, i) => chip(x.m && x.m[i])).join('') + '</div>').join('') + '</div><div class="farr">→</div><div class="fcol"><div class="fstack">' +
     (out && out.r ? out.r.map((_, i) => chip(out.m && out.m[i])).join('') : out && out.err ? '<b class="bad">✕ error</b>' : '') + '</div></div><div class="fcnt">' + inN + ' row' + (inN === 1 ? '' : 's') + ' in → ' + (out && out.r ? out.r.length + ' row' + (out.r.length === 1 ? '' : 's') + ' out' : 'refused') + '</div></div>';
 }
-function illTab(L, x) { return x.tab || (L && L.tables[x.t]); }
+function illTables(L, ts) { return (ts && L.tsets && L.tsets[ts]) || L.tables; }
+function illTab(L, x, ts) { return x.tab || (L && illTables(L, x.ts || ts)[x.t]); }
+// v10: a specific reason for every marked row: scene-level (x.why / out.why) or the ILL_WHY overlay by lesson|title
+function illWhy(L, sc, part, i) { const x = part === 'out' ? sc.out : part[0] === 'a' ? sc.after[+part.slice(1)] : sc.ins[+part.slice(1)];
+  if (x && x.why) return x.why; const o = L && typeof ILL_WHY !== 'undefined' && ILL_WHY[(L.id || '') + '|' + sc.h]; return o && o[part] || null; }
 // the whole figure for a scene: BEFORE tables (written order) → query → diagram → AFTER table → legend
 function illFigHTML(sc, L, run) {
-  const ins = (sc.ins || []).map(x => x.raw ? '<div class="ill-t"><div class="ill-role">' + (x.role || 'Input') + '</div><pre class="qy raw">' + _h(x.raw) + '</pre></div>' : illTable(illTab(L, x), x.m, { role: x.role }));
+  const ts = sc.ts; const ins = (sc.ins || []).map((x, i) => x.raw ? '<div class="ill-t"><div class="ill-role">' + (x.role || 'Input') + '</div><pre class="qy raw">' + _h(x.raw) + '</pre></div>' : illTable(illTab(L, x, ts), x.m, { role: x.role, why: illWhy(L, sc, 'i' + i) }));
   const used = new Set(); (sc.ins || []).forEach(x => (x.m || []).forEach(k => used.add(k))); ((sc.out && sc.out.m) || []).forEach(k => used.add(k)); (sc.after || []).forEach(x => (x.m || []).forEach(k => used.add(k)));
   const lg = Object.assign({}, ILL_LG, sc.lg || {}); const lgs = []; ['m', 'u', 'x', 'd', 'n'].forEach(k => { if (used.has(k)) lgs.push('<span class="lg mk-' + k + '">' + lg[k] + '</span>'); });
   if ([...used].some(k => /^g/.test(k))) lgs.push('<span class="lg">' + lg.g + '</span>');
   let fig = '';
-  if (/^venn-/.test(sc.fig || '')) { const a = illTab(L, sc.ins[0]), b = illTab(L, sc.ins[1]); fig = vennSVG(sc.fig.slice(5), a.n, b.n, sc.vl); }
-  else if (sc.fig === 'lr') fig = lrFig(illTab(L, sc.ins[0]).n, illTab(L, sc.ins[1]).n);
+  if (/^venn-/.test(sc.fig || '')) { const a = illTab(L, sc.ins[0], ts), b = illTab(L, sc.ins[1], ts); fig = vennSVG(sc.fig.slice(5), a.n, b.n, sc.vl); }
+  else if (sc.fig === 'lr') fig = lrFig(illTab(L, sc.ins[0], ts).n, illTab(L, sc.ins[1], ts).n);
   else if (ILL_FIGS[sc.fig]) fig = ILL_FIGS[sc.fig](sc, L);
-  else if (sc.fig === 'flow') fig = flowFig((sc.ins || []).map(x => ({ rows: x.raw ? 1 : illTab(L, x).r.length, m: x.m })), sc.out);
+  else if (sc.fig === 'flow') fig = flowFig((sc.ins || []).map(x => ({ rows: x.raw ? 1 : illTab(L, x, ts).r.length, m: x.m })), sc.out);
   const outH = !sc.out ? '' : sc.out.err ? '<div class="ill-t"><div class="ill-role">After</div><div class="ill-err">✕ Error: ' + _h(sc.out.err) + '</div></div>'
-    : illTable({ n: 'result', c: sc.out.c, r: sc.out.r }, sc.out.m, { role: 'After: the result', nc: sc.out.nc, name: false }) + '<div class="muted small">' + sc.out.r.length + ' row' + (sc.out.r.length === 1 ? '' : 's') + (sc.out.nc && sc.out.nc.length ? ' · <span class="newc-k">highlighted column</span> = added by the query' : '') + '</div>';
-  const aft = sc.after ? '<div class="ill-ins' + (sc.after.length === 2 ? ' two' : '') + '">' + sc.after.map(x => illTable(illTab(L, x), x.m, { role: x.role })).join('') + '</div>' : '';
+    : illTable({ n: 'result', c: sc.out.c, r: sc.out.r }, sc.out.m, { role: sc.out.role || 'After: the result', nc: sc.out.nc, name: false, why: illWhy(L, sc, 'out') }) + '<div class="muted small">' + sc.out.r.length + ' row' + (sc.out.r.length === 1 ? '' : 's') + (sc.out.nc && sc.out.nc.length ? ' · <span class="newc-k">highlighted column</span> = added by the query' : '') + '</div>';
+  const aft = sc.after ? '<div class="ill-ins' + (sc.after.length === 2 ? ' two' : '') + '">' + sc.after.map((x, i) => illTable(illTab(L, x, ts), x.m, { role: x.role, why: illWhy(L, sc, 'a' + i) })).join('') + '</div>' : '';
   let n = 0; const stp = t => '<div class="ill-step">' + (++n) + ' · ' + t + '</div>';
-  return '<div class="ill">' + (ins.length ? stp('Before') + '<div class="ill-ins' + (ins.length === 2 && !sc.stack ? ' two' : '') + '">' + ins.join('') + '</div>' : '') +
-    (sc.sql || sc.code ? stp(sc.sql ? 'Query' : 'Code') + QY(sc.sql || sc.code) : '') +
+  const marked = (sc.ins || []).some(x => (x.m || []).some(k => ILL_ICON[k]));
+  const qyH = sc.sql || sc.code ? stp(sc.sql ? 'Query' : 'Code') + QY(sc.sql || sc.code) : '';
+  const qFirst = marked && qyH && !sc.qlast; // v10: the question/filter comes before the table that is marked against it
+  return '<div class="ill">' + (sc.ask ? '<div class="ill-ask"><b>Question:</b> ' + sc.ask + '</div>' : '') + (qFirst ? qyH : '') +
+    (ins.length ? stp(qFirst ? 'Before: each row marked against this query' : 'Before') + '<div class="ill-ins' + (ins.length === 2 && !sc.stack ? ' two' : '') + '">' + ins.join('') + '</div>' : '') +
+    (qFirst ? '' : qyH) +
     (fig ? '<div class="ill-fig">' + fig + '</div>' : '') +
     (outH || aft ? stp('After') + outH + aft : '') +
     (lgs.length ? '<div class="ill-lg">' + lgs.join('') + '</div>' : '') +
@@ -2478,59 +2522,80 @@ function illFigHTML(sc, L, run) {
 function visState(lid) { if (!T.vis || typeof T.vis !== 'object') T.vis = {}; return T.vis[lid] || (T.vis[lid] = { seen: null, q: {} }); }
 function visSeen(lid) { return !ILLUS[lid] || !!(T.vis && T.vis[lid] && T.vis[lid].seen); }
 // illustration scenes + visual questions for one lesson, in teaching order
-function illusSteps(lid, maxQ) {
+function illusSteps(lid, maxQ, onlyNew) {
   const L = ILLUS[lid]; if (!L) return [];
-  const s = L.scenes.map((_, i) => ({ type: 'illus', lesson: lid, sc: i }));
-  const q = L.qs.map((_, i) => ({ type: 'vq', lesson: lid, qi: i })).slice(0, maxQ == null ? 99 : maxQ);
-  return s.concat(q);
+  let out;
+  if (L.order) out = L.order.filter(([k, i]) => !onlyNew || (k === 's' ? L.scenes[i] : L.qs[i]).v10).map(([k, i]) => k === 's' ? { type: 'illus', lesson: lid, sc: i } : { type: 'vq', lesson: lid, qi: i });
+  else {
+    const s = L.scenes.map((_, i) => ({ type: 'illus', lesson: lid, sc: i }));
+    const q = L.qs.map((_, i) => ({ type: 'vq', lesson: lid, qi: i })).slice(0, maxQ == null ? 99 : maxQ);
+    out = s.concat(q);
+  }
+  const sc = out.filter(x => x.type === 'illus'); if (sc.length) sc[sc.length - 1].last = true;
+  out.forEach((x, i) => { x.pos = i + 1; x.of = out.length; if (onlyNew) x.isNew = true; });
+  return out;
 }
+// v10: stable question IDs (legacy questions keep lid.k, k = their original position; new questions carry an id)
+function vqId(lid, qi) { const q = ILLUS[lid].qs[qi]; return q.id || lid + '.' + qi; }
+function vqRec(lid, qi) { const v = T.vis && T.vis[lid]; if (!v) return null; return (v.qid && v.qid[vqId(lid, qi)]) || (v.q && !ILLUS[lid].qs[qi].id && v.q[qi]) || null; }
+function v10Pending(lid) { const L = ILLUS[lid]; return !!(L && L.order && L.order.some(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v10) && !(T.vis && T.vis[lid] && T.vis[lid].v10)); }
 // existing learners: one lesson a day whose illustration they have not seen yet (theory read or placed),
 // lessons with terms already in progress first, then curriculum order
 function catchUpIllus() {
   const cands = []; orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (ILLUS[l.id] && !visSeen(l.id) && S.theory[l.id]) cands.push(l); }));
   const busy = l => l.itemIds.some(id => T.terms[id] && T.terms[id].st !== 'done');
-  return cands.find(busy) || cands[0] || null;
+  const l = cands.find(busy) || cands[0];
+  if (l) return { id: l.id, onlyNew: false };
+  // v10: lessons already seen get only their new or rewritten steps, labelled "New in v10"
+  for (const m of orderedReadyModules()) for (const x of m.lessons) if (visSeen(x.id) && ILLUS[x.id] && T.vis[x.id] && v10Pending(x.id)) return { id: x.id, onlyNew: true };
+  return null;
 }
-async function runIll(sql, lid) {
+async function runIll(sql, lid, ts) {
   const SQL = await getSQL(); const db = new SQL.Database();
-  try { db.exec(illSetupSQL(ILLUS[lid])); const r = db.exec(sql); return r.length ? r[r.length - 1] : { columns: [], values: [] }; } finally { db.close(); }
+  try { db.exec(illSetupSQL(ILLUS[lid], ts)); const r = db.exec(sql); return r.length ? r[r.length - 1] : { columns: [], values: [] }; } finally { db.close(); }
 }
-function illSetupSQL(L) {
+function illSetupSQL(L, ts) {
   const lit = v => v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'";
-  return Object.values(L.tables).map(t => (t.ddl || 'CREATE TABLE ' + t.n + ' (' + t.c.join(', ') + ');') + (t.r.length ? '\nINSERT INTO ' + t.n + ' VALUES ' + t.r.map(r => '(' + r.map(lit).join(', ') + ')').join(', ') + ';' : '')).join('\n');
+  return Object.values(illTables(L, ts)).map(t => (t.ddl || 'CREATE TABLE ' + t.n + ' (' + t.c.join(', ') + ');') + (t.r.length ? '\nINSERT INTO ' + t.n + ' VALUES ' + t.r.map(r => '(' + r.map(lit).join(', ') + ')').join(', ') + ';' : '')).join('\n');
 }
 function viewIllus(step) {
   const L = ILLUS[step.lesson], sc = L.scenes[step.sc], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = { stepIndex: SESSION.i, illus: true, run: null };
   const run = sc.sql && !sc.norun ? (F.run || '<button class="btn" data-act="illRun">▶ Run this query</button>') : '';
-  return '<div class="kicker">🔍 See it first · ' + _h(l.title) + ' · picture ' + (step.sc + 1) + '/' + L.scenes.length + '</div><h2>' + _h(sc.h) + '</h2>' +
+  const pos = step.of ? 'step ' + step.pos + '/' + step.of : 'picture ' + (step.sc + 1) + '/' + L.scenes.length;
+  const lastBtn = L.order ? (step.pos < step.of ? 'Next →' : 'Done →') : step.sc + 1 < L.scenes.length ? 'Next picture →' : 'Got it → questions';
+  return '<div class="kicker">' + (step.isNew ? '🆕 New in v10 · ' : '') + '🔍 See it first · ' + _h(l.title) + ' · ' + pos + '</div><h2>' + _h(sc.h) + '</h2>' +
+    (sc.link ? '<p class="ill-link">' + sc.link + '</p>' : '') + (sc.plan ? planBox(step.lesson, sc.plan) : '') +
     (sc.say ? '<p>' + sc.say + '</p>' : '') + illFigHTML(sc, L, run) + (sc.note ? '<p class="muted small">' + sc.note + '</p>' : '') +
-    '<div class="actions"><button class="btn primary big" data-act="illNext" data-autofocus>' + (step.sc + 1 < L.scenes.length ? 'Next picture →' : 'Got it → questions') + '</button></div>';
+    '<div class="actions"><button class="btn primary big" data-act="illNext" data-autofocus>' + lastBtn + '</button></div>';
 }
 function initVQ(step) {
   const q = ILLUS[step.lesson].qs[step.qi];
   const f = { stepIndex: SESSION.i, vq: true, q, sel: [], done: false, ok: null, vals: [] };
   if (q.k === 'mc') f.opts = shuffle(q.o.map((x, i) => ({ x, i })));
   if (q.k === 'run') f.code = q.code;
+  if (q.k === 'line') f.lines = q.code.split('\n');
   if (q.k === 'cls') f.vals = q.items.map(() => null);
   return f;
 }
 function viewVQ(step) {
   const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
-  const f = F, q = f.q; let h = '<div class="kicker">🔍 Picture question · ' + _h(l.title) + '</div><h2 class="q">' + q.q + '</h2>';
-  const tabs = Object.values(L.tables); if (q.k !== 'tap' && q.k !== 'tapc' && q.ref !== false && tabs.length) h += '<details class="ill-ref"' + (q.k === 'run' ? ' open' : '') + '><summary>Show the tables</summary><div class="ill-ins">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
+  const f = F, q = f.q; let h = '<div class="kicker">' + (step.isNew ? '🆕 New in v10 · ' : '') + '🔍 ' + (step.back ? 'One step back · ' : step.rv ? 'Review · ' : 'Picture question · ') + _h(l.title) + (step.of ? ' · step ' + step.pos + '/' + step.of : '') + '</div>' + (q.link ? '<p class="ill-link">' + q.link + '</p>' : '') + '<h2 class="q">' + q.q + '</h2>';
+  const TS = illTables(L, q.ts); const tabs = Object.values(TS).filter(t => !q.only || q.only.includes(t.n));
+  // v10: the tables are open by default (a closed toggle counts as not visible)
+  if (q.k !== 'tap' && q.k !== 'tapc' && q.ref !== false && tabs.length) h += '<details class="ill-ref" open><summary>The tables</summary><div class="ill-ins' + (tabs.length === 2 ? ' two' : '') + '">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
   if (q.sql) h += QY(q.sql);
   if (q.show) h += '<div class="scene">' + q.show + '</div>'; // v8: a table drawn into the question (e.g. spot the badly designed table)
   if (q.k === 'tap') {
     const others = tabs.filter(t => t.n !== q.t);
-    if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
-    h += illTable(L.tables[q.t], null, { tap: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap rows to select them' });
+    if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, q.om && q.om[t.n] || null, {})).join('') + '</div>';
+    h += illTable(TS[q.t], null, { tap: { sel: f.sel, done: f.done, ans: q.ans }, role: q.role || 'Tap rows to select them' });
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'tapc') {
     const others = tabs.filter(t => t.n !== q.t);
     if (others.length) h += '<div class="ill-ins dim">' + others.map(t => illTable(t, null, {})).join('') + '</div>';
-    h += illTable(L.tables[q.t], null, { tapc: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap a column header' });
+    h += illTable(TS[q.t], null, { tapc: { sel: f.sel, done: f.done, ans: q.ans }, role: 'Tap a column header' });
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'cls') {
     h += '<div class="cls">' + q.items.map((it, i) => '<div class="cls-i' + (f.done ? (f.vals[i] === it[1] ? ' good' : ' wrong') : '') + '"><div class="cls-q">' + it[0] + '</div><div class="cls-b">' +
@@ -2538,13 +2603,16 @@ function viewVQ(step) {
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'mc') {
     h += '<div class="opts">' + f.opts.map((o, k) => '<button class="opt' + (f.done ? (o.i === 0 ? ' ok' : f.pick === k ? ' bad' : '') : '') + '" data-act="vqPick" data-k="' + k + '"' + (f.done ? ' disabled' : '') + '>' + o.x + '</button>').join('') + '</div>';
+  } else if (q.k === 'line') {
+    h += '<div class="qlines">' + f.lines.map((x, i) => '<button class="qline' + (f.done ? (i === q.ans ? ' ok' : f.pick === i ? ' bad' : '') : f.pick === i ? ' on' : '') + '" data-act="vqLine" data-k="' + i + '"' + (f.done ? ' disabled' : '') + '><span class="ln">' + (i + 1) + '</span><code>' + esc(x) + '</code></button>').join('') + '</div>';
+    if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'run') {
     h += '<textarea id="vqCode" class="mono editor" rows="6" spellcheck="false" autocapitalize="off"' + (f.done ? ' readonly' : '') + '>' + esc(f.code) + '</textarea>' +
       (f.out ? '<div class="out">' + f.out + '</div>' : '') +
       (!f.done ? '<div class="actions three"><button class="btn" data-act="vqRun">▶ Run</button><button class="btn primary" data-act="vqCheck">✓ Check</button></div>' : '');
   }
   if (!f.done) h += '<button class="btn ghost" data-act="vqIdk">I don\'t know: show me</button>';
-  else h += '<div class="feedback ' + (f.ok ? 'good' : 'badfb') + '">' + (f.ok ? '✅ Correct' : '↩️ Not quite. You\'ll see it again.' + (f.msg ? ' ' + esc(f.msg) : '')) + '</div><div class="hintbox">💡 ' + q.why + '</div>' + vqWrongWhy(f) +
+  else h += '<div class="feedback ' + (f.ok ? 'good' : 'badfb') + '">' + (f.ok ? '✅ Correct' : '↩️ Not quite. ' + (q.back && !step.back && !step.retry ? 'First one step back with a fresh example, then this question again.' : 'You\'ll see it again.') + (f.msg ? ' ' + esc(f.msg) : '')) + '</div><div class="hintbox">💡 ' + q.why + '</div>' + vqWrongWhy(f) + (q.k === 'line' && q.lw ? '<div class="whyw"><div class="lab">Why that line</div>' + q.lw + '</div>' : '') +
     (q.k === 'run' && !f.ok ? '<div class="lab">A correct query</div>' + QY(q.sol) : '') +
     '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button></div>';
   return h;
@@ -2557,12 +2625,25 @@ function vqWrongWhy(f) {
   return ws.length ? '<div class="whyw"><div class="lab">Why the other answers are wrong</div><ul>' + ws.map(x => '<li' + (x.i === picked ? ' class="picked"' : '') + '><b>' + x.o + '</b>' + (x.i === picked ? ' <span class="small">(your answer)</span>' : '') + ': ' + x.w + '</li>').join('') + '</ul></div>' : '';
 }
 function finishVQ(ok, msg) {
-  const step = SESSION.steps[SESSION.i]; const vs = visState(step.lesson); const t = today();
-  const r = vs.q[step.qi] || (vs.q[step.qi] = { n: 0, ok: null, miss: null }); r.n++; if (ok) r.ok = t; else r.miss = t;
+  const step = SESSION.steps[SESSION.i]; const vs = visState(step.lesson); const t = today(); const q = F.q; const L = ILLUS[step.lesson];
+  visMigrate(step.lesson); const id = vqId(step.lesson, step.qi);
+  const r = vs.qid[id] || (vs.qid[id] = { n: 0, ok: null, miss: null }); r.n++; if (ok) r.ok = t; else r.miss = t;
+  if (L.rung && q.rv) { // v10: light spaced review for application questions (1, 3, 7, 16 … days; a miss restarts at 1)
+    r.ivl = ok ? Math.min(60, Math.round((r.ivl || 0) ? r.ivl * 2.3 : 1)) : 1; r.due = addDays(t, r.ivl); }
+  if (q.plan && F.opts && F.pick >= 0) { if (!vs.plan) vs.plan = {}; vs.plan[q.plan] = q.o[0]; }
   F.done = true; F.ok = ok; F.msg = msg || '';
-  if (ok) { SESSION.stats.right++; addXP(5); } else { SESSION.stats.wrong++; const key = 'vq' + step.lesson + step.qi; if (!step.retry && !SESSION.requeued[key]) { SESSION.requeued[key] = true; SESSION.steps.push(Object.assign({}, step, { retry: true })); } }
+  if (ok) { SESSION.stats.right++; addXP(5); } else { SESSION.stats.wrong++; const key = 'vq' + step.lesson + step.qi;
+    if (!step.retry && !step.back && !SESSION.requeued[key]) { SESSION.requeued[key] = true;
+      // v10: a miss goes one step back to a fresh example, then the same question again
+      const bi = q.back ? L.qs.findIndex(x => x.id === q.back) : -1;
+      if (bi >= 0) SESSION.steps.splice(SESSION.i + 1, 0, { type: 'vq', lesson: step.lesson, qi: bi, back: true }, Object.assign({}, step, { retry: true, pos: null, of: null }));
+      else SESSION.steps.push(Object.assign({}, step, { retry: true, pos: null, of: null })); } }
   saveTerms(); save();
 }
+// v10: one-time copy of position-keyed answers to stable IDs (vs.q is left as it was)
+function visMigrate(lid) { const vs = visState(lid); if (vs.qid) return; vs.qid = {}; Object.keys(vs.q || {}).forEach(k => { const q = ILLUS[lid] && ILLUS[lid].qs[+k]; if (q && !q.id) vs.qid[lid + '.' + k] = Object.assign({}, vs.q[k]); }); }
+function planBox(lid, keys) { const p = (T.vis && T.vis[lid] && T.vis[lid].plan) || {}; const L = ILLUS[lid];
+  return '<div class="planbox"><div class="lab">Your plan</div><ul>' + keys.map(k => { const q = L.qs.find(x => x.plan === k); return '<li><b>' + q.pl + ':</b> ' + (p[k] || q.o[0]) + '</li>'; }).join('') + '</ul></div>'; }
 
 
 const GROUND = {
@@ -2900,6 +2981,585 @@ const TERMS4 = {
       spot: { q: 'chart_entries is partitioned by chart_date. How many partitions?', show: SC_PART, o: ['2 (10-16 and 10-17)', '3', '1', '4'], why: 'One partition per date value.' } }] },
     t3: 'A partition is {the rows that share one value of the partition key, such as a date (warehouses like BigQuery may store each one physically apart)}, {which lets jobs overwrite only that slice and lets the engine scan only that slice (partition pruning)} {and makes reruns of one day cheap and idempotent}.' }
 };
+
+/* ---------- v10: joins built up one change at a time (J1–J12), combination drills, a real task ----------
+   New steps carry v10:1 and an explicit id; old questions keep their position (id = lesson.position).
+   L.order lists the teaching order as [kind, index]; arrays are only ever appended to. */
+const JT = {
+  listeners: ILT('listeners', ['listener_id', 'name'], [[1, 'Ada'], [2, 'Tunde'], [3, 'Zainab']], 'CREATE TABLE listeners (listener_id INTEGER PRIMARY KEY, name TEXT NOT NULL);'),
+  streams: ILT('streams', ['stream_id', 'listener_id', 'song_id'], [[1, 1, 14], [2, 1, 8], [3, 2, 14], [4, 2, 1]], 'CREATE TABLE streams (stream_id INTEGER PRIMARY KEY, listener_id INTEGER REFERENCES listeners(listener_id), song_id INTEGER REFERENCES songs(song_id));'),
+  songs: ILT('songs', ['song_id', 'title'], [[1, 'Heaven Baby'], [8, 'Forgiveness'], [14, 'Calm Down']], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT NOT NULL);')
+};
+const JT5 = Object.assign({}, JT, { streams: ILT('streams', JT.streams.c, JT.streams.r.concat([[5, 1, 14]]), JT.streams.ddl) });
+const JTO = Object.assign({}, JT, { streams: ILT('streams', JT.streams.c, JT.streams.r.concat([[5, 9, 8]]), 'CREATE TABLE streams (stream_id INTEGER PRIMARY KEY, listener_id INTEGER, song_id INTEGER);') });
+const SHOP = {
+  customers: ILT('customers', ['customer_id', 'name'], [[21, 'Bisi'], [22, 'Kunle'], [23, 'Ngozi']], 'CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT NOT NULL);'),
+  orders: ILT('orders', ['order_id', 'customer_id'], [[1, 21], [2, 21], [3, 22], [4, 21], [5, 23]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(customer_id));')
+};
+const J_ERD = { boxes: [{ n: 'listeners', x: 6, y: 6, cols: [['listener_id', 'PK'], ['name']] }, { n: 'streams', sub: 'event', x: 214, y: 6, cols: [['stream_id', 'PK'], ['listener_id', 'FK'], ['song_id', 'FK']] }, { n: 'songs', x: 6, y: 90, cols: [['song_id', 'PK'], ['title']] }],
+  links: [{ f: ['streams', 'listener_id'], t: ['listeners', 'listener_id'] }, { f: ['streams', 'song_id'], t: ['songs', 'song_id'] }], label: 'listeners, streams and songs' };
+const J5R = ILT('result', ['stream_id', 'listener_id', 'song_id', 'name'], [[1, 1, 14, 'Ada'], [2, 1, 8, 'Ada'], [3, 2, 14, 'Tunde'], [4, 2, 1, 'Tunde']]);
+const J9R = ILT('result', ['listener_id', 'name', 'stream_id'], [[1, 'Ada', 1], [1, 'Ada', 2], [2, 'Tunde', 3], [2, 'Tunde', 4]]);
+const SHOWT = (ts, names) => '<div class="ill-ins' + (names.length === 2 ? ' two' : '') + '">' + names.map(n => illTable(ts[n], null, {})).join('') + '</div>';
+const HOSP = '<div class="ill-ins two">' + illTable(ILT('appointments', ['appt_id', 'patient_id'], [[1, 7], [2, 7], [3, 8]]), null, {}) + illTable(ILT('patients', ['patient_id', 'name'], [[7, 'Musa'], [8, 'Ife'], [9, 'Kemi']]), null, {}) + '</div>';
+const SCHOOL = '<div class="ill-ins two">' + illTable(ILT('students', ['student_id', 'name'], [[1, 'Amaka'], [2, 'Bayo'], [3, 'Chika']]), null, {}) + illTable(ILT('enrolments', ['student_id', 'course'], [[1, 'Maths'], [1, 'Physics'], [1, 'Art'], [2, 'Maths']]), null, {}) + '</div>';
+// count chips: [[label, rows], …]
+ILL_FIGS.cnt = sc => '<div class="cntf">' + sc.fp.map((x, i) => (i ? '<span class="farr">→</span>' : '') + '<span class="cntc"><b>' + x[1] + '</b> ' + x[0] + '</span>').join('') + '</div>';
+// one pointer followed by hand
+ILL_FIGS.ptr = sc => '<div class="ptrf"><span class="cntc">' + sc.fp[0] + '</span><span class="farr">→</span><span class="cntc">' + sc.fp[1] + '</span></div>';
+function v10Seq(L, seq, tail) {
+  L.order = [];
+  seq.forEach(x => { if (x.s) { x.s.v10 = 1; L.order.push(['s', L.scenes.push(x.s) - 1]); } else { x.q.v10 = 1; L.order.push(['q', L.qs.push(x.q) - 1]); } });
+  if (tail) L.order = L.order.concat(tail);
+}
+const S_ = s => ({ s }), Q_ = q => ({ q });
+const mcq = (id, q, o, w, why, x) => Object.assign({ id, k: 'mc', q, o, w, why }, x || {});
+const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans, why }, x || {});
+{
+  const L = ILLUS.sql5; L.id = 'sql5'; L.tsets = { j: JT, jo: JTO, shop: SHOP };
+  const legacy = L.scenes.map((_, i) => ['s', i]).concat(L.qs.map((_, i) => ['q', i]));
+  const nS = L.scenes.length; // legacy scenes and questions keep their positions
+  const J = { ts: 'j' };
+  const tapJ = (id, q, t, ans, why) => tapq(id, q, t, ans, why, { ts: 'j', only: ['listeners', 'streams', 'songs'].filter(n => n === t || n === 'streams' || q.indexOf(n) >= 0) });
+  v10Seq(L, [
+    S_({ h: 'Step 1 · Three tables you already know', ts: 'j', fig: 'erd', fp: J_ERD, stack: true,
+      ask: 'Which of these three tables records events, and what does one of its rows mean?',
+      say: 'In <i>Entities, events &amp; relationships</i> you sorted tables into entities (things that exist on their own) and events (records that something happened). These are three of those tables, with a few rows from the app’s practice database. <b>listeners</b> has one row per listener and <b>songs</b> has one row per song. Read the rows of <b>streams</b> before you answer on the next screen.',
+      ins: [{ t: 'listeners' }, { t: 'streams' }, { t: 'songs' }] }),
+    Q_(mcq('sql5.j1', 'Which table records events, and what does one of its rows mean?',
+      ['streams: one row means one listener played one song once', 'listeners: one row means one person who uses the app', 'songs: one row means one song in the catalogue', 'streams: one row means one listener together with all of their plays'],
+      [null, 'listeners is an entity: a listener exists even if they never play anything.', 'songs is an entity: a song exists even if nobody plays it.', 'A streams row holds a single song_id, so it can describe only one play. A listener’s plays are spread over several rows.'],
+      'An event table records that something happened. Each streams row is one play: who played (listener_id) and what was played (song_id).', J)),
+    S_({ h: 'Step 2 · Two columns that point', ts: 'j',
+      link: 'Step 1 found that one streams row is one play. A play has to say who played and what was played.',
+      ask: 'In stream 1, which column says who played, and which says what was played?',
+      say: '<code>streams.listener_id</code> holds the ID of a row in <code>listeners</code>, and <code>streams.song_id</code> holds the ID of a row in <code>songs</code>. A column that holds another table’s primary key is a <b>foreign key</b> (FK): its value names exactly one row of the other table. Stream 1 has listener_id 1 and song_id 14.',
+      ins: [{ t: 'streams', m: ['m', '', '', ''], why: ['stream 1: listener_id 1 says who played; song_id 14 says what was played'] }] }),
+    Q_({ id: 'sql5.j2', k: 'tapc', ts: 'j', only: ['streams'], q: 'In <code>streams</code>, tap the column that says <b>who</b> played the song.', t: 'streams', ans: [1],
+      why: 'listener_id holds the ID of a row in listeners, so it says who played. song_id says what was played, and stream_id only numbers the play itself.' }),
+    Q_(mcq('sql5.j2b', 'Stream 1 has song_id 14. What does the 14 refer to?',
+      ['the row of songs whose song_id is 14 (Calm Down)', 'the 14th row of songs, counted from the top', 'the number of times the song was played', 'stream number 14'],
+      [null, 'A foreign key holds an ID value, not a row position; songs has only 3 rows, and row order is not stored meaning.', 'Each stream row is one play; the count of plays comes from counting rows.', 'The stream’s own number is in stream_id (it is 1 here).'],
+      'A foreign key value names the row in the other table with the same key value: song_id 14 in songs is Calm Down.', J)),
+    S_({ h: 'Step 3 · Follow one pointer by hand', ts: 'j', fig: 'ptr', fp: ['streams · stream 2 · listener_id = 1', 'listeners · listener_id 1 = Ada'],
+      link: 'Step 2 found that listener_id names one row of listeners. Now follow that name for one stream.',
+      ask: 'Who played stream 2?',
+      say: 'Stream 2 has listener_id 1. In <code>listeners</code>, the row whose listener_id is also 1 is Ada, so Ada played stream 2. Nothing was copied or calculated: you looked up one value in another table.',
+      ins: [{ t: 'streams', m: ['', 'm', '', ''], why: [null, 'stream 2: listener_id = 1 is the value we follow'] }, { t: 'listeners', m: ['m', '', ''], why: ['listener_id 1 equals stream 2’s listener_id, so Ada played stream 2'] }] }),
+    Q_(tapJ('sql5.j3', 'Stream 3 has listener_id 2. In <code>listeners</code>, tap the listener who played stream 3.', 'listeners', [1], 'Tunde’s listener_id is 2, the same value as stream 3’s listener_id.')),
+    S_({ h: 'Step 4 · Which way does the pointer go?', ts: 'j',
+      link: 'In Step 3 you started at one stream and found exactly one listener.',
+      ask: 'How many listeners can one stream point to, and how many streams can point to one listener?',
+      say: 'Look at the listener_id column of <code>streams</code>. Each stream row has one listener_id cell, and a cell holds one value. Different rows are allowed to hold the same value. The colours show which streams hold the same listener_id.',
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g1', 'g1'] }, { t: 'listeners', m: ['g0', 'g1', ''] }], lg: { g: 'same colour = the same listener_id' } }),
+    Q_(mcq('sql5.j4', 'How many listeners can one stream point to, and how many streams can point to one listener?',
+      ['one listener per stream; many streams per listener', 'many listeners per stream; one stream per listener', 'exactly one each way', 'many each way'],
+      [null, 'A stream has a single listener_id cell, so it can name only one listener.', 'Streams 1 and 2 both hold listener_id 1, so one listener can have many streams.', 'A cell holds one value, so a stream cannot name many listeners; many on both sides needs a linking table.'],
+      'This is <b>one-to-many</b>: one listener, many streams. The foreign key sits on the many side (streams), because each of its rows names one row on the one side.', J)),
+    S_({ h: 'Step 5 · Every stream gets its listener, by hand', ts: 'j',
+      link: 'Step 3 followed the pointer for one stream, and Step 4 showed that each stream names exactly one listener.',
+      ask: 'What is the name of the listener for each of the four streams?',
+      say: 'Do the Step 3 lookup once for every stream, one at a time. The next four screens each give you one stream to look up.',
+      ins: [{ t: 'streams' }, { t: 'listeners' }] }),
+    Q_(tapJ('sql5.j5a', 'Stream 1 has listener_id 1. Tap its listener.', 'listeners', [0], 'listener_id 1 is Ada.')),
+    Q_(tapJ('sql5.j5b', 'Stream 2 has listener_id 1. Tap its listener.', 'listeners', [0], 'listener_id 1 is Ada again: one listener can have several streams.')),
+    Q_(tapJ('sql5.j5c', 'Stream 3 has listener_id 2. Tap its listener.', 'listeners', [1], 'listener_id 2 is Tunde.')),
+    Q_(tapJ('sql5.j5d', 'Stream 4 has listener_id 2. Tap its listener.', 'listeners', [1], 'listener_id 2 is Tunde.')),
+    S_({ h: 'Step 5 · Your four answers as one table', ts: 'j',
+      link: 'You looked up one listener for each of the four streams.',
+      ask: 'What does a table of your answers look like?',
+      say: 'Write each stream again with the name you found next to it. The result has the three stream columns plus a new <b>name</b> column. Each result row is still one stream, because you did one lookup per stream.',
+      ins: [{ t: 'streams', role: 'Before: streams' }],
+      out: { role: 'After: each stream with its listener’s name', c: ['stream_id', 'listener_id', 'song_id', 'name'], r: J5R.r, m: ['n', 'n', 'n', 'n'], nc: [3],
+        why: ['stream 1: listener_id 1 → Ada', 'stream 2: listener_id 1 → Ada', 'stream 3: listener_id 2 → Tunde', 'stream 4: listener_id 2 → Tunde'] },
+      lg: { n: '＋ name added by your lookup' } }),
+    Q_(mcq('sql5.j6', '<code>streams</code> has 4 rows. How many rows does your table of answers from Step 5 have, and why?',
+      ['4: one lookup per stream, and each stream finds exactly one listener', '3: one row per listener', '2: one row per listener who has streams', '12: every stream with every listener'],
+      [null, 'The table was built stream by stream; listeners only supplied the names.', 'Ada and Tunde each appear twice, once per stream. Rows are not merged.', 'Each stream was paired only with the listener its listener_id names, not with all three.'],
+      'Following a pointer from the many side (streams) to the one side (listeners) gives one row per stream. Ada appears twice only because she has two streams.',
+      { ts: 'j', ref: false, show: illTable(J5R, null, { role: 'Your table from Step 5' }), back: 'sql5.j6b' })),
+    Q_(mcq('sql5.j6b', 'A fresh example: a clinic. Each appointment names one patient. Look up the patient for each appointment by hand. How many rows does “each appointment with its patient’s name” have?',
+      ['3: one per appointment', '2: Musa once and Ife once', '1: only Musa, who has two appointments', '9: every appointment with every patient'],
+      [null, 'Musa has two appointments, so he appears twice; rows are not merged.', 'Every appointment gets a row, not only the patients with several.', 'Each appointment is paired only with the patient its patient_id names.'],
+      'Appointment 1 → Musa, appointment 2 → Musa, appointment 3 → Ife. Three lookups give three rows. Kemi has no appointment, so no row mentions her.', { ref: false, show: HOSP })),
+    S_({ h: 'Step 6 · The rule: one row per many-side row', ts: 'j', fig: 'cnt', fp: [['streams in', 4], ['rows out', 4]],
+      link: 'You counted 4 streams going in and 4 rows coming out.',
+      ask: 'Why does the count stay the same?',
+      say: 'Each stream names exactly one listener, so each stream produces exactly one result row. When you follow a pointer from the many side (streams) to the one side (listeners), the result keeps <b>one row per many-side row</b>. Ada appears twice only because two streams point to her.',
+      ins: [{ t: 'streams', role: 'Before: streams' }], out: { role: 'After: one row per stream', c: J5R.c, r: J5R.r, nc: [3] } }),
+    S_({ h: 'Step 7 · Write the lookup as SQL', ts: 'j',
+      link: 'Steps 5 and 6 did the lookup by hand: for each stream, find the listener whose listener_id is the same.',
+      ask: 'How do you ask the database to do that same lookup?',
+      say: '<code>FROM streams st</code> means “go through streams one row at a time”. <code>JOIN listeners l</code> means “bring in listeners”. <code>ON l.listener_id = st.listener_id</code> is the rule you used by hand: pair each stream with the listener whose ID equals the stream’s listener_id. <code>st</code> and <code>l</code> are short names (aliases) for the two tables. Run it and compare it with your table from Step 5.',
+      sql: 'SELECT st.stream_id, st.listener_id, st.song_id, l.name\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;',
+      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm'], role: 'FROM: gone through row by row', why: ['listener_id 1 matches Ada', 'listener_id 1 matches Ada', 'listener_id 2 matches Tunde', 'listener_id 2 matches Tunde'] },
+        { t: 'listeners', m: ['m', 'm', 'x'], role: 'JOIN: looked up', why: ['matched by streams 1 and 2', 'matched by streams 3 and 4', 'no stream holds listener_id 3, so no result row uses Zainab'] }],
+      out: { c: J5R.c, r: J5R.r, m: ['m', 'm', 'm', 'm'], nc: [3], why: ['stream 1 with Ada', 'stream 2 with Ada', 'stream 3 with Tunde', 'stream 4 with Tunde'] },
+      lg: { x: '✕ no stream points here' } }),
+    Q_(mcq('sql5.j7', 'Which part of the query is the rule you followed by hand in Step 3?',
+      ['ON l.listener_id = st.listener_id', 'FROM streams st', 'JOIN listeners l', 'SELECT st.stream_id, l.name'],
+      [null, 'FROM only says which table is gone through row by row.', 'JOIN only says which table to bring in; it does not say which rows pair up.', 'SELECT only chooses the columns to show.'],
+      'ON is the matching rule: a stream pairs with the listener whose listener_id equals its own.', { ts: 'j', sql: 'SELECT st.stream_id, l.name\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;' })),
+    Q_(mcq('sql5.j7t', 'A different place: a shop. Each order row names one customer. Which query gives each order with its customer’s name?',
+      ['SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id;', 'SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.order_id;', 'SELECT o.order_id, c.name FROM orders o JOIN customers c;', 'SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.name = o.customer_id;'],
+      [null, 'order_id numbers the order; it is not a customer’s ID, so it would pair orders with the wrong customers (or none).', 'Without ON nothing restricts the pairs, so SQLite pairs every order with every customer.', 'A name is text and customer_id is a number, so no row would ever match.'],
+      'Same pattern as streams and listeners: the order’s foreign key, customer_id, must equal the customer’s primary key.', { ts: 'shop', back: 'sql5.j7b' })),
+    Q_(tapq('sql5.j7b', 'One step back, by hand: order 3 has customer_id 22. Tap that customer.', 'customers', [1], 'customer_id 22 is Kunle. ON c.customer_id = o.customer_id does exactly this lookup for every order.', { ts: 'shop' })),
+    S_({ h: 'Step 8 · A second pointer: songs', ts: 'j',
+      link: 'Step 7 gave each stream its listener’s name. Each stream also has a song_id, which points to songs.',
+      ask: 'Which title does each stream’s song_id name?',
+      say: 'Do the same kind of lookup again, this time from song_id to <code>songs</code>. Start from your table from Step 7. The next four screens each give you one stream.',
+      ins: [{ tab: J5R, role: 'From Step 7' }, { t: 'songs' }] }),
+    Q_(tapJ('sql5.j8a', 'Stream 1 has song_id 14. Tap its song.', 'songs', [2], 'song_id 14 is Calm Down.')),
+    Q_(tapJ('sql5.j8b', 'Stream 2 has song_id 8. Tap its song.', 'songs', [1], 'song_id 8 is Forgiveness.')),
+    Q_(tapJ('sql5.j8c', 'Stream 3 has song_id 14. Tap its song.', 'songs', [2], 'song_id 14 is Calm Down again: one song can be played many times.')),
+    Q_(tapJ('sql5.j8d', 'Stream 4 has song_id 1. Tap its song.', 'songs', [0], 'song_id 1 is Heaven Baby.')),
+    S_({ h: 'Step 8 · Two joins, one per pointer', ts: 'j',
+      link: 'You found one title for each of the four streams.',
+      ask: 'Who played what?',
+      say: 'Each JOIN follows one pointer. The first adds the listener’s name, and the second adds the song title. Both follow pointers from the many side, so the result is still one row per stream: 4 rows.',
+      sql: 'SELECT st.stream_id, l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;', stack: true,
+      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm'], role: 'FROM', why: ['listener 1 (Ada), song 14 (Calm Down)', 'listener 1 (Ada), song 8 (Forgiveness)', 'listener 2 (Tunde), song 14 (Calm Down)', 'listener 2 (Tunde), song 1 (Heaven Baby)'] },
+        { t: 'listeners', m: ['m', 'm', 'x'], role: 'first JOIN', why: ['named by streams 1 and 2', 'named by streams 3 and 4', 'no stream names listener 3'] },
+        { t: 'songs', m: ['m', 'm', 'm'], role: 'second JOIN', why: ['named by stream 4', 'named by stream 2', 'named by streams 1 and 3'] }],
+      out: { c: ['stream_id', 'name', 'title'], r: [[1, 'Ada', 'Calm Down'], [2, 'Ada', 'Forgiveness'], [3, 'Tunde', 'Calm Down'], [4, 'Tunde', 'Heaven Baby']], m: ['m', 'm', 'm', 'm'], nc: [1, 2],
+        why: ['stream 1: Ada played Calm Down', 'stream 2: Ada played Forgiveness', 'stream 3: Tunde played Calm Down', 'stream 4: Tunde played Heaven Baby'] },
+      lg: { x: '✕ no stream points here' } }),
+    Q_(mcq('sql5.j8', 'How many rows does the two-join query return?',
+      ['4: one per stream', '3: one per song', '2: one per listener with streams', '36: 4 × 3 × 3'],
+      [null, 'Calm Down is named by two streams, so it appears twice; songs are not merged.', 'Each listener appears once per stream they made.', 'ON keeps only the matching pairs, so tables are not multiplied.'],
+      'Both joins go from the many side (streams) to a one side, so each stream stays exactly one row.', { ts: 'j', sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;' })),
+    S_({ h: 'Step 9 · Start from the other side', ts: 'j',
+      link: 'So far every query started FROM streams, the many side, and the row count stayed at 4.',
+      ask: 'If you start from listeners instead, how many streams belong to each listener?',
+      say: 'Now go through <code>listeners</code> one row at a time. For each listener, find <b>every</b> stream whose listener_id equals theirs. A listener can have no streams, one, or several.',
+      ins: [{ t: 'listeners' }, { t: 'streams' }] }),
+    Q_(tapJ('sql5.j9a', 'Ada has listener_id 1. In <code>streams</code>, tap every stream with listener_id 1.', 'streams', [0, 1], 'Streams 1 and 2 both hold listener_id 1.')),
+    Q_(tapJ('sql5.j9b', 'Tunde has listener_id 2. Tap every stream with listener_id 2.', 'streams', [2, 3], 'Streams 3 and 4 both hold listener_id 2.')),
+    Q_(mcq('sql5.j9c', 'Zainab has listener_id 3. Which streams have listener_id 3?',
+      ['none', 'stream 3', 'every stream', 'stream 1'],
+      [null, 'Stream 3’s listener_id is 2 (Tunde); its stream_id happens to be 3, but stream_id only numbers the play.', 'Each stream names one listener, and none of them names 3.', 'Stream 1 has listener_id 1 (Ada).'],
+      'No streams row holds listener_id 3. Zainab is a listener who has not played anything yet.', { ts: 'j', only: ['listeners', 'streams'] })),
+    Q_(mcq('sql5.j9', 'You start from 3 listeners. Ada has 2 streams, Tunde has 2 and Zainab has 0. How many rows does <code>FROM listeners l JOIN streams st ON st.listener_id = l.listener_id</code> return?',
+      ['4', '3', '6', '2'],
+      [null, '3 would be one row per listener, but a listener with two streams gets two rows.', '6 assumes 2 streams for each of the 3 listeners, but Zainab has none.', '2 counts the listeners who have streams, but each of their streams is a separate row.'],
+      '2 + 2 + 0 = 4. A join gives one row per matching pair, so starting from the one side repeats each listener once per stream.', { ts: 'j', only: ['listeners', 'streams'], back: 'sql5.j9back' })),
+    Q_(mcq('sql5.j9back', 'One step back, with a fresh example: a school. Amaka is enrolled in 3 courses, Bayo in 1 and Chika in none. Count by hand: how many rows does joining students to enrolments give?',
+      ['4', '3', '9', '2'],
+      [null, '3 would be one row per student, but Amaka gets one row per course.', '9 pairs every student with three courses; only real enrolments match.', '2 counts the students with enrolments, not their enrolments.'],
+      'Amaka 3 + Bayo 1 + Chika 0 = 4 rows: one per matching (student, enrolment) pair.', { ref: false, show: SCHOOL })),
+    S_({ h: 'Step 9 · One listener became two rows: fan-out', ts: 'j', fig: 'cnt', fp: [['listeners in', 3], ['rows out', 4]],
+      link: 'You counted 2 + 2 + 0 = 4 rows from 3 listeners.',
+      ask: 'Why did the number of rows change?',
+      say: 'Starting from the one side (listeners), each listener is repeated once for every stream that points to them, so Ada and Tunde each become 2 rows. Zainab has no matching stream, and a plain JOIN (an INNER JOIN) keeps only rows that found a partner, so she is dropped. This repeating is called <b>fan-out</b>: joining from the one side to the many side gives one row per matching pair, so the count can grow or shrink.',
+      sql: 'SELECT l.listener_id, l.name, st.stream_id\nFROM listeners l\nJOIN streams st\n  ON st.listener_id = l.listener_id;',
+      ins: [{ t: 'listeners', m: ['d', 'd', 'x'], role: 'FROM: the one side', why: ['Ada matches streams 1 and 2, so she appears twice', 'Tunde matches streams 3 and 4, so he appears twice', 'no stream has listener_id 3, so the plain JOIN drops Zainab'] },
+        { t: 'streams', m: ['m', 'm', 'm', 'm'], role: 'JOIN: the many side', why: ['matches Ada', 'matches Ada', 'matches Tunde', 'matches Tunde'] }],
+      out: { c: J9R.c, r: J9R.r, m: ['d', 'd', 'd', 'd'], why: ['Ada, first copy: paired with stream 1', 'Ada, second copy: paired with stream 2', 'Tunde, first copy: paired with stream 3', 'Tunde, second copy: paired with stream 4'] },
+      lg: { d: '2× this listener appears twice', x: '✕ no matching stream: dropped' } }),
+    Q_(mcq('sql5.j9t', 'A shop has 3 customers. Bisi has 3 orders, Kunle has 1 and Ngozi has 1. How many rows does <code>FROM customers c JOIN orders o ON o.customer_id = c.customer_id</code> return?',
+      ['5', '3', '9', '4'],
+      [null, '3 is one row per customer, but Bisi gets one row per order.', '9 pairs every customer with every order; ON keeps only matching pairs.', 'Count every order once: 3 + 1 + 1.'],
+      'One row per matching (customer, order) pair: 3 + 1 + 1 = 5. Bisi appears 3 times.', { ts: 'shop' })),
+    S_({ h: 'Step 10 · Does the written order change the answer?', ts: 'j', stack: false,
+      link: 'Step 6 started from the many side and Step 9 from the one side, and both gave 4 rows.',
+      ask: 'Do FROM streams JOIN listeners and FROM listeners JOIN streams contain different pairs?',
+      say: 'Put the two results side by side. They hold the same 4 (stream, listener) pairs; only the column order differs. With a plain JOIN, the written order does not change which pairs match. What changed between Steps 6 and 9 was the question you asked (“for each stream” or “for each listener”), not the result. The written order does matter for LEFT JOIN, which comes later in this lesson.',
+      ins: [{ tab: ILT('FROM streams JOIN listeners', ['stream_id', 'name'], [[1, 'Ada'], [2, 'Ada'], [3, 'Tunde'], [4, 'Tunde']]), role: 'Step 6 (from streams)' }, { tab: ILT('FROM listeners JOIN streams', ['name', 'stream_id'], [['Ada', 1], ['Ada', 2], ['Tunde', 3], ['Tunde', 4]]), role: 'Step 9 (from listeners)' }] }),
+    Q_(mcq('sql5.j10', 'How many rows does <code>FROM songs s JOIN streams st ON st.song_id = s.song_id</code> return?',
+      ['4: one per stream; Calm Down appears twice', '3: one per song', '2: only songs played twice', '12: every song with every stream'],
+      [null, 'Calm Down is named by two streams, so it gets two rows.', 'Heaven Baby and Forgiveness each have one stream, and each stream is a row.', 'ON keeps only the pairs where song_id matches.'],
+      'Same pairs whichever table is written first: each stream matches one song, so there are 4 rows.', { ts: 'j', only: ['songs', 'streams'] })),
+    Q_(mcq('sql5.j10h', 'A clinic report must list every appointment with its patient’s name. Every appointment names a patient who exists. How many rows should the joined result have?',
+      ['the number of appointments', 'the number of patients', 'patients × appointments', 'the number of patients who have an appointment'],
+      [null, 'A patient with two appointments appears twice.', 'ON keeps only the matching pairs.', 'That counts people, but the report lists appointments.'],
+      'appointments is the many side; following each appointment’s patient_id gives one row per appointment.', { ref: false, show: HOSP })),
+    S_({ h: 'Step 10 · When a pointer points nowhere', ts: 'jo',
+      link: 'Steps 6 to 9 assumed that every listener_id names a real listener.',
+      ask: 'What happens to a stream whose listener_id matches no listener?',
+      say: 'Stream 5 holds listener_id 9, and no listener has ID 9. A key like that is called an <b>orphan key</b>. A plain JOIN finds no partner for stream 5, so the stream disappears from the result, and a count of plays after the join would be 1 too low. A FOREIGN KEY constraint that the database enforces stops such rows from being written (SQLite enforces it only after <code>PRAGMA foreign_keys = ON</code>). To find orphans, use a LEFT JOIN and keep the rows where the listener side is NULL.',
+      sql: 'SELECT st.stream_id, l.name\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;',
+      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm', 'x'], why: ['listener 1 exists (Ada)', 'listener 1 exists (Ada)', 'listener 2 exists (Tunde)', 'listener 2 exists (Tunde)', 'listener_id 9 matches no listener, so the plain JOIN drops this stream'] }],
+      out: { c: ['stream_id', 'name'], r: [[1, 'Ada'], [2, 'Ada'], [3, 'Tunde'], [4, 'Tunde']], m: ['m', 'm', 'm', 'm'], why: ['kept: matched Ada', 'kept: matched Ada', 'kept: matched Tunde', 'kept: matched Tunde'] },
+      lg: { x: '✕ orphan key: dropped' } }),
+    S_({ h: 'Step 11 · Join, then count', ts: 'j',
+      link: 'Step 9 gave one row per stream, with each listener repeated once per stream.',
+      ask: 'How many streams does each listener have?',
+      say: 'Counting the repeated rows answers it. <code>GROUP BY l.listener_id, l.name</code> puts each listener’s rows into one group, and <code>COUNT(*)</code> counts the rows in each group. Group by the ID as well as the name, because two listeners could share a name.',
+      sql: 'SELECT l.name, COUNT(*) AS plays\nFROM listeners l\nJOIN streams st ON st.listener_id = l.listener_id\nGROUP BY l.listener_id, l.name;',
+      ins: [{ tab: J9R, m: ['g0', 'g0', 'g1', 'g1'], role: 'Before: the rows after the join (Step 9)' }],
+      out: { c: ['name', 'plays'], r: [['Ada', 2], ['Tunde', 2]], m: ['g0', 'g1'], nc: [1] },
+      lg: { g: 'same colour = one group (one listener)' } }),
+    Q_(mcq('sql5.j11', 'Zainab is not in the Step 11 result. Why, and what would keep her with 0 plays?',
+      ['the plain JOIN dropped her because no stream points to her; LEFT JOIN from listeners with COUNT(st.stream_id) gives her 0', 'COUNT(*) skips names it cannot count', 'GROUP BY removes groups that have only one row', 'SQL never shows a count of 0'],
+      [null, 'COUNT(*) counts rows; Zainab has no row left to count after the plain JOIN.', 'GROUP BY keeps every group, including groups of one row.', 'With a LEFT JOIN she keeps one row with NULLs, and COUNT(st.stream_id) counts no non-NULL values there, so it shows 0.'],
+      'Rows dropped by the join cannot be counted. LEFT JOIN keeps her row (stream columns NULL), and COUNT of a stream column ignores NULLs, so she gets 0. COUNT(*) would give 1, because her row exists.', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 12 · No matching rule: every pair', ts: 'j',
+      link: 'Every join so far used ON to keep only the pairs whose IDs match.',
+      ask: 'What happens when nothing restricts the pairs?',
+      say: '<code>CROSS JOIN</code> pairs every row of the first table with every row of the second: 3 listeners × 3 songs = 9 rows. This is useful on purpose, for example to build a grid of every listener with every song before filling in play counts. By accident (a forgotten ON on large tables) it multiplies the rows and the totals.',
+      sql: 'SELECT l.name, s.title\nFROM listeners l\nCROSS JOIN songs s;',
+      ins: [{ t: 'listeners' }, { t: 'songs' }],
+      out: { c: ['name', 'title'], r: [['Ada', 'Heaven Baby'], ['Ada', 'Forgiveness'], ['Ada', 'Calm Down'], ['Tunde', 'Heaven Baby'], ['Tunde', 'Forgiveness'], ['Tunde', 'Calm Down'], ['Zainab', 'Heaven Baby'], ['Zainab', 'Forgiveness'], ['Zainab', 'Calm Down']] } }),
+    Q_(mcq('sql5.j12', 'Why does the CROSS JOIN result have 9 rows?',
+      ['3 listeners × 3 songs: every pair, with no matching rule', 'one per stream, plus 5 extra', 'it repeats the songs table 3 times by mistake', '3 + 3 + 3 streams'],
+      [null, 'CROSS JOIN does not read streams at all.', 'Repeating every song once per listener is exactly what CROSS JOIN is defined to do.', 'There are 4 streams, and CROSS JOIN does not use them.'],
+      'CROSS JOIN returns rows(first) × rows(second) because it pairs every row with every row.', { ts: 'j', only: ['listeners', 'songs'] })),
+    Q_(mcq('sql5.j12t', 'A bank has 1,000 accounts and a table of 48 months. How many rows does <code>accounts CROSS JOIN months</code> return?',
+      ['48,000', '1,048', '1,000', '48'],
+      [null, 'That adds the row counts; a cross join multiplies them.', 'Every account is repeated once per month.', 'Every month is repeated once per account.'],
+      '1,000 × 48 = 48,000: one row for each (account, month) pair, the usual start of a monthly balance report.', { ref: false })),
+    S_({ h: 'Next: joins that keep unmatched rows', fig: 'cnt', fp: [['plain JOIN', 'matches only'], ['LEFT/RIGHT/FULL', 'keep unmatched rows too']],
+      link: 'Every join in Steps 7 to 11 was a plain JOIN, which drops rows with no partner (Zainab, the orphan stream).',
+      ask: 'How do you keep the rows that have no partner?',
+      say: 'The next pictures answer that with a new pair of tables, <code>artists</code> and <code>songs</code>. In this pair, Asake has no song and Mystery Song points to an artist who does not exist, so each side has one row without a partner.' })
+  ], legacy);
+  // legacy scenes: a question banner first, and wrong options explained where a count was asked
+  const asks = ['Which table is LEFT and which is RIGHT?', 'Which rows have a partner on the other side?', 'Which rows does LEFT JOIN keep?', 'Which rows does RIGHT JOIN keep?', 'Which rows does FULL OUTER JOIN keep?', 'What changes when the two tables swap places?'];
+  asks.forEach((a, i) => { if (L.scenes[i]) L.scenes[i].ask = a; });
+  L.qs[2].w = [null, '3 forgets one unmatched row: FULL keeps both Asake and Mystery Song.', '2 is the INNER JOIN count: matches only.', '6 would be every artist with every song (3 × 2).'];
+  L.qs[5].w = [null, '2 is only the matches; RIGHT JOIN also keeps Mystery Song.', '4 is FULL OUTER JOIN: it would also keep Asake.', 'Every song stays, and there are 3 songs.'];
+}
+/* sqlm: P5 split into three pictures (picture audit §1) and the pair-key INSERT */
+{
+  const L = ILLUS.sqlm; L.id = 'sqlm';
+  L.tables.playlist_songs = ILT('playlist_songs', ['playlist_id', 'song_id'], [[1, 10], [1, 12], [2, 11], [2, 10]], 'CREATE TABLE playlist_songs (playlist_id INTEGER, song_id INTEGER, PRIMARY KEY (playlist_id, song_id));');
+  const p5 = L.scenes[4];
+  Object.assign(p5, { v10: 1, h: 'Same pattern: songs on playlists', ins: [{ t: 'playlists' }, { t: 'playlist_songs', role: 'the linking table: one row per (playlist, song) pair' }], out: undefined, sql: undefined, lg: undefined,
+    link: 'Streams linked listeners and songs. A playlist and its songs are the same shape: many on both sides.',
+    say: 'A song can be on many playlists, and a playlist holds many songs, so neither table can hold the other’s ID in one column. The linking table <code>playlist_songs</code> holds one row per pair: (1, 10) means song 10 is on playlist 1. The next two pictures use it to answer a question and to show why the same pair cannot be stored twice.' });
+  const seq = [
+    S_({ h: 'Which songs are on Naija Hits?',
+      link: 'The previous picture showed that each playlist_songs row is one (playlist, song) pair.',
+      ask: 'Which songs are on the playlist Naija Hits?',
+      say: 'Naija Hits has playlist_id 1. Keep the pairs whose playlist_id is 1, then follow each kept song_id to <code>songs</code> for the title. The first JOIN brings in the playlist name so the WHERE can test it; the second brings in the title.',
+      sql: "SELECT p.name AS playlist, s.title\nFROM playlist_songs ps\nJOIN playlists p ON p.playlist_id = ps.playlist_id\nJOIN songs s     ON s.song_id = ps.song_id\nWHERE p.name = 'Naija Hits';",
+      ins: [{ t: 'playlist_songs', m: ['m', 'm', 'x', 'x'], role: 'the link', why: ['playlist 1 is Naija Hits; song 10 is Last Last', 'playlist 1 is Naija Hits; song 12 is Joha', 'playlist 2 is Chill, so WHERE removes it', 'playlist 2 is Chill, so WHERE removes it'] }],
+      out: { c: ['playlist', 'title'], r: [['Naija Hits', 'Last Last'], ['Naija Hits', 'Joha']], m: ['m', 'm'], why: ['from the pair (1, 10)', 'from the pair (1, 12)'] },
+      lg: { m: '✓ pair on Naija Hits', x: '✕ pair on another playlist' } }),
+    S_({ h: 'The pair is the key',
+      link: 'Naija Hits came from two pairs with playlist_id 1. Each pair is stored once.',
+      ask: 'What happens if you add a pair that is already there, and what if only one half of it repeats?',
+      say: 'The primary key of <code>playlist_songs</code> is the pair <code>(playlist_id, song_id)</code>. Adding (1, 10) again fails with “UNIQUE constraint failed”, because that exact pair exists. Adding (2, 12) is allowed: playlist 2 and song 12 each already appear, but never together, and only the whole pair must be unique.',
+      sql: 'INSERT INTO playlist_songs VALUES (1, 10);',
+      ins: [{ t: 'playlist_songs', m: ['x', '', '', ''], why: ['(1, 10) already exists, so a second (1, 10) is refused'] }],
+      out: { err: 'UNIQUE constraint failed: playlist_songs.playlist_id, playlist_songs.song_id' },
+      after: [{ tab: ILT('playlist_songs', ['playlist_id', 'song_id'], [[1, 10], [1, 12], [2, 11], [2, 10], [2, 12]]), m: ['', '', '', '', 'n'], role: 'After INSERT (2, 12): allowed', why: [null, null, null, null, 'new pair: playlist 2 and song 12 have not appeared together before'] }],
+      lg: { x: '✕ refused: the pair already exists', n: '＋ added: a new pair' } }),
+    Q_(mcq('sqlm.pk1', 'playlist_songs already holds (1, 10), (1, 12), (2, 11) and (2, 10). Which INSERT fails?',
+      ['INSERT INTO playlist_songs VALUES (2, 11);', 'INSERT INTO playlist_songs VALUES (2, 12);', 'INSERT INTO playlist_songs VALUES (1, 11);', 'INSERT INTO playlist_songs VALUES (3, 10);'],
+      [null, 'Playlist 2 and song 12 have never been paired, so the pair is new.', 'Playlist 1 and song 11 have never been paired, so the pair is new.', 'The key does not check that playlist 3 exists; only a foreign key would. The pair (3, 10) is new.'],
+      'Only the exact pair (2, 11) already exists. With a composite key, each half may repeat; the whole pair may not.')),
+    Q_(mcq('sqlm.pk2', 'A school stores <code>enrolments(student_id, course_id)</code> with PRIMARY KEY (student_id, course_id). What does that key stop?',
+      ['the same student being enrolled in the same course twice', 'a student taking more than one course', 'a course having more than one student', 'a student with no courses'],
+      [null, 'student_id alone may repeat: (7, 1) and (7, 2) are different pairs.', 'course_id alone may repeat: (7, 1) and (8, 1) are different pairs.', 'Keys constrain rows that exist; a student with no rows is not affected.'],
+      'A composite key makes the combination unique, which is exactly “one enrolment per student per course”.', { ref: false }))
+  ];
+  const legacy = L.scenes.map((_, i) => ['s', i]); const lq = L.qs.map((_, i) => ['q', i]);
+  v10Seq(L, seq, []);
+  const newOrder = L.order; L.order = legacy.concat(newOrder, lq);
+  L.qs[0].w = [null, 'There are 3 listeners, but each stream is its own row and Ada has two.', 'There are 3 songs, but Last Last is played by two streams.', 'ON keeps only matching pairs; nothing is multiplied.'];
+}
+/* rung 2: joins in combination (new lesson) */
+ILLUS.sqlc = { id: 'sqlc', rung: 2, tables: JT, tsets: { j: JT, j5: JT5, shop2: {
+    customers: ILT('customers', ['customer_id', 'name'], [[21, 'Bisi'], [22, 'Kunle']], 'CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT);'),
+    orders: ILT('orders', ['order_id', 'customer_id', 'total'], [[1, 21, 5000], [2, 22, 3000]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, total INTEGER);'),
+    order_items: ILT('order_items', ['order_id', 'product'], [[1, 'rice'], [1, 'oil'], [2, 'beans']], 'CREATE TABLE order_items (order_id INTEGER, product TEXT);') } },
+  scenes: [], qs: [] };
+{
+  const L = ILLUS.sqlc;
+  const BROKEN = 'SELECT c.name, SUM(o.total) AS spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nJOIN order_items i ON i.order_id = o.order_id\nGROUP BY c.customer_id, c.name;';
+  v10Seq(L, [
+    S_({ h: 'Drill 1 · For each listener, the titles they played', ts: 'j',
+      link: 'In <i>Joins</i> you joined streams to listeners and to songs, one pointer per JOIN. Now combine those pieces to answer questions.',
+      ask: 'For each listener, which titles did they play?',
+      say: 'Before writing anything, decide what one result row stands for. The next question asks you exactly that.', ins: [{ t: 'listeners' }, { t: 'streams' }, { t: 'songs' }], stack: true }),
+    Q_(mcq('sqlc.d1p', 'Plan: what should one row of the result stand for?',
+      ['one stream: a listener and a title they played', 'one listener, with all their titles in one cell', 'one song', 'one pair from every listener with every song'],
+      [null, 'A cell holds one value; a list of titles in one cell needs a special function and is not what the join gives.', 'The question is per listener and title, and a title can be played by several listeners.', 'That is a CROSS JOIN; it would list songs nobody played.'],
+      'Each play is a (listener, title) fact, so the grain is one stream: start FROM streams and follow both pointers.', { ts: 'j' })),
+    S_({ h: 'Drill 1 · Build it', ts: 'j',
+      link: 'The plan says one row per stream.',
+      ask: 'For each listener, which titles did they play?',
+      say: 'Start from streams (the grain), join listeners for the name and songs for the title, then sort by name so each listener’s titles sit together.',
+      sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id\nORDER BY l.name, s.title;',
+      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm'], why: ['Ada · Calm Down', 'Ada · Forgiveness', 'Tunde · Calm Down', 'Tunde · Heaven Baby'] }],
+      out: { c: ['name', 'title'], r: [['Ada', 'Calm Down'], ['Ada', 'Forgiveness'], ['Tunde', 'Calm Down'], ['Tunde', 'Heaven Baby']], m: ['m', 'm', 'm', 'm'], why: ['stream 1', 'stream 2', 'stream 3', 'stream 4'] } }),
+    S_({ h: 'Drill 2 · How many different songs per listener?', ts: 'j',
+      link: 'Drill 1 gave one row per stream, so a listener appears once per play.',
+      ask: 'How many different songs did each listener play?',
+      say: '<code>COUNT(*)</code> counts rows, which here means plays. <code>COUNT(DISTINCT st.song_id)</code> counts different song IDs in the group. With these four streams nobody repeated a song, so both counts are 2 for Ada and 2 for Tunde. Drill 3 changes one row to show the difference.',
+      sql: 'SELECT l.name, COUNT(*) AS plays, COUNT(DISTINCT st.song_id) AS songs\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nGROUP BY l.listener_id, l.name;',
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g1', 'g1'] }],
+      out: { c: ['name', 'plays', 'songs'], r: [['Ada', 2, 2], ['Tunde', 2, 2]], m: ['g0', 'g1'], nc: [1, 2] }, lg: { g: 'same colour = one listener’s group' } }),
+    S_({ h: 'Drill 3 · One change: Ada plays Calm Down again', ts: 'j5',
+      link: 'In Drill 2 both counts were equal. Now one row is added and nothing else changes.',
+      ask: 'What happens to plays and to songs for Ada?',
+      say: 'Stream 5 is Ada playing Calm Down (song 14) a second time. Work out both counts for Ada before you read on.',
+      ins: [{ t: 'streams', m: ['', '', '', '', 'n'], why: [null, null, null, null, 'new: Ada (1) plays Calm Down (14) again'] }], lg: { n: '＋ the one added row' } }),
+    Q_(mcq('sqlc.d3', 'With stream 5 added, what are COUNT(*) and COUNT(DISTINCT st.song_id) for Ada?',
+      ['3 and 2', '2 and 2', '3 and 3', '2 and 3'],
+      [null, 'COUNT(*) counts every row in Ada’s group, and there are now 3.', 'Calm Down appears twice, and DISTINCT counts it once.', 'DISTINCT cannot be larger than the row count.'],
+      'Ada has 3 rows (plays) but only 2 different song IDs (14 and 8). Count plays with COUNT(*), and count different songs with COUNT(DISTINCT song_id).', { ts: 'j5', rv: 1 })),
+    S_({ h: 'Drill 3 · The two counts side by side', ts: 'j5',
+      link: 'Ada now has three plays of two different songs.',
+      ask: 'Which count answers “how many different songs”?',
+      say: 'Only <code>COUNT(DISTINCT st.song_id)</code> answers it. <code>COUNT(*)</code> answers “how many plays”.',
+      sql: 'SELECT l.name, COUNT(*) AS plays, COUNT(DISTINCT st.song_id) AS songs\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nGROUP BY l.listener_id, l.name;',
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g1', 'g1', 'g0'] }],
+      out: { c: ['name', 'plays', 'songs'], r: [['Ada', 3, 2], ['Tunde', 2, 2]], m: ['n', ''], nc: [1, 2], why: ['3 plays (streams 1, 2, 5), but 2 different songs (14 and 8)'] },
+      lg: { g: 'same colour = one listener’s group', n: '＋ changed by the added row' } }),
+    S_({ h: 'Drill 4 · Spot the mistake: doubled totals', ts: 'shop2', qlast: true,
+      link: 'Drills 1 to 3 showed that a join from the one side repeats rows. Here that repetition hides inside a SUM.',
+      ask: 'Finance says Bisi spent 5,000. Why does this query say 10,000?',
+      say: 'A colleague wanted each customer’s total spend and joined order_items too. Read the query and the result first; the next screen asks which line causes it.',
+      sql: BROKEN, stack: true,
+      ins: [{ t: 'customers' }, { t: 'orders' }, { t: 'order_items' }],
+      out: { c: ['name', 'spent'], r: [['Bisi', 10000], ['Kunle', 3000]], m: ['x', 'm'], why: ['wrong: order 1’s total of 5,000 is added once per item (rice, oil)', 'right by luck: order 2 has only one item'] },
+      lg: { x: '✕ wrong total', m: '✓ correct total' } }),
+    Q_({ id: 'sqlc.d4', k: 'line', ts: 'shop2', rv: 1, q: 'Bisi’s one order totals 5,000, but this query reports 10,000. Tap the line that doubles her total.', code: BROKEN, ans: 3,
+      why: 'Joining order_items repeats order 1 once per item (2 items), so SUM adds its 5,000 twice. The question needs no item data.',
+      lw: 'Lines 1–3 alone give one row per order. Line 4 joins from the one side (orders) to the many side (order_items): fan-out. Line 5 groups correctly; it only adds up what it is given.' }),
+    Q_(mcq('sqlc.d4f', 'Which fix is correct for every customer, not just for this data?',
+      ['remove the order_items join, because the question needs no item data', 'use SUM(DISTINCT o.total)', 'use COUNT(o.total) instead of SUM', 'add ORDER BY c.name'],
+      [null, 'Two different orders with the same total (two 3,000 orders) would be counted once: right here, wrong elsewhere.', 'COUNT gives how many rows, not how much money.', 'Sorting changes the order of rows, not the sums.'],
+      'Remove the join that changes the grain. If item data were needed, add up the items per order first, then join one row per order.', { ts: 'shop2', rv: 1 })),
+    S_({ h: 'Drill 4 · The fix', ts: 'shop2',
+      link: 'The extra join repeated order 1. Without it, each order is one row again.',
+      ask: 'What does each customer really spend?',
+      say: 'With only customers and orders, each order is one row, so each total is added once.',
+      sql: 'SELECT c.name, SUM(o.total) AS spent\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nGROUP BY c.customer_id, c.name;',
+      ins: [{ t: 'orders', m: ['m', 'm'], why: ['order 1 counted once: 5,000 for Bisi', 'order 2 counted once: 3,000 for Kunle'] }],
+      out: { c: ['name', 'spent'], r: [['Bisi', 5000], ['Kunle', 3000]], m: ['m', 'm'], why: ['matches finance: 5,000', 'unchanged: 3,000'] } })
+  ]);
+}
+/* rung 3: one real task, planned then built piece by piece */
+ILLUS.sqlrt = { id: 'sqlrt', rung: 3, tables: {
+    customers: ILT('customers', ['customer_id', 'name'], [[21, 'Bisi'], [22, 'Kunle'], [23, 'Ngozi']], 'CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT);'),
+    orders: ILT('orders', ['order_id', 'customer_id', 'order_date'], [[1, 21, '2026-09-28'], [2, 21, '2026-10-03'], [3, 22, '2026-10-05'], [4, 21, '2026-10-11'], [5, 23, '2026-10-14'], [6, 21, '2026-10-25'], [7, 22, '2026-10-19']], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, order_date TEXT);') },
+  scenes: [], qs: [] };
+{
+  const L = ILLUS.sqlrt; const OCT = "order_date >= '2026-10-01' AND order_date < '2026-11-01'";
+  const OCTR = [[2, 21, '2026-10-03'], [3, 22, '2026-10-05'], [4, 21, '2026-10-11'], [5, 23, '2026-10-14'], [6, 21, '2026-10-25'], [7, 22, '2026-10-19']];
+  const plan = (id, key, pl, q, o, w, why) => mcq(id, q, o, w, why, { plan: key, pl, link: 'The request: <b>Which customers placed more than two orders in October 2026?</b>' });
+  const WRONG = "SELECT c.name, COUNT(*) AS n_orders\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE o." + OCT + "\n  AND COUNT(*) > 2\nGROUP BY c.customer_id, c.name;";
+  const WRONG2 = "SELECT c.name, COUNT(*) AS n_orders\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE o." + OCT + "\nGROUP BY c.customer_id, c.name\nHAVING COUNT(*) >= 2;";
+  v10Seq(L, [
+    S_({ h: 'The request', ask: 'Which customers placed more than two orders in October 2026?',
+      link: 'In <i>Joins in combination</i> you planned the grain before each query. Here the whole task is one sentence, as it arrives at work.',
+      say: 'Before writing SQL, answer four planning questions. Each answer fixes one part of the query, and the build steps after them use your answers.',
+      ins: [{ t: 'customers' }, { t: 'orders' }] }),
+    Q_(plan('sqlrt.p1', 'grain', 'One result row', 'Plan 1 of 4: what does one row of the final result stand for?',
+      ['one customer', 'one order', 'one October day', 'one order per customer'],
+      [null, 'The request names customers, not orders: orders are what we count.', 'Days are not asked about; dates only decide which orders count.', 'That is still one order; the answer lists each customer once.'],
+      'The request asks “which customers”, so each customer appears once.')),
+    Q_(plan('sqlrt.p2', 'tables', 'Tables', 'Plan 2 of 4: which tables hold the facts you need?',
+      ['orders for dates and counting, customers for the names, joined on customer_id', 'only customers', 'only orders, showing customer_id instead of a name', 'customers CROSS JOIN orders'],
+      [null, 'customers has no order dates, so it cannot count October orders.', 'That would answer the question, but people reading it need names; the name lives in customers.', 'A CROSS JOIN pairs every customer with every order, including other customers’ orders.'],
+      'orders holds the events (one row per order, with its date); customers holds the names. They connect through orders.customer_id.')),
+    Q_(plan('sqlrt.p3', 'filter', 'Rows that count', 'Plan 3 of 4: which orders count?',
+      ["orders dated in October 2026: order_date >= '2026-10-01' AND order_date < '2026-11-01'", 'all orders', "orders with order_date = '2026-10'", "orders with order_date >= '2026-10-01' and no end"],
+      [null, 'Order 1 is from September; the request is about October only.', "No row holds exactly '2026-10'; the dates are full days like '2026-10-03'.", 'Without an end, November orders would count too.'],
+      'A half-open range includes every day of October and nothing after it. This is a filter on single rows, so it goes in WHERE.')),
+    Q_(plan('sqlrt.p4', 'test', 'Test on each group', 'Plan 4 of 4: which test picks “more than two orders”, and where does it go?',
+      ['COUNT(*) > 2, in HAVING after GROUP BY', 'COUNT(*) > 2, in WHERE', 'COUNT(*) >= 2, in HAVING', 'order_id > 2, in WHERE'],
+      [null, 'WHERE runs on single rows before groups exist, so it cannot use a count.', '>= 2 means two or more; “more than two” means at least three.', 'order_id is a row number, not a count of orders.'],
+      'A count belongs to a group of rows, so the test goes in HAVING, which runs after GROUP BY.')),
+    S_({ h: 'Build 1 · Keep only October orders', plan: ['filter'],
+      link: 'Your plan starts with the rows that count.',
+      ask: 'Which orders are from October 2026?',
+      sql: 'SELECT order_id, customer_id, order_date\nFROM orders\nWHERE ' + OCT + ';',
+      say: 'Run only the filter first and check it. Six of the seven orders are from October.',
+      ins: [{ t: 'orders', m: ['x', 'm', 'm', 'm', 'm', 'm', 'm'], why: ['28 September: before 1 October', '3 October', '5 October', '11 October', '14 October', '25 October', '19 October'] }],
+      out: { c: ['order_id', 'customer_id', 'order_date'], r: OCTR }, lg: { x: '✕ not October', m: '✓ October' } }),
+    S_({ h: 'Build 2 · One group per customer, counted', plan: ['grain'],
+      link: 'Build 1 left 6 October orders.',
+      ask: 'How many October orders does each customer have?',
+      sql: 'SELECT customer_id, COUNT(*) AS n_orders\nFROM orders\nWHERE ' + OCT + '\nGROUP BY customer_id;',
+      say: 'GROUP BY customer_id makes one group per customer, which matches the grain in your plan. COUNT(*) counts the October orders in each group.',
+      ins: [{ tab: ILT('after Build 1', ['order_id', 'customer_id', 'order_date'], OCTR), m: ['g0', 'g1', 'g0', 'g2', 'g0', 'g1'], role: 'Before: the October orders' }],
+      out: { c: ['customer_id', 'n_orders'], r: [[21, 3], [22, 2], [23, 1]], m: ['g0', 'g1', 'g2'], nc: [1] }, lg: { g: 'same colour = one customer’s group' } }),
+    S_({ h: 'Build 3 · Keep the groups with more than two', plan: ['test'],
+      link: 'Build 2 counted 3, 2 and 1 October orders.',
+      ask: 'Which of those counts are more than two?',
+      sql: 'SELECT customer_id, COUNT(*) AS n_orders\nFROM orders\nWHERE ' + OCT + '\nGROUP BY customer_id\nHAVING COUNT(*) > 2;',
+      say: 'HAVING tests each group after counting. Only 3 is more than two.',
+      ins: [{ tab: ILT('after Build 2', ['customer_id', 'n_orders'], [[21, 3], [22, 2], [23, 1]]), m: ['m', 'x', 'x'], role: 'Before: one row per customer', why: ['3 > 2: kept', '2 is not more than two: removed', '1 is not more than two: removed'] }],
+      out: { c: ['customer_id', 'n_orders'], r: [[21, 3]], m: ['m'], why: ['customer 21 has 3 October orders'] } }),
+    S_({ h: 'Build 4 · Add the names', plan: ['tables', 'grain', 'filter', 'test'],
+      link: 'Build 3 found customer 21. People reading the answer need a name, not an ID.',
+      ask: 'Which customers placed more than two orders in October 2026?',
+      sql: 'SELECT c.name, COUNT(*) AS n_orders\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE o.' + OCT + '\nGROUP BY c.customer_id, c.name\nHAVING COUNT(*) > 2;',
+      say: 'Joining customers follows orders.customer_id to the name. Each order still names one customer, so the join adds a column without changing the counts. Group by the ID as well as the name, in case two customers share a name.',
+      ins: [{ t: 'customers', m: ['m', 'x', 'x'], why: ['3 October orders: passes the test', '2 October orders: fails the test', '1 October order: fails the test'] }],
+      out: { c: ['name', 'n_orders'], r: [['Bisi', 3]], m: ['m'], why: ['Bisi: orders 2, 4 and 6'] } }),
+    Q_({ id: 'sqlrt.c1', k: 'run', rv: 1, q: 'Change one thing: list the customers with <b>at least two</b> October orders.', code: 'SELECT c.name, COUNT(*) AS n_orders\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE o.' + OCT + '\nGROUP BY c.customer_id, c.name\nHAVING COUNT(*) ____;',
+      sol: 'SELECT c.name, COUNT(*) AS n_orders FROM customers c JOIN orders o ON o.customer_id = c.customer_id WHERE o.' + OCT + ' GROUP BY c.customer_id, c.name HAVING COUNT(*) >= 2;',
+      why: '“At least two” is >= 2, so Kunle (2) joins Bisi (3).' }),
+    S_({ h: 'Spot the mistake 1 · A count in WHERE',
+      link: 'Your plan put the count test in HAVING. A colleague put it somewhere else.',
+      ask: 'Why does this query fail?',
+      sql: WRONG, say: 'The database refuses it before reading any rows. The next screen asks which line is wrong.', qlast: true,
+      ins: [{ t: 'orders' }], out: { err: 'misuse of aggregate: COUNT()' } }),
+    Q_({ id: 'sqlrt.s1', k: 'line', rv: 1, q: 'Tap the line that makes the query fail.', code: WRONG, ans: 4,
+      why: 'WHERE tests one row at a time, before GROUP BY makes groups, so there is no count yet. Move the test to HAVING COUNT(*) > 2 after GROUP BY.',
+      lw: 'The date filter on line 4 is correct in WHERE: it is about single orders. Only the count test is in the wrong clause.' }),
+    S_({ h: 'Spot the mistake 2 · Off by one',
+      link: 'The fixed query runs, but a second colleague’s version returns two customers.',
+      ask: 'Kunle has exactly 2 October orders. Is that “more than two”?',
+      sql: WRONG2, say: 'It runs without error, which makes the mistake easy to miss. Compare the result with your plan.', qlast: true,
+      ins: [{ t: 'customers' }],
+      out: { c: ['name', 'n_orders'], r: [['Bisi', 3], ['Kunle', 2]], m: ['m', 'x'], why: ['3 is more than two: correct', '2 is not more than two: should not be here'] }, lg: { x: '✕ should not be in the answer' } }),
+    Q_({ id: 'sqlrt.s2', k: 'line', rv: 1, q: 'Tap the line that lets Kunle in.', code: WRONG2, ans: 5,
+      why: '>= 2 means “two or more”. “More than two” is > 2, which needs at least 3 orders.',
+      lw: 'Every other line matches the plan: the grain, the tables, the October filter and the grouping.' }),
+    S_({ h: 'Same plan, new data: the naija chart',
+      link: 'The four planning questions worked for the shop. They work for any question of this shape.',
+      ask: 'Which artists had a song in the top 5 on more than one chart day?',
+      say: 'One row per artist. Tables: <code>chart_entries</code> (position and day), <code>songs</code> (to reach the artist) and <code>artists</code> (the name). Rows that count: <code>position &lt;= 5</code>. Test on each artist’s group: more than one <b>day</b>. The next question asks how to count days; then you write the full query on the real chart data in this lesson’s problem.' }),
+    Q_(mcq('sqlrt.n1', 'An artist can have two songs in the top 5 on the same day. Which test counts chart <b>days</b> correctly?',
+      ['HAVING COUNT(DISTINCT c.chart_date) > 1', 'HAVING COUNT(*) > 1', 'HAVING COUNT(DISTINCT c.song_id) > 1', 'WHERE COUNT(c.chart_date) > 1'],
+      [null, 'COUNT(*) counts entries: two songs on one day give 2 for a single day.', 'That counts different songs, not different days.', 'WHERE cannot use a count, and COUNT without DISTINCT counts entries again.'],
+      'Each day should be counted once per artist, however many of their songs were in the top 5 that day.', { ref: false, rv: 1 }))
+  ]);
+}
+
+/* v10: a specific reason for every marked row of the older pictures, keyed 'lesson|picture title'; arrays follow the rows (null = unmarked) */
+var ILL_WHY = {
+  'sql5|INNER JOIN: only matches': {
+    i0: ['song 10 (Last Last) has artist_id 1', 'song 11 (Free Mind) has artist_id 2', 'no song has artist_id 3, so INNER JOIN drops Asake'],
+    i1: ['artist_id 1 is Burna Boy', 'artist_id 2 is Tems', 'artist_id 9 matches no artist, so INNER JOIN drops it'],
+    out: ['Burna Boy paired with Last Last', 'Tems paired with Free Mind'] },
+  'sql5|LEFT JOIN: every left row stays': {
+    i0: ['matched: Last Last', 'matched: Free Mind', 'no song matches, but LEFT JOIN keeps every left row'],
+    i1: ['matches Burna Boy', 'matches Tems', 'artist 9 does not exist, and LEFT JOIN keeps unmatched rows only from the left side'],
+    out: ['Burna Boy with Last Last', 'Tems with Free Mind', 'Asake kept; the songs columns are NULL because nothing matched'] },
+  'sql5|RIGHT JOIN: every right row stays': {
+    i0: ['matched by Last Last', 'matched by Free Mind', 'no song matches, and RIGHT JOIN keeps unmatched rows only from the right side'],
+    i1: ['matches Burna Boy', 'matches Tems', 'artist 9 does not exist, but RIGHT JOIN keeps every right row'],
+    out: ['Last Last with Burna Boy', 'Free Mind with Tems', 'Mystery Song kept; name is NULL because no artist has ID 9'] },
+  'sql5|FULL OUTER JOIN: everything from both': {
+    i0: ['matched by Last Last', 'matched by Free Mind', 'no match, kept because FULL keeps unmatched left rows'],
+    i1: ['matches Burna Boy', 'matches Tems', 'no match, kept because FULL keeps unmatched right rows'],
+    out: ['matched pair', 'matched pair', 'Asake with NULL song columns', 'Mystery Song with a NULL name'] },
+  'sql5|Swap the order, swap the roles': {
+    i0: ['matches Burna Boy', 'matches Tems', 'no artist 9, kept because songs is now the LEFT table'],
+    i1: ['matched by Last Last', 'matched by Free Mind', 'no song points to artist 3, and artists is now the right side'],
+    out: ['Last Last with Burna Boy', 'Free Mind with Tems', 'Mystery Song kept with a NULL name'] },
+  'sql2|WHERE keeps fewer rows': {
+    i0: ['900 > 800 is TRUE', '1200 > 800 is TRUE', '700 > 800 is FALSE', 'NULL > 800 is UNKNOWN, and WHERE keeps only TRUE'],
+    out: ['song 1: 900', 'song 2: 1200'] },
+  'sql2|Finding the missing values': {
+    i0: ['900 is a value, so IS NULL is FALSE', '1200 is a value, so IS NULL is FALSE', '700 is a value, so IS NULL is FALSE', 'streams is NULL, so IS NULL is TRUE'],
+    out: ['song 4: the missing count'] },
+  'sql3|ORDER BY + LIMIT: sort, then cut': {
+    i0: ['900: second highest', '1200: highest', '700: third, cut by LIMIT 2', '500: fourth, cut by LIMIT 2'],
+    out: ['1st after sorting by streams DESC', '2nd after sorting'] },
+  'sql4|WHERE filters rows before grouping': {
+    i0: [null, '500 < 700: removed before grouping', null, null, '300 < 700: removed before grouping'] },
+  'sql4|HAVING filters groups after grouping': {
+    i0: [null, null, null, 'Wizkid’s group totals 700, not above 1000: the whole group is removed', null] },
+  'sql4|A column that is neither grouped nor aggregated': {
+    a0: ['two titles in the group (Calm Down, Charm) but one cell', 'two titles in the group (Free Mind, Me & U) but one cell', null] },
+  'sql6|A subquery used as a filter': {
+    i0: ['1200 > 700 (the average)', '500 is not above 700', '800 > 700', '700 equals the average, so it is not above it', '300 is not above 700'],
+    out: ['above the average', 'above the average'] },
+  'sql7|A CTE is a named, temporary result': {
+    i1: [null, null, '700 is not above 1000: removed by the final WHERE'] },
+  'sql7|UNION ALL stacks every row': {
+    out: [null, null, 'Calm Down again, from Tuesday: UNION ALL keeps both copies', null] },
+  'sql7|UNION removes duplicates': {
+    i1: ['also on Monday’s chart, so UNION keeps only one Calm Down', null] },
+  'sql8|Why the key is song_id, not the title': {
+    out: [null, 'song 6 is new, but it shares the title Love, so LAG hands it song 5’s position 3', 'song 5 gets 2, song 6’s position, instead of its own 3'] },
+  'sql9|Cleaning keeps the rows, fixes the values': {
+    i0: ['spaces around Rush, and 900 stored as text', 'streams is missing (NULL)', '\u2018700\u2019 is stored as text; the title is already clean'],
+    out: ['trimmed + cast: \u2018  Rush \u2019 → Rush, \u2018900\u2019 → 900', 'NULL → 0 by COALESCE', 'cast \u2018700\u2019 → 700 (title already clean)'] },
+  'etl1|Transform: raw → staging': {
+    i0: ['leading space and text \u2018900\u2019: will be trimmed and cast', 'title is NULL: fails the rule, dropped', 'trailing space and text \u2018700\u2019: will be trimmed and cast'],
+    out: ['trimmed, and \u2018900\u2019 → 900', 'trimmed, and \u2018700\u2019 → 700'] },
+  'etl2|A retry with plain INSERT duplicates rows': {
+    out: ['the 10-16 load', 'the 10-16 load', 'the first 10-17 load', 'the first 10-17 load', 'inserted again by the retry: a duplicate', 'inserted again by the retry: a duplicate'] },
+  'etl2|Delete-then-insert is idempotent': {
+    i0: ['other date: not touched', 'other date: not touched', 'run date 10-17: deleted first', 'run date 10-17: deleted first'],
+    i1: ['inserted after the delete', 'inserted after the delete'],
+    out: ['unchanged', 'unchanged', 'from the batch, once', 'from the batch, once'] },
+  'etl4|A quality check that should return zero rows': {
+    i0: [null, null, 'track 2 appears once, so HAVING COUNT(*) > 1 removes it'] },
+  'etl4|Dedupe: keep the latest row per key': {
+    i0: ['older load of track 1 (rn = 2): dropped', null, null] },
+  'pj3|Flattening: nested JSON → one row per track': {
+    out: ['first item in tracks → position 1', 'second item in tracks → position 2'] },
+  'pj4|The primary key refuses a duplicate load': {
+    i1: ['(10-17, 1) is already in chart_entries: this key causes the failure', '(10-17, 2) is already in chart_entries: a second conflict', 'not inserted: the statement failed as a whole'] },
+  'pj4|load.py: delete the date, then insert': {
+    i0: ['10-16 is not the run date: not touched', 'run date 10-17: deleted first', 'run date 10-17: deleted first'],
+    i1: ['inserted after the delete', 'inserted after the delete', 'inserted after the delete (arrived late)'],
+    out: ['unchanged', 'from the fresh batch', 'from the fresh batch', 'new: Charm arrived late'] },
+  'sqlr|One big table repeats itself': {
+    i0: ['Burna Boy and Spaceship, copy 1 of 3', 'Burna Boy and Spaceship, copy 2 of 3', 'copy 3 of 3, with a typo: Burna Boi', 'Tems and RCA, copy 1 of 2', 'Tems and RCA, copy 2 of 2'] },
+  'sqlr|Problem 1: an update misses copies': {
+    i0: ['the only row the UPDATE matches (title = Last Last)', 'another copy of Burna Boy’s label: not updated', 'another copy (typed Burna Boi): not updated', null, null],
+    out: ['now says Atlantic', 'still says Spaceship: disagrees with row 1', 'still says Spaceship: disagrees with row 1'] },
+  'sqlr|Problem 2: a typo invents an artist': {
+    i0: ['correct spelling', 'correct spelling (same pair as row 1)', 'typo: Burna Boi', 'correct spelling', 'correct spelling (same pair as row 4)'],
+    out: ['the real artist', 'the typo counted as a second artist', 'the real artist'] },
+  'sqlr|The fix: split it so each fact lives once': {
+    i0: ['artist and label copied: Burna Boy 1 of 3', 'copied: Burna Boy 2 of 3', 'copied with a typo: Burna Boi', 'copied: Tems 1 of 2', 'copied: Tems 2 of 2'],
+    a0: ['Burna Boy stored once, with ID 1', 'Tems stored once, with ID 2', 'Asake stored once, even with no song yet'] },
+  'sqlr|State: a fact that changes and gets overwritten': {
+    i0: ['the row the UPDATE matches (artist_id = 1)', null, null],
+    out: ['same row, label overwritten: Spaceship is lost', null, null] },
+  'sqlr|A song’s label is a different fact': {
+    i0: ['current_label is state: it changes when he signs elsewhere'],
+    a0: ['released on Spaceship: stays true after he moves', 'released on Atlantic: a fact about this release'] },
+  'sqlr|Events: things that happen, one new row each': {
+    out: ['play 1: listener 100, song 10 at 21:14', 'play 2: listener 100, song 11 at 21:18', 'play 3: listener 101, song 10 at 22:02'] },
+  'sqlr|A wrong event is fixed by a correction': {
+    i0: ['the real charge of 5000', 'charged twice by mistake: kept, not edited', 'the correction: −5000, pointing at payment 2'],
+    out: ['5000 + 5000 − 5000 = 5000'] },
+  'sqlr|Keys: the arrow from one table to another': {
+    out: ['artist_id 1: the row Last Last’s foreign key points at'] },
+  'sqlm|Join 1: streams → listeners': {
+    i1: [null, null, 'no stream holds listener_id 102, so the plain JOIN never pairs Zainab'] },
+  'sqlm|Join 2: … → songs. Two joins, one per arrow': {
+    i0: [null, null, 'no streams, so the INNER JOIN drops Zainab'],
+    i2: ['named by streams 1 and 3', 'named by stream 2', 'named by stream 4'] },
+  'sqlt|The same table as a blueprint (the schema)': {
+    out: ['pk = 1: song_id is the primary key', null, null, null, null] },
+  'sqlt|A primary key is unique and never NULL': {
+    i0: ['has an ID and an email', 'has an ID; email is NULL', 'has an ID; email is NULL'],
+    out: ['3 rows, 3 different IDs, 2 missing emails'] },
+  'sqlt|One row = one what? (the grain)': {
+    i0: ['one row per song: Heaven Baby once', null, null],
+    i1: ['Heaven Baby on 10-16', null, 'Heaven Baby on 10-17', null, null],
+    out: ['10-16: position 1', '10-17: position 1'] },
+  'sqlt|Before: one wide table': {
+    i0: ['Ayra Starr copy 1 (Heaven Baby, 10-16)', 'Victony and SLICK copied too, copy 1 of 2', 'Ayra Starr copy 2 (Heaven Baby again, 10-17)', 'Victony and SLICK copied too, copy 2 of 2', 'Ayra Starr copy 3 (Goodbye (Warm Up), 10-17)'] },
+  'sqlt|After: each fact lives in the table it describes': {
+    i0: ['Ayra Starr copy 1', 'Victony copy 1 of 2', 'Ayra Starr copy 2', 'Victony copy 2 of 2', 'Ayra Starr copy 3'],
+    a0: ['Ayra Starr stored once, with ID 1', 'Victony stored once, with ID 2'] },
+  'sqlt|Where does the ID go? On the many side': {
+    i0: ['a list “1, 11” in one cell', null],
+    a0: ['Heaven Baby holds artist_id 1', null, 'Goodbye (Warm Up) holds artist_id 1'] },
+  'sqlt|More than one value for one thing? Then it is not one column': {
+    i0: ['two genres in one cell', null],
+    i1: ['Ayra Starr row 1 of 2: artist_id 1 repeats', 'Ayra Starr row 2 of 2: artist_id 1 repeats', null],
+    a0: ['one main genre per song', 'one main genre per song', 'one main genre per song'] },
+  'sqlt|Other names: one main name, many aliases': {
+    i0: ['three names in one cell'],
+    a0: ['one main stage name'],
+    a1: ['alias 1, pointing back to artist 3', 'alias 2, pointing back to artist 3'] }
+};
+// v10 fixes from the picture audit: Victony rows are copies too; Charm was not inserted; sql9 Essence changed (cast)
+(() => { const f = (lid, h) => ILLUS[lid] && ILLUS[lid].scenes.find(s => s.h === h);
+  Object.keys(ILLUS).forEach(k => { ILLUS[k].id = ILLUS[k].id || k; });
+  ['Before: one wide table', 'After: each fact lives in the table it describes'].forEach(h => { const s = f('sqlt', h); if (s) { s.ins[0].m = ['d', 'd', 'd', 'd', 'd']; if (s.lg && s.lg.d) s.lg.d = '2× copied again'; } });
+  const p = f('pj4', 'The primary key refuses a duplicate load'); if (p) { p.ins[1].m = ['d', 'd', 'x']; p.lg = Object.assign({}, p.lg, { d: '2× key already exists', x: '✕ not inserted' });
+    p.say += ' One conflicting row fails the whole INSERT, so Charm, which has no conflict, is not inserted either.'; }
+  const c = f('sql9', 'Cleaning keeps the rows, fixes the values'); if (c) { c.ins[0].m = ['n', 'n', 'n']; c.out.m = ['n', 'n', 'n']; c.lg = { n: '＋ value changed' }; }
+  Object.values(ILLUS).forEach(L => L.scenes.forEach(s => { if (s.lg) Object.keys(s.lg).forEach(k => { s.lg[k] = String(s.lg[k]).replace(/⧉/g, '2×'); }); }));
+})();
 
 const CURRICULUM = { modules: [
 { id:'sql', num:1, title:'SQL fundamentals → intermediate', icon:'🗄️', status:'ready',
@@ -4009,7 +4669,13 @@ function rankName(lv) { return RANKS[Math.min(RANKS.length - 1, Math.floor((lv -
 
 // Terms: never lower than before v4 (see termShown). Other items: fade level / 5.
 function itemProgress(id) { if (ITEMS[id] && ITEMS[id].kind === 'term' && T) return S.items[id] && S.items[id].mastered ? 1 : termShown(id); const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
-function lessonProgress(l) {
+function lessonProgress(l) { return Math.max(lessonProgressRaw(l), (FLOOR10.l && FLOOR10.l[l.id]) || 0); }
+// v10: application lessons (rung 2/3) have no terms or code: their % is the share of questions answered right once
+function rungProgress(l) { const L = ILLUS[l.id]; if (!L || !L.qs.length) return 0; const ok = L.qs.filter((q, i) => { const r = vqRec(l.id, i); return r && r.ok; }).length;
+  const ps = l.problems || []; const pp = ps.length ? ps.filter(p => S.problems[p.id] && S.problems[p.id].solved).length / ps.length : 0;
+  return ps.length ? (ok / L.qs.length) * 0.85 + pp * 0.15 : ok / L.qs.length; }
+function lessonProgressRaw(l) {
+  if (l.rung) return rungProgress(l);
   const ids = l.itemIds; if (!ids || !ids.length) return 0;
   const ip = ids.reduce((a, id) => a + itemProgress(id), 0) / ids.length;
   const ps = l.problems || []; const pp = ps.length ? ps.filter(p => S.problems[p.id] && S.problems[p.id].solved).length / ps.length : 1;
@@ -4020,8 +4686,25 @@ function moduleProgress(m) {
   // v7: lessons added by an update (l.added) can only raise the module %, never lower what learners already had
   // v8: generalised per release: the % a learner saw before each update (lessons that existed then) is a floor
   const cuts = [...new Set(m.lessons.filter(l => l.added).map(l => l.added))];
-  return Math.max(avg(m.lessons), ...cuts.map(v => avg(m.lessons.filter(l => !l.added || l.added < v))));
+  return Math.max(avg(m.lessons), ...cuts.map(v => avg(m.lessons.filter(l => !l.added || l.added < v))), (FLOOR10.m && FLOOR10.m[m.id]) || 0);
 }
+/* v10: percentage floor. On the first v10 load the lesson and module % (as v9.1 computed them) are written once to a new
+   key, deLearn.floor10, and no later % can fall below them. Existing keys are not touched. */
+let FLOOR10 = {};
+function initFloor10() {
+  try { const raw = localStorage.getItem('deLearn.floor10'); if (raw) { FLOOR10 = JSON.parse(raw) || {}; return; } } catch (e) {}
+  const f = { v: 10, at: today(), l: {}, m: {} };
+  Object.values(LESSONS).forEach(l => { const p = lessonProgressRaw(l); if (p > 0) f.l[l.id] = p; });
+  CURRICULUM.modules.forEach(m => { const p = moduleProgress(m); if (p > 0) f.m[m.id] = p; });
+  FLOOR10 = f; try { localStorage.setItem('deLearn.floor10', JSON.stringify(f)); } catch (e) {}
+}
+// v10: a one-time backup of the raw saved progress before v10 writes anything (never overwritten)
+function backupV9() { try { ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws'].forEach(k => { const v = localStorage.getItem(k); if (v != null && localStorage.getItem(k + '.v9bak') == null) localStorage.setItem(k + '.v9bak', v); }); } catch (e) {} }
+// v10: application lessons open once the joins and many-to-many pictures (including their v10 steps) are seen
+function rungReady(l) { if (!l.rung) return true; if (l.rung === 2) return ['sql5', 'sqlm'].every(id => visSeen(id) && !v10Pending(id)); return !!S.theory.sqlc; }
+function rungReviews(n) { const t = today(), out = [];
+  Object.keys(ILLUS).forEach(lid => { const L = ILLUS[lid]; if (!L.rung || !S.theory[lid]) return; L.qs.forEach((q, i) => { const r = q.rv && vqRec(lid, i); if (r && r.due && r.due <= t) out.push({ type: 'vq', lesson: lid, qi: i, rv: true, due: r.due }); }); });
+  return out.sort((a, b) => a.due < b.due ? -1 : 1).slice(0, n); }
 
 /* ---------- fade parsing ---------- */
 function plain(text) { return text.replace(/\{\{|\}\}/g, '').replace(/\[\[(.+?)\]\]/g, (m, a) => a.split('|')[0]); }
@@ -4146,13 +4829,13 @@ function lessonOpen(l) { return !E.placed[l.id] && (!S.theory[l.id] || codeIds(l
 // new-lesson slot. It is never locked; fresh learners simply meet it in curriculum order.
 function gapLesson() {
   for (const m of orderedReadyModules()) if (moduleUnlocked(m)) { const ls = m.lessons;
-    for (let i = 0; i < ls.length; i++) if (ls[i].added && !S.theory[ls[i].id] && lessonOpen(ls[i]) && ls.slice(i + 1).some(x => S.theory[x.id] || E.placed[x.id])) return ls[i]; }
+    for (let i = 0; i < ls.length; i++) if (ls[i].added && !S.theory[ls[i].id] && lessonOpen(ls[i]) && rungReady(ls[i]) && ls.slice(i + 1).some(x => S.theory[x.id] || E.placed[x.id])) return ls[i]; }
   return null;
 }
 function nextLesson() {
   const g = gapLesson(); if (g) return g;
   for (const m of orderedReadyModules()) if (moduleUnlocked(m)) for (const l of m.lessons) {
-    if (E.placed[l.id]) continue;
+    if (E.placed[l.id] || !rungReady(l)) continue;
     if (!S.theory[l.id] || codeIds(l).some(id => !S.items[id])) return l;
   }
   return null;
@@ -4200,7 +4883,9 @@ function buildDailySession() {
   const prob = pickProblem(lesson);
   if (prob) { other.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
   // catch-up for learners who read lessons before v6: at most one unseen illustration a day (not on a day a new one is shown)
-  const cu = illus.length ? null : catchUpIllus(); const cuSteps = cu ? illusSteps(cu.id) : [];
+  const cu = illus.length ? null : catchUpIllus(); const cuSteps = cu ? illusSteps(cu.id, null, cu.onlyNew) : [];
+  // v10: up to two application questions due for review (combination drills and the real task)
+  const rvSteps = rungReviews(2); cuSteps.push(...rvSteps);
   mins += cuSteps.length * COST.illus;
   // illustration/visual-question steps are not "other practice": they don't enlarge the term budget
   const tp = planTerms(other.length - illus.length, theory && lesson ? lesson.id : null);
@@ -4683,7 +5368,7 @@ function viewSettings() {
       '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
-    '<p class="muted small center">DE Daily · works offline · v9.1</p></main>' + nav('settings');
+    '<p class="muted small center">DE Daily · works offline · v10</p></main>' + nav('settings');
 }
 
 /* ============================ EXPORT / IMPORT ============================ */
@@ -5506,7 +6191,7 @@ function wholeCheck(input, tr) { return tr.ph.map(p => p.a.some(a => coverage(in
 /* ---------- "How learning works" (More screen + once in the first session after the update) ---------- */
 function learnHowHTML() {
   return '<ul class="plan learn">' +
-    '<li><b>🔍 See it first.</b> Anything that changes the shape of data (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) starts with pictures: the input tables, the query, and the result table, with kept rows ✓, rows with no match ◐ (their NULLs shown), dropped rows ✕ and duplicates ⧉. You can run each query for real. Then visual questions (tap the rows that survive, predict the row count, explain a NULL, run it yourself), and only then the theory, building blocks and definition phrases. Terms of an illustrated lesson start after you have seen its pictures. If you read a lesson before pictures existed, one lesson\'s pictures are added per day.</li>' +
+    '<li><b>🔍 See it first.</b> Anything that changes the shape of data (joins, GROUP BY, window functions, UNION, DISTINCT, WHERE vs HAVING, ORDER BY/LIMIT, CTEs, cleaning, dedupe, delete-then-insert) starts with pictures: the input tables, the query, and the result table, with kept rows ✓, rows with no match ◐ (their NULLs shown), dropped rows ✕ and duplicates 2×. You can run each query for real. Then visual questions (tap the rows that survive, predict the row count, explain a NULL, run it yourself), and only then the theory, building blocks and definition phrases. Terms of an illustrated lesson start after you have seen its pictures. If you read a lesson before pictures existed, one lesson\'s pictures are added per day.</li>' +
     '<li><b>🖼 Every abstract idea, from several angles.</b> Not just SQL: entities and relationships, pipelines, orchestration, cloud and data modelling are each shown as pictures (tables, diagrams, timelines, arrows) from more than one angle before any definition. Example: before joins you see why data is split, what an entity, state, event and relationship are, and an ERD of what can join to what.</li>' +
     '<li><b>🏗 Inside a table before between tables.</b> Before relationships and joins you learn what a table is made of (name, columns, rows, cells, data types, primary and foreign keys, the schema), what one row stands for (the grain), how to decide which table a column belongs in (what does the fact describe? does it exist only because something happened?), and why the ID goes on the many side. Every practice table has a blueprint card.</li>' +
     '<li><b>🌍 Transfer test.</b> Understanding is checked on data you have never seen, not only the music tables: a shop (carts, orders, order items), a hospital, a school and a bank. Most of the questions are outside music, and every wrong option is explained.</li>' +
@@ -5523,6 +6208,10 @@ function learnHowHTML() {
     '<li><b>🧭 Placement test.</b> Real SQL, output prediction and scenario questions place you at a level and unlock lessons up to it. Tested-out items are still scheduled for review. It only ever unlocks.</li>' +
     '<li><b>☁️ AWS track and memory hooks.</b> The AWS track runs in its own session. Each AWS term opens with a memory hook before its definition (a documented name origin, or a labelled memory aid), and you can write your own. Hooks are an extra layer: every AWS term still goes through pick → type → spot, flashcards and spaced reviews. A short name drill (see the job, name the service) has its own schedule and never skips or shortens a term\'s reviews. Console click-throughs are practice drawings, not real AWS screenshots.</li>' +
     '<li><b>⏩ Faster unlock (AWS Course 4 Module 1 only).</b> After you finish a lesson in this module, an optional button, Unlock next lesson now, opens the next lesson of the module straight away instead of waiting for a later session. It is off unless you tap it. ' + UNLOCK_NOTE + ' It never moves a flashcard, term or name-drill date, and it does not change the fast lane, your SQL lessons, streak, XP or percentages.</li>' +
+    '<li><b>🪜 One change per step (v10).</b> Each picture changes one thing from the step before and starts by linking to what that step showed. You do it by hand first (tap rows, count) before you predict, and the rule is named only after you have shown the idea yourself. Every step reads question → fact → result.</li>' +
+    '<li><b>✏️ Every mark has a reason.</b> Each ✓, ◐, ✕, 2× and ＋ in a table has a short line under it saying why that row was kept, unmatched, dropped, duplicated or added. The legend shows only the marks used, and the tables are open by default; nothing you need is hidden behind a toggle.</li>' +
+    '<li><b>↩️ A miss goes one step back.</b> If you miss a question, you get a simpler question on a fresh example first, then the same question again.</li>' +
+    '<li><b>🧩 Ideas in combination.</b> After single ideas come drills that combine them (join + filter + group), then a real task you plan before you write: the grain, the tables, the filter and how to test it. These application questions come back for short spaced reviews.</li>' +
     '<li><b>🔒 Progress is never reset.</b> Updates keep your streak, XP, levels, flashcards and term progress. Earlier term progress keeps its credit: you only add the missing steps.</li></ul>';
 }
 function viewLearn() {
@@ -5658,30 +6347,32 @@ const ACT = {
   ctNext: () => { F.k++; F.picked = null; if (F.k >= F.c.steps.length) { const r = A.ct[F.c.id] || { n: 0 }; r.done = today(); r.n++; r.miss = F.miss; A.ct[F.c.id] = r; saveAws(); addXP(F.miss ? 5 : 10); } render(); window.scrollTo(0, 0); },
   startCt: el => startSession({ steps: [{ type: 'ct', id: el.dataset.id }], mode: 'aws' }),
   /* v6 illustration steps */
-  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } saveTerms(); save(); } nextStep(); },
+  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order && (st.isNew || !vs.v10)) vs.v10 = today(); saveTerms(); save(); } nextStep(); },
   illRun: async () => { const st = SESSION.steps[SESSION.i]; const sc = ILLUS[st.lesson].scenes[st.sc];
-    try { F.run = tableHTML(await runIll(sc.sql, st.lesson), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
+    try { F.run = tableHTML(await runIll(sc.sql, st.lesson, sc.ts), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
     render(); },
   vqTap: el => { if (F.done) return; const i = +el.dataset.r; const k = F.sel.indexOf(i); if (k >= 0) F.sel.splice(k, 1); else F.sel.push(i); render(); },
   vqTapC: el => { if (F.done) return; F.sel = [+el.dataset.c]; render(); },
   vqCls: el => { if (F.done) return; F.vals[+el.dataset.i] = +el.dataset.c; render(); },
+  vqLine: el => { if (F.done) return; F.pick = +el.dataset.k; render(); },
   vqPick: el => { if (F.done) return; F.pick = +el.dataset.k; finishVQ(F.opts[F.pick].i === 0); render(); },
   vqRun: async () => { const st = SESSION.steps[SESSION.i]; F.code = document.getElementById('vqCode').value;
-    try { F.out = tableHTML(await runIll(F.code, st.lesson), 20); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; } render(); },
+    try { F.out = tableHTML(await runIll(F.code, st.lesson, F.q.ts), 20); } catch (e) { F.out = '<div class="bad small">SQL error: ' + esc(e.message) + '</div>'; } render(); },
   vqCheck: async () => {
     const st = SESSION.steps[SESSION.i]; const q = F.q;
+    if (q.k === 'line') { if (F.pick == null) { toast('Tap the line you think is wrong'); return; } finishVQ(F.pick === q.ans); render(); return; }
     if (q.k === 'tapc') { if (!F.sel.length) { toast('Tap a column header'); return; } finishVQ(F.sel[0] === q.ans[0]); render(); return; }
     if (q.k === 'cls') { if (F.vals.some(v => v == null)) { toast('Sort every item first'); return; } const bad = q.items.filter((it, i) => F.vals[i] !== it[1]).length; finishVQ(!bad, bad ? bad + ' of ' + q.items.length + ' in the wrong group.' : ''); render(); return; }
     if (q.k === 'tap') { if (!F.sel.length) { toast('Tap at least one row'); return; } const ok = F.sel.length === q.ans.length && q.ans.every(i => F.sel.includes(i)); finishVQ(ok); render(); return; }
     F.code = document.getElementById('vqCode').value; if (/____/.test(F.code)) { toast('Fill in the ____ blanks first'); return; }
     try {
-      const u = await runIll(F.code, st.lesson), e = await runIll(q.sol, st.lesson); F.out = tableHTML(u, 20);
+      const u = await runIll(F.code, st.lesson, q.ts), e = await runIll(q.sol, st.lesson, q.ts); F.out = tableHTML(u, 20);
       const c = compareResults(u, e, false); const bad = q.forbid && new RegExp(q.forbid, 'i').test(F.code);
       finishVQ(c.ok && !bad, bad ? 'Right rows, but this question asks you to do it without that keyword.' : c.ok ? '' : c.msg);
     } catch (err) { F.out = '<div class="bad small">SQL error: ' + esc(err.message) + '</div>'; finishVQ(false, 'The query has an error.'); }
     render();
   },
-  vqIdk: () => { if (F.q.k === 'tap' || F.q.k === 'tapc') F.sel = F.q.ans.slice(); if (F.q.k === 'cls') F.vals = F.q.items.map(it => it[1]); if (F.q.k === 'mc') F.pick = -1; finishVQ(false); render(); },
+  vqIdk: () => { if (F.q.k === 'tap' || F.q.k === 'tapc') F.sel = F.q.ans.slice(); if (F.q.k === 'cls') F.vals = F.q.items.map(it => it[1]); if (F.q.k === 'mc') F.pick = -1; if (F.q.k === 'line') F.pick = -1; finishVQ(false); render(); },
   theoryDone: () => { const st = SESSION.steps[SESSION.i]; const first = !S.theory[st.lesson]; S.theory[st.lesson] = S.theory[st.lesson] || today(); addXP(first ? 10 : 3); SESSION.stats.theory++; nextStep(); },
   chip: el => { const i = +el.dataset.i; const slot = F.chosen.indexOf(null); if (slot < 0 || F.used[i]) return; F.chosen[slot] = i; F.used[i] = true; render(); },
   unslot: el => { if (F.checked) return; const s = +el.dataset.i; const v = F.chosen[s]; if (v == null) return; F.used[v] = false; F.chosen[s] = null; render(); },
@@ -5834,7 +6525,9 @@ document.addEventListener('change', e => {
 
 /* ============================ INIT ============================ */
 // v3 state lives in deLearn.ext, v4 term state in deLearn.terms; deLearn.v1 records are kept as they are
-S = loadState(); E = loadExt(); migrateExt(); T = loadTerms(); migrateTerms(); save();
+backupV9(); S = loadState(); E = loadExt(); migrateExt(); T = loadTerms(); migrateTerms(); save(); initFloor10();
+// v10 stable question IDs: copy position-keyed answers once (in memory; written with the next save; vs.q itself is kept)
+if (!T.visMig) { Object.keys(T.vis || {}).forEach(lid => { if (ILLUS[lid]) visMigrate(lid); }); }
 try { history.replaceState({ screen: 'home', params: {} }, ''); } catch (e) {}
 render();
 if (/^https?:$/.test(location.protocol)) {

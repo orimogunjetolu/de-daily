@@ -47,7 +47,7 @@ const v6store = (() => {
   const F = await H(`(() => ({ next: nextLesson().id, fresh: isFreshUser(), gap: gapLesson() }))()`, {});
   // a v6 learner placed at level 2 (sql1..sql5 tested out) but sqlr / sqlm never seen
   const P2 = await H(`(() => { ['sql1','sql2','sql3','sql4','sql5'].forEach(l => E.placed[l] = '2026-10-01'); const first = nextLesson().id; S.theory.sqlt = '2026-10-28'; codeIds(LESSONS.sqlt).forEach(id => S.items[id] = { lvl: 1, due: '2026-10-30' }); return { first, next: nextLesson().id, placed: Object.keys(E.placed).join(',') }; })()`, {});
-  ok(/sql4,sqlt,sqlr,sql5,sqlm,sql6/.test(R.order), 'roadmap order: sql4 → Entities/relationships → JOINs → Many-to-many → sql6 (' + R.order + ')');
+  ok(/sql4,sqlt,sqlr,sql5,sqlm,sqlc,sqlrt,sql6/.test(R.order), 'roadmap order: sql4 → Entities/relationships → JOINs → Many-to-many → v10 combination + real task → sql6 (' + R.order + ')');
   ok(R.next1 === 'sqlr' && R.unlocked, 'existing learner past joins: the relationships lesson is next and unlocked');
   ok(/^illus:sqlr/.test(R.daily1) && !R.dailyHasM, 'daily: one new lesson a day, pictures first (' + R.daily1 + ')');
   ok(R.next2 === 'sqlm', 'next day: the many-to-many lesson (' + R.next2 + ')');

@@ -12,13 +12,14 @@ It builds a scratch web root in source/tests/.www with
   v81/ = index.html of commit 1f045a9 (v8.1: genre on songs, content audit)
   v82/ = index.html of commit b4f492d (v8.2: last version before the AWS track)
   v9/  = index.html of commit 7f59624 (v9.0: + deLearn.aws, AWS track)
+  v91/ = index.html of commit 98eb8f9 (v9.1: faster unlock; last version before v10)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624'), ('v91', '98eb8f9')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -76,7 +77,7 @@ def drive(page, maxsteps=300, wrong_every=4):
                 if SHOTS and wrong and 'shot:fb' not in seen: seen.add('shot:fb'); page.screenshot(path=f'{SHOTS}/v4-feedback-wrong.png', full_page=True)
             elif 'vqPick' in acts or 'vqCheck' in acts:
                 n += 1; wrong = wrong_every and n % wrong_every == 0; seen.add('vq')
-                q = page.evaluate("({ k: F.q.k, ok: F.opts ? F.opts.findIndex(o => o.i === 0) : -1, ans: F.q.ans || [], sol: F.q.sol || '' })")
+                q = page.evaluate("({ k: F.q.k, ok: F.opts ? F.opts.findIndex(o => o.i === 0) : -1, ans: F.q.ans == null ? [] : F.q.ans, sol: F.q.sol || '' })")
                 if q['k'] == 'mc': c(f'[data-act="vqPick"][data-k="{(q["ok"] + (1 if wrong else 0)) % page.locator("[data-act=vqPick]").count()}"]')
                 elif q['k'] == 'cls':
                     its = page.evaluate("F.q.items.map(it => it[1])"); ncat = page.evaluate("F.q.cats.length")
@@ -87,6 +88,8 @@ def drive(page, maxsteps=300, wrong_every=4):
                 elif q['k'] == 'tap':
                     for r in (q['ans'] if not wrong else q['ans'][:1] + [x for x in range(9) if x not in q['ans']][:1]): c(f'[data-act="vqTap"][data-r="{r}"]')
                     c('[data-act="vqCheck"]')
+                elif q['k'] == 'line':
+                    c(f'[data-act="vqLine"][data-k="{(q["ans"] + (1 if wrong else 0)) % page.locator("[data-act=vqLine]").count()}"]'); c('[data-act="vqCheck"]')
                 else: page.fill('#vqCode', 'SELECT 1' if wrong else q['sol']); c('[data-act="vqCheck"]'); page.wait_for_selector('[data-act="next"]', timeout=8000)
             elif 'bitePick' in acts: c('[data-act="bitePick"] >> nth=0')
             elif 'checkBite' in acts:
@@ -415,7 +418,7 @@ def preserve_v8(br, extra=None):
     check(not lower, f'[{label}] no lesson or item progress lowered ({len(oldprog)} checked) ' + str(lower[:5]))
     newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
     check(not lowm, f'[{label}] no module % lowered by v8.2 ' + str(lowm))
-    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and 'v9.1' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v9.1 build loaded')
+    check(page.evaluate("LESSONS.sqlt.code.length + LESSONS.sql1.code.length") > 0 and '· v10<' in page.evaluate("document.documentElement.innerHTML") , f'[{label}] v10 build loaded')
     page.click('#startBtn'); n, seen = drive(page); check(n > 0, f'[{label}] daily session after the update completes ({n} steps)')
     after = json.loads(get(page, 'deLearn.v1')); old = json.loads(v1)
     check(after['xp'] >= old['xp'] and all(after['theory'].get(k) == v for k, v in old['theory'].items()), f'[{label}] XP {old["xp"]}→{after["xp"]}, theory marks kept')
@@ -503,7 +506,7 @@ def unlock91(br):
     check(n > 0 and old['deLearn.aws'] is not None, f'[unlock91] v9.0 state built with an AWS session ({n} steps) and deLearn.aws')
     page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
     for k in keys: check(get(page, k) == old[k], f'[unlock91] {k} byte-identical after loading v9.1')
-    check('v9.1' in page.evaluate("document.documentElement.innerHTML"), '[unlock91] v9.1 build loaded')
+    check('· v10<' in page.evaluate("document.documentElement.innerHTML"), '[unlock91] v10 build loaded')
     # SQL lesson summary: no button
     page.evaluate("startSession(buildLessonSession('sql1'))"); drive(page)
     check(page.locator('[data-act="awsUnlock"]').count() == 0, '[unlock91] no unlock button after a SQL lesson')
@@ -524,10 +527,96 @@ def unlock91(br):
     page.evaluate("go('learn')"); check('Faster unlock' in page.inner_text('main'), '[unlock91] How learning works explains the faster unlock')
     check(not errs, '[unlock91] no page errors ' + str(errs[:3])); ctx.close()
 
+K10 = os.environ.get('KEEP10') or '/workspace/dd-test/shots10-keep'; os.makedirs(K10, exist_ok=True)
+def p390(br):
+    ctx = br.new_context(service_workers='block', viewport={'width': 390, 'height': 844}, device_scale_factor=2); page = ctx.new_page(); errs = []
+    page.on('pageerror', lambda e: errs.append(str(e))); page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
+    return ctx, page, errs
+
+def v10_lesson(br, lid, shot):
+    # v10: the whole lesson in teaching order at 390px: pictures and questions interleave, every query runs, every answer marked right
+    ctx, page, errs = p390(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    page.evaluate(f"startSession(buildLessonSession('{lid}'))")
+    exp = page.evaluate(f"ILLUS['{lid}'].order ? ILLUS['{lid}'].order.length : ILLUS['{lid}'].scenes.length + ILLUS['{lid}'].qs.length")
+    k = 0; ran = 0; kinds = set(); hidden = 0; noreason = 0
+    while page.locator('[data-act="illNext"], [data-act="vqCheck"], [data-act="vqPick"]').count():
+        k += 1
+        ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)")
+        wide = page.evaluate("[...document.querySelectorAll('main svg, main .ill-ins, main table, main pre, main .planbox, main .qlines')].filter(e => e.getBoundingClientRect().right > 390.5).length")
+        check(ov <= 390 and wide == 0, f'{lid} step {k}: no overflow at 390px (scrollWidth {ov}, wide parts {wide})')
+        hidden += page.evaluate("document.querySelectorAll('main details:not([open])').length")
+        noreason += page.evaluate("[...document.querySelectorAll('main table.ill tr[class*=mk-]:not(.why)')].filter(tr => /mk-[muxdn]\\b/.test(tr.className) && !(tr.nextElementSibling && tr.nextElementSibling.classList.contains('why'))).length")
+        page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'/workspace/dd-test/shots10/{shot}-{k:02d}.png', full_page=True)
+        if page.locator('[data-act="illNext"]').count():
+            if page.locator('[data-act="illRun"]').count():
+                page.click('[data-act="illRun"]'); page.wait_for_selector('.ill-run table, .ill-run .ill-err', timeout=8000); ran += 1
+                e = page.locator('.ill-run .ill-err').count(); sc = page.evaluate("(() => { const s = SESSION.steps[SESSION.i]; const L = ILLUS[s.lesson]; return L.scenes[s.sc].out && L.scenes[s.sc].out.err ? 1 : 0; })()")
+                check(e == sc, f'{lid} step {k}: query runs in the app as drawn (error expected: {bool(sc)})')
+            page.click('[data-act="illNext"]')
+        else:
+            kinds.add(page.evaluate("F.q.k")); drive(page, maxsteps=1, wrong_every=0)
+            check('Correct' in page.inner_text('main'), f'{lid} step {k} ({sorted(kinds)}) answered correctly is marked correct')
+            page.click('[data-act="next"]')
+    check(k == exp, f'{lid}: {exp} teaching steps in order ({k}), {ran} queries run, kinds {sorted(kinds)}')
+    check(hidden == 0, f'{lid}: no closed toggles on any step ({hidden})'); check(noreason == 0, f'{lid}: every marked row shows its reason ({noreason} missing)')
+    n, _ = drive(page, wrong_every=3); check(n >= 0 and page.locator('main.summary').count() == 1, f'{lid} lesson completes')
+    check(not errs, f'no JS errors ({lid} v10 390px): ' + '; '.join(errs[:5])); ctx.close()
+
+def v10_back(br):
+    # a miss on a question with a back link inserts the simpler question on a fresh example, then the same question again
+    ctx, page, errs = p390(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    qi = page.evaluate("ILLUS.sql5.qs.findIndex(q => q.back)"); bid = page.evaluate(f"ILLUS.sql5.qs[{qi}].back"); qid = page.evaluate(f"ILLUS.sql5.qs[{qi}].id")
+    page.evaluate(f"startSession({{ mode: 'lesson', lesson: LESSONS.sql5, steps: [{{ type: 'vq', lesson: 'sql5', qi: {qi} }}] }})")
+    drive(page, maxsteps=1, wrong_every=1); txt = page.inner_text('main')
+    check('step back' in txt.lower(), 'a miss says it goes one step back')
+    page.click('[data-act="next"]'); cur = page.evaluate("(() => { const s = SESSION.steps[SESSION.i]; return [ILLUS.sql5.qs[s.qi].id, !!s.back]; })()")
+    check(cur == [bid, True], f'next step is the back question {bid} ({cur})'); page.screenshot(path=f'{K10}/back-a-step.png', full_page=True)
+    drive(page, maxsteps=1, wrong_every=0); page.click('[data-act="next"]')
+    cur = page.evaluate("(() => { const s = SESSION.steps[SESSION.i]; return [ILLUS.sql5.qs[s.qi].id, !!s.retry]; })()"); check(cur == [qid, True], f'then the same question again ({cur})')
+    rec = page.evaluate(f"T.vis.sql5.qid['{qid}']"); check(rec and rec['miss'], 'answer stored under the stable question ID')
+    check(not errs, 'no JS errors (back a step): ' + '; '.join(errs[:5])); ctx.close()
+
+def preserve_v91(br):
+    # rich real v9.1 (98eb8f9) state: daily sessions, joins + many-to-many + table lessons, AWS session, hooks; then load v10
+    ctx, page, errs = p390(br); label = 'from v9.1 98eb8f9'
+    page.goto(f'{BASE}/v91/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    for l in ['sqlt', 'sqlr', 'sql5', 'sqlm']:
+        page.evaluate(f"startSession(buildLessonSession('{l}'))"); drive(page, wrong_every=3); page.click('main.summary [data-to="home"]')
+    page.evaluate("T.log = Array.from({ length: 20 }, () => ({ d: today(), ok: 1 })); saveTerms(); go('aws')")
+    page.click('[data-act="startAws"]'); drive(page); page.click('main.summary [data-to="home"]')
+    page.evaluate("(() => { A.hooks['aws0-t1'] = 'my hook'; saveAws(); })()")
+    keys = ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws']; old = {k: get(page, k) for k in keys}
+    oldprog = page.evaluate(PROG); oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")
+    o1 = json.loads(old['deLearn.v1']); ot = json.loads(old['deLearn.terms'])
+    check(ot['vis']['sql5'].get('q') and o1['xp'] > 1234, f'[{label}] rich v9.1 state: sql5 answers by position, XP {o1["xp"]}')
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    for k in keys: check(get(page, k) == old[k], f'[{label}] {k} byte-identical after loading v10')
+    for k in keys: check(get(page, k + '.v9bak') == old[k], f'[{label}] {k}.v9bak backup equals the v9.1 data')
+    check(get(page, 'deLearn.floor10') is not None, f'[{label}] % floor saved in the new key deLearn.floor10')
+    newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not lower, f'[{label}] no lesson or item % lowered ({len(oldprog)} checked) ' + str(lower[:5]))
+    newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
+    check(not lowm, f'[{label}] no module % lowered ' + str(lowm))
+    check(page.evaluate("Object.keys(ILLUS.sql5.qs).every((_, i) => !!vqRec('sql5', i) === !!(T.vis.sql5.q && T.vis.sql5.q[i] && !ILLUS.sql5.qs[i].id))"), f'[{label}] old answers readable by stable ID')
+    plan = page.inner_text('.today'); page.click('#startBtn'); n, seen = drive(page); check(n > 0, f'[{label}] daily session after the update completes ({n} steps)')
+    a1 = json.loads(get(page, 'deLearn.v1')); at = json.loads(get(page, 'deLearn.terms')); aa = json.loads(get(page, 'deLearn.aws'))
+    check(a1['xp'] >= o1['xp'] and a1['streak'] >= o1['streak'] and all(a1['theory'].get(k) == v for k, v in o1['theory'].items()), f'[{label}] XP {o1["xp"]}→{a1["xp"]}, streak and theory kept')
+    check(all(k in a1['cards'] and a1['cards'][k] for k in o1['cards']), f'[{label}] flashcards kept ({len(o1["cards"])})')
+    lowt = [k for k, v in ot['terms'].items() if k in at['terms'] and at['terms'][k].get('tier', 0) == v.get('tier', 0) and any(a['s'] < b['s'] for a, b in zip(at['terms'][k]['ph'], v['ph']))]
+    check(not lowt, f'[{label}] no term phrase step lowered ' + str(lowt[:5]))
+    check(all(at['vis']['sql5']['q'].get(k) == v for k, v in ot['vis']['sql5']['q'].items()), f'[{label}] v9.1 picture answers (vis.sql5.q) untouched')
+    check(aa['hooks'].get('aws0-t1') == 'my hook', f'[{label}] deLearn.aws hook kept')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
     if os.environ.get('ONLY') == 'unlock91':
         unlock91(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
+    if os.environ.get('ONLY') == 'v10':
+        preserve_v91(br); [v10_lesson(br, l, 'v10-' + l) for l in ['sql5', 'sqlm', 'sqlc', 'sqlrt']]; v10_back(br)
+        print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     if os.environ.get('ONLY') == 'aws9':
         aws9(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -538,7 +627,7 @@ with sync_playwright() as p:
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn'); page.click('[data-act="startFresh"]')
     page.click('#startBtn'); check(page.locator('[data-act="helpDone"]').count() == 1, 'first session after the update opens with "How learning works"')
     txt = page.inner_text('main')
-    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'Fast lane', 'See it first', 'Every abstract idea', 'pacing', 'Placement', 'never reset', 'Inside a table before between tables', 'Transfer test']), 'help covers every rule')
+    check(all(w in txt for w in ['Building blocks', 'One phrase at a time', 'Pick', 'Accepted wordings', 'Precision', 'Tiers', '2–3 terms', '1/3', 'Fast lane', 'See it first', 'Every abstract idea', 'pacing', 'Placement', 'never reset', 'Inside a table before between tables', 'Transfer test', 'One change per step', 'Every mark has a reason', 'A miss goes one step back', 'Ideas in combination']), 'help covers every rule')
     if SHOTS: page.screenshot(path=f'{SHOTS}/v4-help.png', full_page=True)
     n, seen = drive(page); check(n > 0 and 'term:ground:None' in seen, f'fresh session completes with grounding ({n} steps; {sorted(seen)})')
     page.click('main.summary [data-to="home"]'); page.click('#startBtn')
@@ -556,9 +645,13 @@ with sync_playwright() as p:
     preserve_v8(br, 'v82')
     aws9(br)
     unlock91(br)
-    joins_390(br)
+    preserve_v91(br)
+    v10_lesson(br, 'sql5', 'v10-sql5')
+    v10_lesson(br, 'sqlm', 'v10-sqlm')
+    v10_lesson(br, 'sqlc', 'v10-sqlc')
+    v10_lesson(br, 'sqlrt', 'v10-sqlrt')
+    v10_back(br)
     k1 = lesson_390(br, 'sqlr', 13, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
-    lesson_390(br, 'sqlm', 5, 'v7-sqlm')
     k8 = lesson_390(br, 'sqlt', 17, 'v8-sqlt'); check({'cls', 'tap', 'mc', 'run'} <= k8, 'table lesson uses classify, tap-rows, pick and run questions')
     lesson_390(br, 'sql2', 2, 'v81-sql2'); lesson_390(br, 'sql4', 5, 'v81-sql4'); lesson_390(br, 'sql3', 2, 'v81-sql3')  # v8.1: daily_streams and labelled views
     lesson_390(br, 'sql8', 4, 'v82-sql8'); lesson_390(br, 'etl2', 4, 'v82-etl2')  # v8.2: song_id keys, partitions, rewritten text
@@ -584,7 +677,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v9-1' in caches, 'service worker cache de-daily-v9-1: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v10' in caches, 'service worker cache de-daily-v10: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()

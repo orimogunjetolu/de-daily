@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v8.2)
+# DE Daily: learning rules (v10)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -116,6 +116,29 @@ The owner approved these wordings. Apply them to every new or changed lesson, pi
 ## 0f. STANDING RULE (v9.1): faster unlock, AWS Course 4 Module 1 only
 
 To keep pace with Coursera deadlines, a finished C4M1 lesson (theory read and every code/Q&A item started) shows an opt-in button, **Unlock next lesson now**, on the session summary and the lesson page. It is off unless tapped, appears only for `AWS_C4M1` (aws0–aws14), and opens only the next C4M1 lesson. Next to it the learner reads: "Your spaced review still runs on its normal schedule, and this button only exists so you can keep pace with your Coursera deadlines." The tap writes only `deLearn.aws.unl[lessonId] = date` (inside the existing key; created on first use). It never moves an SM-2 flashcard, item, term, tier or name-drill date and never touches the fast lane, the SQL session or lessons, streak, XP or percentages. Tests: `node source/tests/t11_unlock.js`; `browser_test.py` `unlock91` (from a v9.0 7f59624 saved state).
+
+## 0g. STANDING RULES (v10): the teaching sequence (rules 1–14)
+These apply to every new or rewritten picture lesson. The v10 plan calls this section "§0c"; it is numbered 0g here because 0c already holds the v8.1 correctness rule.
+1. **One change per step.** Each scene changes exactly one thing (one table, one clause, one row) from the step before.
+2. **Check thinking before naming a rule.** The learner shows the idea with a question first; the rule's name comes after.
+3. **By hand before predicting.** Tap or count the rows yourself before predicting a query's output.
+4. **A miss goes one step back.** A wrong answer on a question with `back` inserts that simpler question on a fresh example next, then the same question again.
+5. **Question → fact → result.** Every scene's text reads in this order. A scene with a question (`ask`) shows it above the tables. When rows are marked against a query, the query is drawn before the marked table.
+6. **Link to the last conclusion.** Each step opens with `link`: one sentence restating what the previous step showed.
+7. **Never make learners guess.** Everything needed to answer is on screen. A closed toggle counts as not visible, so tables are open by default.
+8. **Every mark has a reason.** Every ✓ ◐ ✕ 2× ＋ row carries a specific one-line reason (`why`, or the `ILL_WHY` overlay). t6 fails when any reason is missing. The legend lists only the marks that are used, and duplicates are shown as "2×".
+9. **Full sentences.** Prompts, reasons and feedback are full sentences, with no shorthand.
+10. **Technically correct.** Every scene's SQL runs in sql.js and matches its drawing, including drawn errors (the `err` text must match).
+11. **Before/after tables for every change in data shape.**
+12. **Phone first.** Two tables side by side stack below 480px. Nothing may overflow at 390px.
+13. **Rungs.** Rung 1 covers single ideas. Rung 2 (`sqlc`) has combination drills, each with a spot-the-mistake. Rung 3 (`sqlrt`) is one real task: plan it (grain, tables, filter, test), build it in pieces, check it, then use the same plan on new data. Rung questions marked `rv` get light spaced reviews (1, then ×2.3 per right answer, capped at 60 days; a miss resets to 1). Rung 2 opens after the v10 joins and many-to-many steps are seen. Rung 3 opens after rung 2.
+14. **Cold-read clarity pass before shipping.** Read every new screen as a newcomer would, at phone width, and list what you fixed in the release notes.
+
+**Stable IDs and progress (v10).** New questions carry `id`. Legacy questions keep `lid.position` (arrays are append-only, and the teaching order lives in `L.order`). Answers are written to `vis[lid].qid[id]`. `vis[lid].q` (by position) is never rewritten. The one-time `visMigrate` copies it into `qid`. On first load, v10 also does the following, using new keys only:
+- it copies `deLearn.v1/.ext/.terms/.aws` to `<key>.v9bak` once;
+- it writes each lesson and module % to `deLearn.floor10`, and no later % can fall below it.
+
+Learners who already saw a lesson get only its new steps as catch-up, labelled "🆕 New in v10".
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.

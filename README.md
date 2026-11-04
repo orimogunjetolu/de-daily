@@ -9,6 +9,18 @@ Progress is saved in the browser's localStorage. Use **More → Export progress*
 
 To add content, edit `build/src/c*.js` (curriculum data), then run `cd build && node build.js`.
 
+## v10: joins taught step by step, then in combination
+- **Joins (J1–J12):** joins are now built one change at a time: follow one pointer by hand, then one row per many-side row, the SQL, a second pointer, fan-out, join order, a pointer to nothing, join then count, and CROSS JOIN. A wrong answer goes one step back to a fresh example.
+- **New lessons:**
+  - *Joins in combination* (four drills, each with a spot-the-mistake);
+  - *Real task: the shop's best customers* (plan, build, check, then the same plan on the naija chart).
+- **Every marked row explains itself:** each ✓ ◐ ✕ 2× ＋ mark has a one-line reason. The legend shows only the marks used, tables are open by default, and two tables stack on phones.
+- **Progress is kept:**
+  - saved data is backed up once to `*.v9bak`;
+  - percentages can only go up (`deLearn.floor10`);
+  - old answers are read through stable question IDs.
+- The rules are in `source/LEARNING_RULES.md` §0g and in the app under More → How learning works.
+
 ## Master Project 1: Naija Chart Pipeline (new in v2)
 
 A 10-lesson module that teaches your own repo, [naija-chart-pipeline](https://github.com/orimogunjetolu/naija-chart-pipeline), line by line. It covers architecture, `extract.py`, `transform.py`, `load.py`, the SQL models, the tests, the GitHub Actions workflow and `run_pipeline.py`. Then come hands-on tasks on a sample `chart_entries` table and a 10-question mock interview.

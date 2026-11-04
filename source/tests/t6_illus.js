@@ -9,34 +9,39 @@ const H = require('./h.js'); let fails = 0;
 const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('ok  ', m); };
 (async () => {
   const R = await H(`(async () => {
-  const out = { scenes: [], qs: [], html: [] };
+  const out = { scenes: [], qs: [], html: [], why: [] };
   const norm = r => JSON.stringify(r);
   for (const lid of Object.keys(ILLUS)) { const L = ILLUS[lid]; if (!LESSONS[lid]) { out.scenes.push([lid, 'no such lesson', false]); continue; }
     for (let i = 0; i < L.scenes.length; i++) { const sc = L.scenes[i];
       try { out.html.push([lid + '#' + i, illFigHTML(sc, L, '').length > 50]); } catch (e) { out.html.push([lid + '#' + i, false, e.message]); }
-      (sc.ins || []).forEach(x => { if (!x.raw && !illTab(L, x)) out.scenes.push([lid + '#' + i, 'missing table ' + x.t, false]); });
+      (sc.ins || []).forEach(x => { if (!x.raw && !illTab(L, x, sc.ts)) out.scenes.push([lid + '#' + i, 'missing table ' + x.t, false]); });
+      // v10: every marked row (m/u/x/d/n) carries a specific reason
+      const parts = (sc.ins || []).map((x, j) => ['i' + j, x.m]).concat((sc.after || []).map((x, j) => ['a' + j, x.m])).concat(sc.out && sc.out.m ? [['out', sc.out.m]] : []);
+      parts.forEach(([p, m]) => (m || []).forEach((k, r) => { if (ILL_ICON[k]) { const w = illWhy(L, sc, p, r); out.why.push([lid + '#' + i + ' ' + p + ' row ' + r + ' (' + k + ')', !!(w && w[r] && String(w[r]).length > 6)]); } }));
       if (!sc.sql || !sc.out) continue;
-      try { const r = await runIll(sc.sql, lid);
+      try { const r = await runIll(sc.sql, lid, sc.ts);
         if (sc.out.err) { out.scenes.push([lid + '#' + i, 'expected error, got rows', false]); continue; }
         const exp = { columns: sc.out.c, values: sc.out.r }; const c = compareResults(r, exp, !!sc.ordered);
         const m = (sc.out.m || []).length === sc.out.r.length || !sc.out.m;
         out.scenes.push([lid + '#' + i, c.ok ? 'ok' : c.msg + ' got ' + norm(r.values), c.ok && m]);
       } catch (e) { out.scenes.push([lid + '#' + i, e.message, !!(sc.out.err && e.message.includes(sc.out.err))]); } }
     for (let i = 0; i < L.qs.length; i++) { const q = L.qs[i]; let good = false, why = '';
-      if (q.k === 'mc') good = q.o.length >= 3 && new Set(q.o).size === q.o.length;
-      else if (q.k === 'tap') { const t = L.tables[q.t]; good = !!t && q.ans.length > 0 && q.ans.every(k => k < t.r.length);
-        if (good && q.sql && /^\s*(SELECT|WITH)/i.test(q.sql) && !/____/.test(q.sql)) { try { const r = await runIll(q.sql, lid); why = norm(r.values); } catch (e) { good = false; why = q.sql + ' :: ' + e.message; } } }
+      const TS = illTables(L, q.ts);
+      if (q.k === 'mc') { good = q.o.length >= 3 && new Set(q.o).size === q.o.length; if (q.v10) good = good && !!q.w && q.o.every((_, j) => !j || (q.w[j] && q.w[j].length > 10)); }
+      else if (q.k === 'line') good = q.code.split('\\n').length > q.ans && q.ans >= 0 && !!q.why;
+      else if (q.k === 'tap') { const t = TS[q.t]; good = !!t && q.ans.length > 0 && q.ans.every(k => k < t.r.length);
+        if (good && q.sql && /^\s*(SELECT|WITH)/i.test(q.sql) && !/____/.test(q.sql)) { try { const r = await runIll(q.sql, lid, q.ts); why = norm(r.values); } catch (e) { good = false; why = q.sql + ' :: ' + e.message; } } }
       else if (q.k === 'cls') good = q.cats.length >= 2 && q.items.length >= 3 && q.items.every(it => it[1] >= 0 && it[1] < q.cats.length) && q.cats.every((_, c) => q.items.some(it => it[1] === c));
-      else if (q.k === 'tapc') { const t = L.tables[q.t]; good = !!t && q.ans.length === 1 && q.ans[0] < t.c.length; }
-      else if (q.k === 'run') { try { const s = await runIll(q.sol, lid); good = s.values.length > 0 && !(q.forbid && new RegExp(q.forbid, 'i').test(q.sol)) && /____/.test(q.code);
-          if (q.forbid) { const alt = q.alt ? await runIll(q.alt, lid) : null; if (alt) good = good && compareResults(alt, s, false).ok; } } catch (e) { why = e.message; } }
+      else if (q.k === 'tapc') { const t = TS[q.t]; good = !!t && q.ans.length === 1 && q.ans[0] < t.c.length; }
+      else if (q.k === 'run') { try { const s = await runIll(q.sol, lid, q.ts); good = s.values.length > 0 && !(q.forbid && new RegExp(q.forbid, 'i').test(q.sol)) && /____/.test(q.code);
+          if (q.forbid) { const alt = q.alt ? await runIll(q.alt, lid, q.ts) : null; if (alt) good = good && compareResults(alt, s, false).ok; } } catch (e) { why = e.message; } }
       out.qs.push([lid + ' q' + i + ' ' + q.k, good, why]); } }
   // flow for a brand-new learner reaching an illustrated lesson
   let D = '2026-11-02'; const T0 = today; today = d => d ? T0(d) : D;
   const lesson = LESSONS['sql5'] ? 'sql5' : Object.keys(ILLUS)[0];
   const lp = buildLessonSession(lesson).steps.map(s => s.type);
   out.lessonFlow = lp.slice(0, 20).join(',');
-  out.lessonOrder = lp.indexOf('theory') > lp.lastIndexOf('vq') && lp[0] === 'illus' && lp.lastIndexOf('illus') < lp.indexOf('vq');
+  out.lessonOrder = lp.indexOf('theory') > lp.lastIndexOf('vq') && lp.indexOf('theory') > lp.lastIndexOf('illus') && lp[0] === 'illus';
   // daily: put the learner just before an illustrated lesson
   const order = []; orderedReadyModules().forEach(m => m.lessons.forEach(l => order.push(l.id)));
   const target = order.find(id => ILLUS[id]);
@@ -64,6 +69,7 @@ const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console
   out.notLowered = (() => { const a = JSON.parse(before), b = JSON.parse(after); return Object.keys(a.terms).every(id => b.terms[id] && b.terms[id].ph.every((x, j) => x.s >= a.terms[id].ph[j].s)) && Object.keys(a.S.theory).every(k => b.S.theory[k]); })();
   return out; })()`);
   R.html.forEach(([k, g, e]) => ok(g, 'renders ' + k + (e ? ' ' + e : '')));
+  R.why.forEach(([k, g]) => ok(g, 'mark has a reason ' + k)); ok(R.why.length > 200, 'reasons checked: ' + R.why.length);
   R.scenes.forEach(([k, msg, g]) => ok(g, 'scene SQL matches drawing ' + k + (g ? '' : ' :: ' + msg)));
   R.qs.forEach(([k, g, w]) => ok(g, 'question ' + k + (g ? '' : ' :: ' + w)));
   ok(R.lessonOrder, 'lesson session: pictures → questions → theory (' + R.lessonFlow + ')');
