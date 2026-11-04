@@ -293,3 +293,23 @@ v7: `node source/tests/t7_relations.js` checks lesson order, gap scheduling for 
 - `python3 source/tests/browser_test.py` (needs Playwright with Chrome): checks that saved state from commits 08c6b1a, 371b94a, c35b2c9 (v4) and 051a0fb (v5) survives untouched (v5→v6: one lesson's pictures, `vis` added, nothing lowered); the joins lesson at 390px (no page overflow, RIGHT/FULL JOIN run in the app, screenshots `v6-joins-*.png` when `SHOTS` is set); that v1 and ext are byte-identical after loading, and that no progress is lowered; full daily and lesson sessions; 8 simulated days for a fresh learner; the help and learn screens; offline service worker.
 
 v9.0: `node source/tests/t10_aws.js` checks the AWS track is separate from the SQL session, stores stay byte-identical, every AWS lesson has pictures and explained wrong options, every term has a labelled hook and the full pick/type/spot path, the name drill is additive (intervals, never touches term state or the fast lane), the hook card comes before the definition, and every click-through step is explained and labelled. `browser_test.py` adds a v8.2 (b4f492d) saved state and the `aws9` checks (`ONLY=aws9` runs just those).
+
+v10.1: `node source/tests/t13_v101.js` checks the Step 9 rewrite (new question IDs for new questions, kept IDs for existing ones, tables before text, thinking checked before fan-out and INNER JOIN are named, a choice question after each screen), that learners who finished v10 get only the rewritten steps as a catch-up, and that the rewrite never re-locks the combination drills. `browser_test.py` adds a rich v10 (e5c4319) saved state.
+
+## Benchmark: check before shipping
+
+Run `node source/tests/changed_screens.js <last-live-commit>` to list every screen and question a build adds or changes. Score each listed item against all 13 points below, fix every fail, and include the table (item, pass/fail per point, fix) in the release report. Nothing ships with a fail.
+
+1. **Technically correct** by industry standards; no inaccurate simplification.
+2. **Table or picture first**, and the text walks through it in order.
+3. **Every technical term defined** in plain words on first use.
+4. **Opens by linking to the previous step's conclusion**; one idea leads to the next.
+5. **One change per step**; the same small tables.
+6. **Checks thinking on what is visible before naming the rule**; by hand before predicting.
+7. **Never makes learners guess**: everything needed is visible (no closed toggles) or already taught.
+8. **Every mark has its own reason.**
+9. **Coherent, connected full sentences.**
+10. **A choice question with plausible wrong options**, each one explained.
+11. **A transfer example outside music** wherever the step teaches a rule.
+12. **Before/after tables** for any change in data shape.
+13. **Progress untouched**: all tests pass, saved states byte-identical, no percentage drops.

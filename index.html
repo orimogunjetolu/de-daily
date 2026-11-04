@@ -2921,7 +2921,8 @@ function visSeen(lid) { return !ILLUS[lid] || !!(T.vis && T.vis[lid] && T.vis[li
 function illusSteps(lid, maxQ, onlyNew) {
   const L = ILLUS[lid]; if (!L) return [];
   let out;
-  if (L.order) out = L.order.filter(([k, i]) => !onlyNew || (k === 's' ? L.scenes[i] : L.qs[i]).v10).map(([k, i]) => k === 's' ? { type: 'illus', lesson: lid, sc: i } : { type: 'vq', lesson: lid, qi: i });
+  const nk = T.vis && T.vis[lid] && T.vis[lid].v10 ? 'v101' : 'v10'; // v10.1: learners who finished the v10 steps get only the v10.1 rewrites
+  if (L.order) out = L.order.filter(([k, i]) => !onlyNew || (k === 's' ? L.scenes[i] : L.qs[i])[nk]).map(([k, i]) => k === 's' ? { type: 'illus', lesson: lid, sc: i } : { type: 'vq', lesson: lid, qi: i });
   else {
     const s = L.scenes.map((_, i) => ({ type: 'illus', lesson: lid, sc: i }));
     const q = L.qs.map((_, i) => ({ type: 'vq', lesson: lid, qi: i })).slice(0, maxQ == null ? 99 : maxQ);
@@ -2934,7 +2935,8 @@ function illusSteps(lid, maxQ, onlyNew) {
 // v10: stable question IDs (legacy questions keep lid.k, k = their original position; new questions carry an id)
 function vqId(lid, qi) { const q = ILLUS[lid].qs[qi]; return q.id || lid + '.' + qi; }
 function vqRec(lid, qi) { const v = T.vis && T.vis[lid]; if (!v) return null; return (v.qid && v.qid[vqId(lid, qi)]) || (v.q && !ILLUS[lid].qs[qi].id && v.q[qi]) || null; }
-function v10Pending(lid) { const L = ILLUS[lid]; return !!(L && L.order && L.order.some(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v10) && !(T.vis && T.vis[lid] && T.vis[lid].v10)); }
+function v10Pending(lid, v10only) { const L = ILLUS[lid]; if (!L || !L.order) return false; const v = (T.vis && T.vis[lid]) || {}; const has = k => L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]);
+  return has('v10') && !v.v10 || !v10only && has('v101') && !!v.v10 && !v.v101; } // v10only: the v10.1 rewrites never re-lock a rung
 // existing learners: one lesson a day whose illustration they have not seen yet (theory read or placed),
 // lessons with terms already in progress first, then curriculum order
 function catchUpIllus() {
@@ -2960,9 +2962,10 @@ function viewIllus(step) {
   const run = sc.sql && !sc.norun ? (F.run || '<button class="btn" data-act="illRun">▶ Run this query</button>') : '';
   const pos = step.of ? 'step ' + step.pos + '/' + step.of : 'picture ' + (step.sc + 1) + '/' + L.scenes.length;
   const lastBtn = L.order ? (step.pos < step.of ? 'Next →' : 'Done →') : step.sc + 1 < L.scenes.length ? 'Next picture →' : 'Got it → questions';
-  return '<div class="kicker">' + (step.isNew ? '🆕 New in v10 · ' : '') + '🔍 See it first · ' + _h(l.title) + ' · ' + pos + '</div><h2>' + _h(sc.h) + '</h2>' +
+  return '<div class="kicker">' + (step.isNew ? '🆕 New · ' : '') + '🔍 See it first · ' + _h(l.title) + ' · ' + pos + '</div><h2>' + _h(sc.h) + '</h2>' +
     (sc.link ? '<p class="ill-link">' + sc.link + '</p>' : '') + (sc.plan ? planBox(step.lesson, sc.plan) : '') +
-    (sc.say ? '<p>' + sc.say + '</p>' : '') + illFigHTML(sc, L, run) + (sc.note ? '<p class="muted small">' + sc.note + '</p>' : '') +
+    (sc.v10 || sc.tf ? illFigHTML(sc, L, '') + (sc.say ? '<p class="ill-say">' + sc.say + '</p>' : '') + (run ? '<div class="ill-run"><div class="lab">▶ Run in the app (real SQLite on these tables)</div>' + run + '</div>' : '') // v10.1: tables first, then the text walks through them
+      : (sc.say ? '<p>' + sc.say + '</p>' : '') + illFigHTML(sc, L, run)) + (sc.note ? '<p class="muted small">' + sc.note + '</p>' : '') +
     '<div class="actions"><button class="btn primary big" data-act="illNext" data-autofocus>' + lastBtn + '</button></div>';
 }
 function initVQ(step) {
@@ -2977,7 +2980,7 @@ function initVQ(step) {
 function viewVQ(step) {
   const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
-  const f = F, q = f.q; let h = '<div class="kicker">' + (step.isNew ? '🆕 New in v10 · ' : '') + '🔍 ' + (step.back ? 'One step back · ' : step.rv ? 'Review · ' : 'Picture question · ') + _h(l.title) + (step.of ? ' · step ' + step.pos + '/' + step.of : '') + '</div>' + (q.link ? '<p class="ill-link">' + q.link + '</p>' : '') + '<h2 class="q">' + q.q + '</h2>';
+  const f = F, q = f.q; let h = '<div class="kicker">' + (step.isNew ? '🆕 New · ' : '') + '🔍 ' + (step.back ? 'One step back · ' : step.rv ? 'Review · ' : 'Picture question · ') + _h(l.title) + (step.of ? ' · step ' + step.pos + '/' + step.of : '') + '</div>' + (q.link ? '<p class="ill-link">' + q.link + '</p>' : '') + '<h2 class="q">' + q.q + '</h2>';
   const TS = illTables(L, q.ts); const tabs = Object.values(TS).filter(t => !q.only || q.only.includes(t.n));
   // v10: the tables are open by default (a closed toggle counts as not visible)
   if (q.k !== 'tap' && q.k !== 'tapc' && q.ref !== false && tabs.length) h += '<details class="ill-ref" open><summary>The tables</summary><div class="ill-ins' + (tabs.length === 2 ? ' two' : '') + '">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
@@ -3451,7 +3454,7 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
     Q_(mcq('sql5.j4', 'How many listeners can one stream point to, and how many streams can point to one listener?',
       ['one listener per stream; many streams per listener', 'many listeners per stream; one stream per listener', 'exactly one each way', 'many each way'],
       [null, 'A stream has a single listener_id cell, so it can name only one listener.', 'Streams 1 and 2 both hold listener_id 1, so one listener can have many streams.', 'A cell holds one value, so a stream cannot name many listeners; many on both sides needs a linking table.'],
-      'This is <b>one-to-many</b>: one listener, many streams. The foreign key sits on the many side (streams), because each of its rows names one row on the one side.', J)),
+      'This is <b>one-to-many</b>: one listener, many streams. listeners is the <b>one side</b>: each listener appears in it once. streams is the <b>many side</b>: one listener can have many stream rows. The foreign key sits on the many side, because each stream row names one row on the one side.', J)),
     S_({ h: 'Step 5 · Every stream gets its listener, by hand', ts: 'j',
       link: 'Step 3 followed the pointer for one stream, and Step 4 showed that each stream names exactly one listener.',
       ask: 'What is the name of the listener for each of the four streams?',
@@ -3481,7 +3484,7 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
     S_({ h: 'Step 6 · The rule: one row per many-side row', ts: 'j', fig: 'cnt', fp: [['streams in', 4], ['rows out', 4]],
       link: 'You counted 4 streams going in and 4 rows coming out.',
       ask: 'Why does the count stay the same?',
-      say: 'Each stream names exactly one listener, so each stream produces exactly one result row. When you follow a pointer from the many side (streams) to the one side (listeners), the result keeps <b>one row per many-side row</b>. Ada appears twice only because two streams point to her.',
+      say: 'Each stream names exactly one listener, so each stream produces exactly one result row. When you follow a pointer from the many side (streams, where one listener can have many rows) to the one side (listeners, where each listener appears once), the result keeps <b>one row per many-side row</b>. Ada appears twice only because two streams point to her.',
       ins: [{ t: 'streams', role: 'Before: streams' }], out: { role: 'After: one row per stream', c: J5R.c, r: J5R.r, nc: [3] } }),
     S_({ h: 'Step 7 · Write the lookup as SQL', ts: 'j',
       link: 'Steps 5 and 6 did the lookup by hand: for each stream, find the listener whose listener_id is the same.',
@@ -3525,42 +3528,87 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
       ['4: one per stream', '3: one per song', '2: one per listener with streams', '36: 4 × 3 × 3'],
       [null, 'Calm Down is named by two streams, so it appears twice; songs are not merged.', 'Each listener appears once per stream they made.', 'ON keeps only the matching pairs, so tables are not multiplied.'],
       'Both joins go from the many side (streams) to a one side, so each stream stays exactly one row.', { ts: 'j', sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id;' })),
-    S_({ h: 'Step 9 · Start from the other side', ts: 'j',
-      link: 'So far every query started FROM streams, the many side, and the row count stayed at 4.',
-      ask: 'If you start from listeners instead, how many streams belong to each listener?',
-      say: 'Now go through <code>listeners</code> one row at a time. For each listener, find <b>every</b> stream whose listener_id equals theirs. A listener can have no streams, one, or several.',
-      ins: [{ t: 'listeners' }, { t: 'streams' }] }),
+    S_({ h: 'Step 9 · Start from the other side', ts: 'j', v101: 1, tf: 1,
+      link: 'In Step 8 every query started FROM streams, and 4 stream rows stayed 4 result rows, because each stream points to exactly one listener. Now the query starts from listeners instead.',
+      ask: 'How many streams point to Ada?',
+      say: 'The first table above is <code>listeners</code> and the second is <code>streams</code>. In Step 4 you saw that they form a <b>one-to-many</b> relationship. <code>listeners</code> is the <b>one side</b> of that relationship: each listener appears in it once. <code>streams</code> is the <b>many side</b>: one listener can have many streams, because several stream rows can hold the same listener_id. To start from listeners, take one listener at a time and look down the listener_id column of streams for every row that holds that listener’s ID. Ada’s listener_id is 1, so look for the value 1.',
+      ins: [{ t: 'listeners', role: 'listeners: the one side (each listener appears once)' }, { t: 'streams', role: 'streams: the many side (one listener can have many streams)' }] }),
     Q_(tapJ('sql5.j9a', 'Ada has listener_id 1. In <code>streams</code>, tap every stream with listener_id 1.', 'streams', [0, 1], 'Streams 1 and 2 both hold listener_id 1.')),
+    Q_(mcq('sql5.j9n1', 'How many streams point to Ada, and what tells you?',
+      ['2: streams 1 and 2 both hold listener_id 1', '1: Ada’s listener_id is 1', '2: Ada appears twice in listeners', '4: every stream in the table'],
+      [null, 'The 1 is Ada’s ID, not a count. Count the stream rows that hold that ID: there are two.', 'Ada appears only once in listeners, because listeners is the one side. The two rows that point to her are in streams.', 'Streams 3 and 4 hold listener_id 2, so they point to Tunde, not Ada.'],
+      'A stream points to Ada when its listener_id equals Ada’s listener_id, 1. Streams 1 and 2 do, so 2 streams point to her.', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 9 · Ada needs two result rows', ts: 'j', v101: 1, tf: 1, stack: true,
+      link: 'You found that two streams point to Ada: streams 1 and 2.',
+      ask: 'How many result rows does Ada get when the query starts from listeners?',
+      say: 'Start with the marks on the two tables above: Ada is marked 2× because streams 1 and 2 (marked ✓) hold her listener_id, 1. Now look at the After table. A result row can hold only one stream_id, just as a cell holds one value. Ada has two matching streams, so the query writes Ada once for each of them: the first row pairs Ada with stream 1, and the second pairs Ada with stream 2. A listener and one of their streams, where the stream’s listener_id equals the listener’s listener_id, is called a <b>matching pair</b>. Ada is still one row in <code>listeners</code>; she appears twice in the result because each result row is one matching pair. Only Ada’s rows are shown here, so that you can work out Tunde’s yourself next.',
+      ins: [{ t: 'listeners', m: ['d', '', ''], why: ['Ada (listener_id 1) matches streams 1 and 2, so she needs two result rows'] },
+        { t: 'streams', m: ['m', 'm', '', ''], why: ['listener_id 1: points to Ada', 'listener_id 1: points to Ada'] }],
+      out: { role: 'After: Ada’s result rows only', c: J9R.c, r: J9R.r.slice(0, 2), m: ['d', 'd'], why: ['Ada paired with stream 1', 'Ada paired with stream 2'] },
+      lg: { d: '2× Ada appears twice, once per matching stream' } }),
     Q_(tapJ('sql5.j9b', 'Tunde has listener_id 2. Tap every stream with listener_id 2.', 'streams', [2, 3], 'Streams 3 and 4 both hold listener_id 2.')),
+    Q_(mcq('sql5.j9n2', 'How many result rows does Tunde get, and why?',
+      ['2: one for each of his matching streams, 3 and 4', '1: Tunde is one row in listeners', '2: because Ada got 2', '4: one for every stream'],
+      [null, 'Tunde is one row in listeners, but each result row is one matching pair, and he has two matching streams.', 'The answer is 2, but not because of Ada. Each listener’s count comes from their own matching streams.', 'Streams 1 and 2 point to Ada, so they do not pair with Tunde.'],
+      'Streams 3 and 4 hold listener_id 2, so Tunde has two matching pairs and gets two result rows.', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 9 · Zainab: no stream points to her', ts: 'j', v101: 1, tf: 1, stack: true,
+      link: 'Ada and Tunde each got one result row per matching stream. Zainab is the third listener.',
+      ask: 'Which streams point to Zainab?',
+      say: 'Zainab’s listener_id is 3. Look down the listener_id column of <code>streams</code>: it holds 1, 1, 2 and 2. Answer the next question before reading on.',
+      ins: [{ t: 'listeners' }, { t: 'streams' }] }),
     Q_(mcq('sql5.j9c', 'Zainab has listener_id 3. Which streams have listener_id 3?',
       ['none', 'stream 3', 'every stream', 'stream 1'],
       [null, 'Stream 3’s listener_id is 2 (Tunde); its stream_id happens to be 3, but stream_id only numbers the play.', 'Each stream names one listener, and none of them names 3.', 'Stream 1 has listener_id 1 (Ada).'],
       'No streams row holds listener_id 3. Zainab is a listener who has not played anything yet.', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 9 · JOIN keeps only matched pairs', ts: 'j', v101: 1, tf: 1, stack: true,
+      link: 'You found that no stream holds listener_id 3, so Zainab has no matching pair.',
+      ask: 'Does Zainab get a result row?',
+      say: 'Read the marks on <code>listeners</code> first: Ada and Tunde each have matching streams, and Zainab has none. Then read the result: it holds Ada’s two pairs and Tunde’s two pairs, and nothing for Zainab, because there is no pair to write. This is the rule of <code>JOIN</code> written on its own: it means <b>INNER JOIN</b>, and it keeps only matched pairs. A listener with no matching stream is left out of the result. Leaving her out is correct when the question is “show each listener with their streams”. Another kind of join, LEFT JOIN, keeps Zainab with empty stream columns; it comes later in this lesson.',
+      sql: 'SELECT l.listener_id, l.name, st.stream_id\nFROM listeners l\nJOIN streams st\n  ON st.listener_id = l.listener_id;',
+      ins: [{ t: 'listeners', m: ['m', 'm', 'x'], why: ['Ada: matched by streams 1 and 2', 'Tunde: matched by streams 3 and 4', 'Zainab: no stream holds listener_id 3, so JOIN writes no row for her'] }],
+      out: { c: J9R.c, r: J9R.r, m: ['m', 'm', 'm', 'm'], why: ['pair: Ada and stream 1', 'pair: Ada and stream 2', 'pair: Tunde and stream 3', 'pair: Tunde and stream 4'] },
+      lg: { x: '✕ no matching stream: no row' } }),
+    Q_(mcq('sql5.j9n3', 'Why is Zainab missing from the result?',
+      ['JOIN on its own (INNER JOIN) keeps only matched pairs, and no stream holds listener_id 3', 'her name is empty (NULL) in listeners', 'JOIN only keeps the first two listeners', 'her listener_id 3 clashes with stream 3’s stream_id'],
+      [null, 'Her name is Zainab; the table shows it. She is dropped because nothing matches her ID.', 'JOIN does not count positions. A fourth listener with a stream would be kept.', 'ON compares st.listener_id with l.listener_id; stream_id is never compared, so it cannot clash.'],
+      'A row appears only for a matching pair. Zainab has none, so INNER JOIN leaves her out. LEFT JOIN, later, keeps her.', { ts: 'j', only: ['listeners', 'streams'] })),
     Q_(mcq('sql5.j9', 'You start from 3 listeners. Ada has 2 streams, Tunde has 2 and Zainab has 0. How many rows does <code>FROM listeners l JOIN streams st ON st.listener_id = l.listener_id</code> return?',
       ['4', '3', '6', '2'],
       [null, '3 would be one row per listener, but a listener with two streams gets two rows.', '6 assumes 2 streams for each of the 3 listeners, but Zainab has none.', '2 counts the listeners who have streams, but each of their streams is a separate row.'],
-      '2 + 2 + 0 = 4. A join gives one row per matching pair, so starting from the one side repeats each listener once per stream.', { ts: 'j', only: ['listeners', 'streams'], back: 'sql5.j9back' })),
+      '2 + 2 + 0 = 4. Each result row is one matching pair, so a listener with two streams gets two rows and a listener with none gets no row.', { ts: 'j', only: ['listeners', 'streams'], back: 'sql5.j9back' })),
     Q_(mcq('sql5.j9back', 'One step back, with a fresh example: a school. Amaka is enrolled in 3 courses, Bayo in 1 and Chika in none. Count by hand: how many rows does joining students to enrolments give?',
       ['4', '3', '9', '2'],
       [null, '3 would be one row per student, but Amaka gets one row per course.', '9 pairs every student with three courses; only real enrolments match.', '2 counts the students with enrolments, not their enrolments.'],
       'Amaka 3 + Bayo 1 + Chika 0 = 4 rows: one per matching (student, enrolment) pair.', { ref: false, show: SCHOOL })),
-    S_({ h: 'Step 9 · One listener became two rows: fan-out', ts: 'j', fig: 'cnt', fp: [['listeners in', 3], ['rows out', 4]],
-      link: 'You counted 2 + 2 + 0 = 4 rows from 3 listeners.',
-      ask: 'Why did the number of rows change?',
-      say: 'Starting from the one side (listeners), each listener is repeated once for every stream that points to them, so Ada and Tunde each become 2 rows. Zainab has no matching stream, and a plain JOIN (an INNER JOIN) keeps only rows that found a partner, so she is dropped. This repeating is called <b>fan-out</b>: joining from the one side to the many side gives one row per matching pair, so the count can grow or shrink.',
+    S_({ h: 'Step 9 · 3 listeners in, 4 rows out: fan-out', ts: 'j', v101: 1, tf: 1, fig: 'cnt', fp: [['listeners in', 3], ['rows out', 4]], stack: true,
+      link: 'You counted 2 + 2 + 0 = 4 result rows from 3 listeners.',
+      ask: 'What is this repeating called, and how is it different from Step 8?',
+      say: 'Three listener rows went in and four result rows came out. When a query starts from the one side (listeners) and joins the many side (streams), each listener is repeated once for every matching stream. This repeating is called <b>fan-out</b>: one row on the one side fans out into several result rows. In Step 8 the count could not change, because each stream matches exactly one listener; starting from listeners, the count can grow (Ada and Tunde) and a row can also disappear (Zainab, because JOIN keeps only matched pairs).',
+      ins: [{ t: 'listeners', role: 'In: 3 listeners' }],
+      out: { role: 'Out: 4 rows', c: J9R.c, r: J9R.r, m: ['d', 'd', 'd', 'd'], why: ['Ada, first copy: paired with stream 1', 'Ada, second copy: paired with stream 2', 'Tunde, first copy: paired with stream 3', 'Tunde, second copy: paired with stream 4'] },
+      lg: { d: '2× this listener appears twice' } }),
+    Q_(mcq('sql5.j9n4', 'Which sentence describes fan-out?',
+      ['one row on the one side is repeated once for each matching row on the many side', 'the database copies the whole table by mistake', 'every listener is paired with every stream', 'rows with no match are dropped'],
+      [null, 'Nothing goes wrong: each repeated row is a real matching pair.', 'Pairing every row with every row, with no matching rule, is a different join (CROSS JOIN, Step 13).', 'That is the INNER JOIN rule that dropped Zainab. Fan-out is the repeating of Ada and Tunde.'],
+      'Fan-out: a one-side row (Ada) is written once per matching many-side row (streams 1 and 2).', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 9 · The whole picture', ts: 'j', v101: 1, tf: 1, fig: 'cnt', fp: [['listeners in', 3], ['rows out', 4]],
+      link: 'You have now seen each piece on its own: Ada’s two rows, Tunde’s two rows, Zainab’s missing row, and the name fan-out.',
+      ask: 'Can you read the whole join in one picture?',
+      say: 'Read the <code>listeners</code> table first. Ada (2×) matches streams 1 and 2, Tunde (2×) matches streams 3 and 4, and Zainab (✕) matches none. The <code>streams</code> table shows each stream matching one listener. Then read the result: each of its 4 rows is one matching pair of a listener and a stream. Ada and Tunde each appear twice because of fan-out, and Zainab is missing because JOIN on its own (INNER JOIN) keeps only matched pairs.',
       sql: 'SELECT l.listener_id, l.name, st.stream_id\nFROM listeners l\nJOIN streams st\n  ON st.listener_id = l.listener_id;',
-      ins: [{ t: 'listeners', m: ['d', 'd', 'x'], role: 'FROM: the one side', why: ['Ada matches streams 1 and 2, so she appears twice', 'Tunde matches streams 3 and 4, so he appears twice', 'no stream has listener_id 3, so the plain JOIN drops Zainab'] },
-        { t: 'streams', m: ['m', 'm', 'm', 'm'], role: 'JOIN: the many side', why: ['matches Ada', 'matches Ada', 'matches Tunde', 'matches Tunde'] }],
+      ins: [{ t: 'listeners', m: ['d', 'd', 'x'], role: 'FROM: listeners, the one side', why: ['Ada matches streams 1 and 2, so she appears twice', 'Tunde matches streams 3 and 4, so he appears twice', 'no stream has listener_id 3, so the INNER JOIN drops Zainab'] },
+        { t: 'streams', m: ['m', 'm', 'm', 'm'], role: 'JOIN: streams, the many side', why: ['listener_id 1: matches Ada', 'listener_id 1: matches Ada', 'listener_id 2: matches Tunde', 'listener_id 2: matches Tunde'] }],
       out: { c: J9R.c, r: J9R.r, m: ['d', 'd', 'd', 'd'], why: ['Ada, first copy: paired with stream 1', 'Ada, second copy: paired with stream 2', 'Tunde, first copy: paired with stream 3', 'Tunde, second copy: paired with stream 4'] },
       lg: { d: '2× this listener appears twice', x: '✕ no matching stream: dropped' } }),
+    Q_(tapq('sql5.j9n5', 'A shop. Start FROM customers and JOIN orders. Bisi has customer_id 21. Tap every order that pairs with Bisi.', 'orders', [0, 1, 3], 'Orders 1, 2 and 4 hold customer_id 21, so Bisi fans out into 3 result rows.', { ts: 'shop' })),
     Q_(mcq('sql5.j9t', 'A shop has 3 customers. Bisi has 3 orders, Kunle has 1 and Ngozi has 1. How many rows does <code>FROM customers c JOIN orders o ON o.customer_id = c.customer_id</code> return?',
       ['5', '3', '9', '4'],
       [null, '3 is one row per customer, but Bisi gets one row per order.', '9 pairs every customer with every order; ON keeps only matching pairs.', 'Count every order once: 3 + 1 + 1.'],
-      'One row per matching (customer, order) pair: 3 + 1 + 1 = 5. Bisi appears 3 times.', { ts: 'shop' })),
+      'One row per matching (customer, order) pair: 3 + 1 + 1 = 5. Bisi fans out into 3 rows.', { ts: 'shop' })),
     S_({ h: 'Step 10 · Does the written order change the answer?', ts: 'j', stack: false,
       link: 'Step 6 started from the many side and Step 9 from the one side, and both gave 4 rows.',
       ask: 'Do FROM streams JOIN listeners and FROM listeners JOIN streams contain different pairs?',
-      say: 'Put the two results side by side. They hold the same 4 (stream, listener) pairs; only the column order differs. With a plain JOIN, the written order does not change which pairs match. What changed between Steps 6 and 9 was the question you asked (“for each stream” or “for each listener”), not the result. The written order does matter for LEFT JOIN, which comes later in this lesson.',
+      say: 'Put the two results side by side. They hold the same 4 (stream, listener) pairs; only the column order differs. With JOIN on its own (INNER JOIN, which keeps only matched pairs), the written order does not change which pairs match. What changed between Steps 6 and 9 was the question you asked (“for each stream” or “for each listener”), not the result. The written order does matter for LEFT JOIN, which comes later in this lesson.',
       ins: [{ tab: ILT('FROM streams JOIN listeners', ['stream_id', 'name'], [[1, 'Ada'], [2, 'Ada'], [3, 'Tunde'], [4, 'Tunde']]), role: 'Step 6 (from streams)' }, { tab: ILT('FROM listeners JOIN streams', ['name', 'stream_id'], [['Ada', 1], ['Ada', 2], ['Tunde', 3], ['Tunde', 4]]), role: 'Step 9 (from listeners)' }] }),
     Q_(mcq('sql5.j10', 'How many rows does <code>FROM songs s JOIN streams st ON st.song_id = s.song_id</code> return?',
       ['4: one per stream; Calm Down appears twice', '3: one per song', '2: only songs played twice', '12: every song with every stream'],
@@ -3570,27 +3618,27 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
       ['the number of appointments', 'the number of patients', 'patients × appointments', 'the number of patients who have an appointment'],
       [null, 'A patient with two appointments appears twice.', 'ON keeps only the matching pairs.', 'That counts people, but the report lists appointments.'],
       'appointments is the many side; following each appointment’s patient_id gives one row per appointment.', { ref: false, show: HOSP })),
-    S_({ h: 'Step 10 · When a pointer points nowhere', ts: 'jo',
-      link: 'Steps 6 to 9 assumed that every listener_id names a real listener.',
+    S_({ h: 'Step 11 · When a pointer points nowhere', ts: 'jo', v101: 1,
+      link: 'Step 9 showed that JOIN keeps only matched pairs, and dropped Zainab, a listener with no streams. Steps 6 to 9 also assumed that every listener_id names a real listener.',
       ask: 'What happens to a stream whose listener_id matches no listener?',
-      say: 'Stream 5 holds listener_id 9, and no listener has ID 9. A key like that is called an <b>orphan key</b>. A plain JOIN finds no partner for stream 5, so the stream disappears from the result, and a count of plays after the join would be 1 too low. A FOREIGN KEY constraint that the database enforces stops such rows from being written (SQLite enforces it only after <code>PRAGMA foreign_keys = ON</code>). To find orphans, use a LEFT JOIN and keep the rows where the listener side is NULL.',
+      say: 'Stream 5 holds listener_id 9, and no listener has ID 9. A foreign key value that names a row which does not exist is called an <b>orphan key</b>. JOIN keeps only matched pairs, and stream 5 has no matching listener, so the stream disappears from the result, and a count of plays after the join would be 1 too low. A <b>constraint</b> is a rule the database checks every time a row is written. A FOREIGN KEY constraint refuses any stream whose listener_id names no listener, so orphans cannot be written in the first place (SQLite checks it only after <code>PRAGMA foreign_keys = ON</code>). The LEFT JOIN lesson later shows how to find orphans that are already in a table.',
       sql: 'SELECT st.stream_id, l.name\nFROM streams st\nJOIN listeners l\n  ON l.listener_id = st.listener_id;',
-      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm', 'x'], why: ['listener 1 exists (Ada)', 'listener 1 exists (Ada)', 'listener 2 exists (Tunde)', 'listener 2 exists (Tunde)', 'listener_id 9 matches no listener, so the plain JOIN drops this stream'] }],
+      ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm', 'x'], why: ['listener 1 exists (Ada)', 'listener 1 exists (Ada)', 'listener 2 exists (Tunde)', 'listener 2 exists (Tunde)', 'listener_id 9 matches no listener, so JOIN (matched pairs only) drops this stream'] }],
       out: { c: ['stream_id', 'name'], r: [[1, 'Ada'], [2, 'Ada'], [3, 'Tunde'], [4, 'Tunde']], m: ['m', 'm', 'm', 'm'], why: ['kept: matched Ada', 'kept: matched Ada', 'kept: matched Tunde', 'kept: matched Tunde'] },
       lg: { x: '✕ orphan key: dropped' } }),
-    S_({ h: 'Step 11 · Join, then count', ts: 'j',
-      link: 'Step 9 gave one row per stream, with each listener repeated once per stream.',
+    S_({ h: 'Step 12 · Join, then count', ts: 'j', v101: 1,
+      link: 'In Step 9, starting from listeners gave one row per matching pair: each listener was repeated once per stream (fan-out).',
       ask: 'How many streams does each listener have?',
       say: 'Counting the repeated rows answers it. <code>GROUP BY l.listener_id, l.name</code> puts each listener’s rows into one group, and <code>COUNT(*)</code> counts the rows in each group. Group by the ID as well as the name, because two listeners could share a name.',
       sql: 'SELECT l.name, COUNT(*) AS plays\nFROM listeners l\nJOIN streams st ON st.listener_id = l.listener_id\nGROUP BY l.listener_id, l.name;',
       ins: [{ tab: J9R, m: ['g0', 'g0', 'g1', 'g1'], role: 'Before: the rows after the join (Step 9)' }],
       out: { c: ['name', 'plays'], r: [['Ada', 2], ['Tunde', 2]], m: ['g0', 'g1'], nc: [1] },
       lg: { g: 'same colour = one group (one listener)' } }),
-    Q_(mcq('sql5.j11', 'Zainab is not in the Step 11 result. Why, and what would keep her with 0 plays?',
-      ['the plain JOIN dropped her because no stream points to her; LEFT JOIN from listeners with COUNT(st.stream_id) gives her 0', 'COUNT(*) skips names it cannot count', 'GROUP BY removes groups that have only one row', 'SQL never shows a count of 0'],
-      [null, 'COUNT(*) counts rows; Zainab has no row left to count after the plain JOIN.', 'GROUP BY keeps every group, including groups of one row.', 'With a LEFT JOIN she keeps one row with NULLs, and COUNT(st.stream_id) counts no non-NULL values there, so it shows 0.'],
-      'Rows dropped by the join cannot be counted. LEFT JOIN keeps her row (stream columns NULL), and COUNT of a stream column ignores NULLs, so she gets 0. COUNT(*) would give 1, because her row exists.', { ts: 'j', only: ['listeners', 'streams'] })),
-    S_({ h: 'Step 12 · No matching rule: every pair', ts: 'j',
+    Q_(mcq('sql5.j11', 'Zainab is not in the Step 12 result. Why?',
+      ['JOIN keeps only matched pairs, no stream points to her, so she has no row left to count', 'COUNT(*) skips names it cannot count', 'GROUP BY removes groups that have only one row', 'she has a count of 0, and SQL hides counts of 0'],
+      [null, 'COUNT(*) counts rows in each group; it never looks at names. Zainab had no row to count.', 'GROUP BY keeps every group, including groups of one row.', 'She is not hidden: her row was already gone after the JOIN, before any counting happened.'],
+      'Rows dropped by the join cannot be counted. Showing her with 0 plays needs a join that keeps unmatched listeners, LEFT JOIN, which comes next in this lesson.', { ts: 'j', only: ['listeners', 'streams'] })),
+    S_({ h: 'Step 13 · No matching rule: every pair', ts: 'j', v101: 1,
       link: 'Every join so far used ON to keep only the pairs whose IDs match.',
       ask: 'What happens when nothing restricts the pairs?',
       say: '<code>CROSS JOIN</code> pairs every row of the first table with every row of the second: 3 listeners × 3 songs = 9 rows. This is useful on purpose, for example to build a grid of every listener with every song before filling in play counts. By accident (a forgotten ON on large tables) it multiplies the rows and the totals.',
@@ -3606,10 +3654,11 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
       [null, 'That adds the row counts; a cross join multiplies them.', 'Every account is repeated once per month.', 'Every month is repeated once per account.'],
       '1,000 × 48 = 48,000: one row for each (account, month) pair, the usual start of a monthly balance report.', { ref: false })),
     S_({ h: 'Next: joins that keep unmatched rows', fig: 'cnt', fp: [['plain JOIN', 'matches only'], ['LEFT/RIGHT/FULL', 'keep unmatched rows too']],
-      link: 'Every join in Steps 7 to 11 was a plain JOIN, which drops rows with no partner (Zainab, the orphan stream).',
-      ask: 'How do you keep the rows that have no partner?',
+      link: 'Every join in Steps 7 to 12 was JOIN on its own (INNER JOIN), which keeps only matched pairs, so it dropped Zainab and the orphan stream.',
+      ask: 'How do you keep the rows that have no match?',
       say: 'The next pictures answer that with a new pair of tables, <code>artists</code> and <code>songs</code>. In this pair, Asake has no song and Mystery Song points to an artist who does not exist, so each side has one row without a partner.' })
   ], legacy);
+  L.qs.forEach(q => { if (/^sql5\.(j9|j11$)/.test(q.id || '')) q.v101 = 1; }); // v10.1: rewritten Step 9 and the Step 12 question
   // legacy scenes: a question banner first, and wrong options explained where a count was asked
   const asks = ['Which table is LEFT and which is RIGHT?', 'Which rows have a partner on the other side?', 'Which rows does LEFT JOIN keep?', 'Which rows does RIGHT JOIN keep?', 'Which rows does FULL OUTER JOIN keep?', 'What changes when the two tables swap places?'];
   asks.forEach((a, i) => { if (L.scenes[i]) L.scenes[i].ask = a; });
@@ -3636,7 +3685,7 @@ const tapq = (id, q, t, ans, why, x) => Object.assign({ id, k: 'tap', q, t, ans,
     S_({ h: 'The pair is the key',
       link: 'Naija Hits came from two pairs with playlist_id 1. Each pair is stored once.',
       ask: 'What happens if you add a pair that is already there, and what if only one half of it repeats?',
-      say: 'The primary key of <code>playlist_songs</code> is the pair <code>(playlist_id, song_id)</code>. Adding (1, 10) again fails with “UNIQUE constraint failed”, because that exact pair exists. Adding (2, 12) is allowed: playlist 2 and song 12 each already appear, but never together, and only the whole pair must be unique.',
+      say: 'The primary key of <code>playlist_songs</code> is the pair <code>(playlist_id, song_id)</code>. A primary key made of more than one column is called a <b>composite key</b>: the whole combination must be unique, while each column on its own may repeat. Adding (1, 10) again fails with “UNIQUE constraint failed”, because that exact pair exists. Adding (2, 12) is allowed: playlist 2 and song 12 each already appear, but never together, and only the whole pair must be unique.',
       sql: 'INSERT INTO playlist_songs VALUES (1, 10);',
       ins: [{ t: 'playlist_songs', m: ['x', '', '', ''], why: ['(1, 10) already exists, so a second (1, 10) is refused'] }],
       out: { err: 'UNIQUE constraint failed: playlist_songs.playlist_id, playlist_songs.song_id' },
@@ -3669,7 +3718,7 @@ ILLUS.sqlc = { id: 'sqlc', rung: 2, tables: JT, tsets: { j: JT, j5: JT5, shop2: 
     S_({ h: 'Drill 1 · For each listener, the titles they played', ts: 'j',
       link: 'In <i>Joins</i> you joined streams to listeners and to songs, one pointer per JOIN. Now combine those pieces to answer questions.',
       ask: 'For each listener, which titles did they play?',
-      say: 'Before writing anything, decide what one result row stands for. The next question asks you exactly that.', ins: [{ t: 'listeners' }, { t: 'streams' }, { t: 'songs' }], stack: true }),
+      say: 'Before writing anything, decide what one result row stands for. That is the <b>grain</b> of the result, the same idea as the grain of a table in <i>What’s inside a table</i>. The next question asks you exactly that.', ins: [{ t: 'listeners' }, { t: 'streams' }, { t: 'songs' }], stack: true }),
     Q_(mcq('sqlc.d1p', 'Plan: what should one row of the result stand for?',
       ['one stream: a listener and a title they played', 'one listener, with all their titles in one cell', 'one song', 'one pair from every listener with every song'],
       [null, 'A cell holds one value; a list of titles in one cell needs a special function and is not what the join gives.', 'The question is per listener and title, and a title can be played by several listeners.', 'That is a CROSS JOIN; it would list songs nobody played.'],
@@ -3677,7 +3726,7 @@ ILLUS.sqlc = { id: 'sqlc', rung: 2, tables: JT, tsets: { j: JT, j5: JT5, shop2: 
     S_({ h: 'Drill 1 · Build it', ts: 'j',
       link: 'The plan says one row per stream.',
       ask: 'For each listener, which titles did they play?',
-      say: 'Start from streams (the grain), join listeners for the name and songs for the title, then sort by name so each listener’s titles sit together.',
+      say: 'One row per stream is the grain, so start FROM streams. Then join listeners for the name and songs for the title, then sort by name so each listener’s titles sit together.',
       sql: 'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.listener_id\nJOIN songs s     ON s.song_id = st.song_id\nORDER BY l.name, s.title;',
       ins: [{ t: 'streams', m: ['m', 'm', 'm', 'm'], why: ['Ada · Calm Down', 'Ada · Forgiveness', 'Tunde · Calm Down', 'Tunde · Heaven Baby'] }],
       out: { c: ['name', 'title'], r: [['Ada', 'Calm Down'], ['Ada', 'Forgiveness'], ['Tunde', 'Calm Down'], ['Tunde', 'Heaven Baby']], m: ['m', 'm', 'm', 'm'], why: ['stream 1', 'stream 2', 'stream 3', 'stream 4'] } }),
@@ -3706,7 +3755,7 @@ ILLUS.sqlc = { id: 'sqlc', rung: 2, tables: JT, tsets: { j: JT, j5: JT5, shop2: 
       out: { c: ['name', 'plays', 'songs'], r: [['Ada', 3, 2], ['Tunde', 2, 2]], m: ['n', ''], nc: [1, 2], why: ['3 plays (streams 1, 2, 5), but 2 different songs (14 and 8)'] },
       lg: { g: 'same colour = one listener’s group', n: '＋ changed by the added row' } }),
     S_({ h: 'Drill 4 · Spot the mistake: doubled totals', ts: 'shop2', qlast: true,
-      link: 'Drills 1 to 3 showed that a join from the one side repeats rows. Here that repetition hides inside a SUM.',
+      link: 'In <i>Joins</i> Step 9 you saw fan-out: a row on the one side is repeated once for each matching row on the many side. Here that repetition hides inside a SUM.',
       ask: 'Finance says Bisi spent 5,000. Why does this query say 10,000?',
       say: 'A colleague wanted each customer’s total spend and joined order_items too. Read the query and the result first; the next screen asks which line causes it.',
       sql: BROKEN, stack: true,
@@ -3756,7 +3805,7 @@ ILLUS.sqlrt = { id: 'sqlrt', rung: 3, tables: {
     Q_(plan('sqlrt.p3', 'filter', 'Rows that count', 'Plan 3 of 4: which orders count?',
       ["orders dated in October 2026: order_date >= '2026-10-01' AND order_date < '2026-11-01'", 'all orders', "orders with order_date = '2026-10'", "orders with order_date >= '2026-10-01' and no end"],
       [null, 'Order 1 is from September; the request is about October only.', "No row holds exactly '2026-10'; the dates are full days like '2026-10-03'.", 'Without an end, November orders would count too.'],
-      'A half-open range includes every day of October and nothing after it. This is a filter on single rows, so it goes in WHERE.')),
+      'This is a half-open range: it includes its start (>= 1 October) and stops just before its end (< 1 November), so it covers every day and time in October and nothing after it. This is a filter on single rows, so it goes in WHERE.')),
     Q_(plan('sqlrt.p4', 'test', 'Test on each group', 'Plan 4 of 4: which test picks “more than two orders”, and where does it go?',
       ['COUNT(*) > 2, in HAVING after GROUP BY', 'COUNT(*) > 2, in WHERE', 'COUNT(*) >= 2, in HAVING', 'order_id > 2, in WHERE'],
       [null, 'WHERE runs on single rows before groups exist, so it cannot use a count.', '>= 2 means two or more; “more than two” means at least three.', 'order_id is a row number, not a count of orders.'],
@@ -5097,7 +5146,7 @@ function initFloor10() {
 // v10: a one-time backup of the raw saved progress before v10 writes anything (never overwritten)
 function backupV9() { try { ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws'].forEach(k => { const v = localStorage.getItem(k); if (v != null && localStorage.getItem(k + '.v9bak') == null) localStorage.setItem(k + '.v9bak', v); }); } catch (e) {} }
 // v10: application lessons open once the joins and many-to-many pictures (including their v10 steps) are seen
-function rungReady(l) { if (!l.rung) return true; if (l.rung === 2) return ['sql5', 'sqlm'].every(id => visSeen(id) && !v10Pending(id)); return !!S.theory.sqlc; }
+function rungReady(l) { if (!l.rung) return true; if (l.rung === 2) return ['sql5', 'sqlm'].every(id => visSeen(id) && !v10Pending(id, true)); return !!S.theory.sqlc; }
 function rungReviews(n) { const t = today(), out = [];
   Object.keys(ILLUS).forEach(lid => { const L = ILLUS[lid]; if (!L.rung || !S.theory[lid]) return; L.qs.forEach((q, i) => { const r = q.rv && vqRec(lid, i); if (r && r.due && r.due <= t) out.push({ type: 'vq', lesson: lid, qi: i, rv: true, due: r.due }); }); });
   return out.sort((a, b) => a.due < b.due ? -1 : 1).slice(0, n); }
@@ -6743,7 +6792,7 @@ const ACT = {
   ctNext: () => { F.k++; F.picked = null; if (F.k >= F.c.steps.length) { const r = A.ct[F.c.id] || { n: 0 }; r.done = today(); r.n++; r.miss = F.miss; A.ct[F.c.id] = r; saveAws(); addXP(F.miss ? 5 : 10); } render(); window.scrollTo(0, 0); },
   startCt: el => startSession({ steps: [{ type: 'ct', id: el.dataset.id }], mode: 'aws' }),
   /* v6 illustration steps */
-  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order && (st.isNew || !vs.v10)) vs.v10 = today(); saveTerms(); save(); } nextStep(); },
+  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order) { vs.v10 = vs.v10 || today(); vs.v101 = vs.v101 || today(); } saveTerms(); save(); } nextStep(); },
   illRun: async () => { const st = SESSION.steps[SESSION.i]; const sc = ILLUS[st.lesson].scenes[st.sc];
     try { F.run = tableHTML(await runIll(sc.sql, st.lesson, sc.ts), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
     render(); },

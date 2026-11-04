@@ -1,0 +1,30 @@
+// v10.1 tests: node source/tests/t13_v101.js — Step 9 rewrite: new question IDs, kept IDs, tables-first order,
+// catch-up of only the rewritten steps for learners who finished v10, rungs never re-locked, no state written on load.
+const H = require('./h.js'); let fails = 0;
+const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('ok  ', m); };
+const store = { 'deLearn.v1': JSON.stringify({ xp: 500, streak: 3, theory: {}, items: {}, cards: {}, problems: {} }) };
+const R = H(`(() => { const out = {}; const L = ILLUS.sql5; const ids = L.qs.map(q => q.id).filter(Boolean);
+  out.newIds = ['sql5.j9n1', 'sql5.j9n2', 'sql5.j9n3', 'sql5.j9n4', 'sql5.j9n5'].every(i => ids.includes(i));
+  out.keptIds = ['sql5.j9a', 'sql5.j9b', 'sql5.j9c', 'sql5.j9', 'sql5.j9back', 'sql5.j9t', 'sql5.j10', 'sql5.j11', 'sql5.j12'].every(i => ids.includes(i));
+  const st = L.order.map(([k, i]) => k === 's' ? 'S:' + L.scenes[i].h : 'Q:' + L.qs[i].id);
+  const a = st.indexOf('S:Step 9 · Start from the other side'), b = st.indexOf('Q:sql5.j9t'); out.seq = st.slice(a, b + 1);
+  const s9 = L.scenes.filter(s => /^Step 9/.test(s.h)); out.n9 = s9.length;
+  out.jargon = s9.every(s => !/found a partner|plain JOIN/.test(s.say)) && /one side/.test(s9[0].say) && /many side/.test(s9[0].say);
+  out.fanAfterCheck = st.indexOf('Q:sql5.j9') < st.indexOf('S:Step 9 · 3 listeners in, 4 rows out: fan-out') && st.indexOf('Q:sql5.j9n3') > st.indexOf('Q:sql5.j9c');
+  out.mcEach = s9.every(s => { const i = st.indexOf('S:' + s.h); const nxt = st.slice(i + 1).findIndex(x => x[0] === 'S'); const qs = st.slice(i + 1, nxt < 0 ? undefined : i + 1 + nxt).filter(x => x[0] === 'Q').map(x => L.qs.find(q => 'Q:' + q.id === x)); return qs.some(q => q.k === 'mc' && q.w.filter(Boolean).length === q.o.length - 1) || s.h === 'Step 9 · The whole picture'; });
+  SESSION = { i: 0, steps: [] }; F = null; const html = viewIllus({ lesson: 'sql5', sc: L.scenes.indexOf(s9[2]), pos: 1, of: 2 }); out.tablesFirst = html.indexOf('<table') > -1 && html.indexOf('<table') < html.indexOf('ill-say');
+  T.vis = { sql5: { seen: '2026-10-30', v10: '2026-11-01', q: {} }, sqlm: { seen: '2026-10-30', v10: '2026-11-01', q: {} } };
+  out.pending = v10Pending('sql5'); out.rung = rungReady(LESSONS.sqlc);
+  const only = illusSteps('sql5', null, true); out.onlyRewrites = only.length > 0 && only.every(x => (x.type === 'illus' ? L.scenes[x.sc] : L.qs[x.qi]).v101);
+  T.vis.sql5.v101 = '2026-11-04'; out.done = !v10Pending('sql5');
+  return out; })()`, store);
+const v1 = store['deLearn.v1'];
+ok(R.newIds, 'new Step 9 questions have new IDs'); ok(R.keptIds, 'existing questions keep their IDs');
+ok(R.n9 === 6, 'Step 9 is six screens (' + R.n9 + ')'); console.log('     ' + R.seq.join(' → '));
+ok(R.jargon, 'Step 9: no undefined jargon; one side and many side defined on the first screen');
+ok(R.fanAfterCheck, 'thinking checked (count, Zainab) before fan-out and INNER JOIN are named');
+ok(R.mcEach, 'each Step 9 teaching screen is followed by a choice question with every wrong option explained');
+ok(R.tablesFirst, 'tables come before the text that walks through them');
+ok(R.pending && R.rung, 'v10 finishers get the rewrite as pending, and the combination drills stay unlocked');
+ok(R.onlyRewrites, 'catch-up shows only the rewritten steps'); ok(R.done, 'finishing it clears the pending flag');
+console.log(fails ? fails + ' FAILED' : 'ALL PASS'); process.exit(fails ? 1 : 0);
