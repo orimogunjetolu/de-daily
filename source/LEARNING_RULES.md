@@ -1,4 +1,4 @@
-# DE Daily: learning rules (v10)
+# DE Daily: learning rules (v10.2)
 
 This file is the reference for how terminology is taught and scheduled. The code is in `app.js`: data in the **v4 TERMINOLOGY DATA** block (after `PLACE_BANK`), logic in the **v4 TERM ENGINE** block (before `ACTIONS`). The in-app summary is More → **How learning works** (`learnHowHTML()`). It is also shown once, as the first step of the first session after the update.
 
@@ -139,6 +139,16 @@ These apply to every new or rewritten picture lesson. The v10 plan calls this se
 - it writes each lesson and module % to `deLearn.floor10`, and no later % can fall below it.
 
 Learners who already saw a lesson get only its new steps as catch-up, labelled "🆕 New in v10".
+
+## 0h. STANDING RULE (v10.2): mark SQL by its result, not its spelling
+A correct query must never be marked wrong because it is written differently from the model.
+- **Code cards, Level 3** (type whole lines): the typed lines are first compared with the model text as before. When that fails, they are put back into the card and the whole query is run on the card's own data (`gradeSqlExec`). It is right when it returns the same rows and values as the model query. Column names, aliases, column order, case, spaces and the final `;` do not matter. Row order matters only when the model query ends with its own `ORDER BY`. A label column may be swapped for the matching ID or name of the same table (`song_id` for `title`, or both), only where the model shows that column, and only when the swap is one-to-one in the data.
+- **The card's keywords must stay.** Every `[[keyword]]` on the blanked lines must still be in the answer, so a query that matches only by luck on the small data set (for example `COUNT(*)` where nobody repeats) is not accepted. `AS` before an alias is optional SQL and is the one keyword whose absence never changes a result.
+- **Not run:** cards with `run: false`, DuckDB-only cards (`runSql`), non-SQL cards and models that return no rows keep the text check only.
+- **Level 4** also runs the query and shows the result next to the model's before the self-grade.
+- **Feedback.** Right but different: the two result tables, why it counts (for an ID label: grouping by the ID is safer, because two songs can share a title), the model answer as another correct way, and the card's `alt` (safest version) if it has one. Wrong: the two result tables and what is actually wrong in plain words (a syntax error with SQLite's message, a missing GROUP BY, counting rows instead of different values via the card's `hint.nodistinct`, a wrong row or column count, a wrong order).
+- **Problems, placement and run questions** were already checked by result (`compareResults`); v10.2 also accepts the same columns in a different order there. They do not swap labels, because their tasks name the columns.
+- **Repair:** `fix102()` runs once (flag `deLearn.fix102`) and only raises the record of `sqlm-c3` that the old check dropped: a miss at Level 2 seen on or after 2026-10-29 becomes Level 4 (what a correct Level 3 answer gives), counted right, due the next day; a Level 3 record whose retry already passed becomes Level 4. Nothing else is written, and the stored typed answer does not exist, so it cannot be re-checked. Tests: `node source/tests/t14_v102.js`; `browser_test.py` `fix102_state` and `fix102_ui` (`ONLY=fix102`).
 
 ## 1. Building blocks (grounding)
 - Building-block words (`GROUND`, 20 blocks): row, column, value, table, query, result rows, expression, condition, clause, key, data type, schema, function, pipeline, run, batch, partition, event, API, test.
@@ -295,6 +305,8 @@ v7: `node source/tests/t7_relations.js` checks lesson order, gap scheduling for 
 v9.0: `node source/tests/t10_aws.js` checks the AWS track is separate from the SQL session, stores stay byte-identical, every AWS lesson has pictures and explained wrong options, every term has a labelled hook and the full pick/type/spot path, the name drill is additive (intervals, never touches term state or the fast lane), the hook card comes before the definition, and every click-through step is explained and labelled. `browser_test.py` adds a v8.2 (b4f492d) saved state and the `aws9` checks (`ONLY=aws9` runs just those).
 
 v10.1: `node source/tests/t13_v101.js` checks the Step 9 rewrite (new question IDs for new questions, kept IDs for existing ones, tables before text, thinking checked before fan-out and INNER JOIN are named, a choice question after each screen), that learners who finished v10 get only the rewritten steps as a catch-up, and that the rewrite never re-locks the combination drills. `browser_test.py` adds a rich v10 (e5c4319) saved state.
+
+v10.2: `node source/tests/t14_v102.js` checks result-based marking on sqlm-c3 (the reported answer, title, both columns, aliases and order accepted; COUNT(*), missing DISTINCT, missing GROUP BY, wrong or missing label and syntax errors wrong, each with its reason), that every runnable SQL card's model lines still pass and that removing any blanked keyword never passes, that `compareResults` accepts swapped columns and keeps old verdicts, and that `fix102` is one-time and never lowers anything. `browser_test.py` adds a v10.1 (192662b) saved state where the old build really drops the card, then checks the repair and that every other key is byte-identical.
 
 ## Benchmark: check before shipping
 

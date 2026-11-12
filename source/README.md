@@ -13,7 +13,7 @@
 1. Edit `source/app.js` (e.g. add a module to the curriculum; markup rules are explained at the top of the file).
 2. From the repo root run `python source/build.py`.
 3. Open `index.html` in a browser to test, and run the tests in `source/tests/` (see LEARNING_RULES.md §9).
-4. In `sw.js`, bump `CACHE = 'de-daily-v6'` to the next number (v6, ...) so installed phones update.
+4. In `sw.js`, bump `CACHE` (currently `de-daily-v10-2`) to the next version so installed phones update.
 5. Commit and push. GitHub Pages republishes within about a minute.
 
 ## Saved progress (never break it)
@@ -45,5 +45,7 @@ v9.0: a separate **AWS for Data Engineering** track (Course 4 Module 1, Networki
 v9.1: an opt-in **Unlock next lesson now** button for AWS Course 4 Module 1 only, shown after you finish a lesson there, so you can keep pace with Coursera deadlines. Spaced review keeps its normal schedule; only a flag in `deLearn.aws` is written. Tests: `node source/tests/t11_unlock.js`.
 
 v10.1: joins Step 9 (fan-out) rebuilt as six small screens, tables before text on every v10 screen, a jargon pass on joins, many-to-many, combination drills and the real task, and the benchmark checklist (`LEARNING_RULES.md`, `node source/tests/changed_screens.js <commit>`). Tests: `node source/tests/t13_v101.js`.
+
+v10.2: SQL code cards are marked by running the query: at Level 3 a typed line that differs from the model is put back into the card and its result is compared with the model's (any alias, column order, ID or title as the label), and the feedback says what is right or wrong in plain words. A one-time repair (`deLearn.fix102`) restores the card *How many different listeners streamed each song?* where the old check dropped it. Rules: `LEARNING_RULES.md` §0h. Tests: `node source/tests/t14_v102.js`.
 
 v8.2: strict but simple (`LEARNING_RULES.md` §0d). Tier 1 is never false for simplicity: events are normally not edited and a wrong one gets a correcting event (new *payments* picture); a primary key is unique and never NULL in standard SQL, with SQLite's quirk as a footnote; GROUP BY teaches the safe habit plus functional dependence (Postgres) and SQLite's leniency; partitions are logical in your DuckDB project and physical in BigQuery or Hive-style folders; a song's release label is separate from an artist's current label; other stage names live in `artist_aliases`; small teaching tables are keyed by `song_id`. Every new idea has a picture, a near-miss question with every wrong option explained, and a non-music transfer question. Pipeline claims were re-checked against naija-chart-pipeline, and every picture's text was rewritten as connected sentences. Tests: `node source/tests/t9_content.js`.

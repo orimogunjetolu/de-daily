@@ -783,7 +783,10 @@ const SQL_LESSONS_B = [
   code:[
     { id:'sqlm-c1', task:'Show each stream as the listener\'s name and the song title (two joins).', lang:'sql', code:'SELECT l.name, s.title\nFROM streams st\nJOIN listeners l ON l.listener_id = st.[[listener_id]]\nJOIN [[songs]] s ON s.song_id = st.song_id;' },
     { id:'sqlm-c2', task:'List the songs on the playlist Naija Hits.', lang:'sql', code:'SELECT s.title\nFROM playlist_songs ps\nJOIN playlists p ON p.playlist_id = ps.[[playlist_id]]\nJOIN songs s ON s.song_id = ps.[[song_id]]\nWHERE p.name = \'Naija Hits\';' },
-    { id:'sqlm-c3', task:'How many different listeners streamed each song?', lang:'sql', code:'SELECT s.title, COUNT([[DISTINCT]] st.listener_id) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\n[[GROUP BY]] s.title;' }
+    { id:'sqlm-c3', task:'How many different listeners streamed each song?', lang:'sql', code:'SELECT s.title, COUNT([[DISTINCT]] st.listener_id) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\n[[GROUP BY]] s.title;',
+      // v10.2: checked by running it (any label column, alias or column order); these feed the feedback only
+      alt:'SELECT s.song_id, s.title, COUNT(DISTINCT st.listener_id) AS listeners\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\nGROUP BY s.song_id, s.title;',
+      hint:{ nodistinct:'Your counts differ: you counted plays (every row in streams), not different listeners. Ada played Calm Down twice, so counting rows gives Calm Down 4, but only 3 different people (Ada, Tunde and Chidi) played it. COUNT(DISTINCT st.listener_id) counts each listener once per song.' } }
   ],
   problems:[
     { id:'sqlm-p1', kind:'sql', title:'Who listens to which artist',
@@ -5035,7 +5038,7 @@ CURRICULUM.modules.forEach(m => {
     l.module = m.id; l.index = li; LESSONS[l.id] = l;
     l.itemIds = [];
     (l.terms || []).forEach(t => { ITEMS[t.id] = { id: t.id, kind: 'term', lesson: l.id, module: m.id, front: t.term, text: t.def }; l.itemIds.push(t.id); });
-    (l.code || []).forEach(c => { ITEMS[c.id] = { id: c.id, kind: 'code', lesson: l.id, module: m.id, front: c.task, text: c.code, lang: c.lang, run: c.lang === 'sql' && c.run !== false, show: c.show, runSql: c.runSql, src: c.src, db: m.db || 'music' }; l.itemIds.push(c.id); });
+    (l.code || []).forEach(c => { ITEMS[c.id] = { id: c.id, kind: 'code', lesson: l.id, module: m.id, front: c.task, text: c.code, lang: c.lang, run: c.lang === 'sql' && c.run !== false, show: c.show, runSql: c.runSql, src: c.src, db: m.db || 'music', alt: c.alt, hint: c.hint }; l.itemIds.push(c.id); });
     (l.qa || []).forEach(q => { ITEMS[q.id] = { id: q.id, kind: 'qa', lesson: l.id, module: m.id, front: q.q, text: q.a }; l.itemIds.push(q.id); });
     (l.problems || []).forEach(p => { PROBLEMS[p.id] = Object.assign({ lesson: l.id, module: m.id, db: m.db || 'music' }, p); });
   });
@@ -5145,6 +5148,30 @@ function initFloor10() {
 }
 // v10: a one-time backup of the raw saved progress before v10 writes anything (never overwritten)
 function backupV9() { try { ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws'].forEach(k => { const v = localStorage.getItem(k); if (v != null && localStorage.getItem(k + '.v9bak') == null) localStorage.setItem(k + '.v9bak', v); }); } catch (e) {} }
+/* v10.2: one-time repair for the code card sqlm-c3 ("How many different listeners streamed each song?"). Before v10.2 its Level 3
+   check compared typed lines with one model text, so a correct query (grouped by song_id, or without the alias) was marked wrong
+   and the card dropped from Level 3 to Level 2. The typed answer itself is never stored, so the repair works from the card record:
+   - it runs once (flag deLearn.fix102, written whether or not anything changed) and only touches S.items['sqlm-c3'];
+   - only when the card is not mastered, has at least one miss, and was last answered on or after FIX102_SINCE;
+   - last answer a miss at Level 2 (dropped from Level 3): set Level 4, which a correct answer at Level 3 gives, count it as right,
+     and make it due the day after that answer unless it is already due later;
+   - last answer right at Level 3 (the retry climbed back from 2): set Level 4, nothing else;
+   - it only ever raises the level; XP, streak, days, flashcards, other cards, terms and percentages are not touched.
+   The flag stores the record before and after, so the change can be checked or undone by hand. */
+const FIX102_ID = 'sqlm-c3', FIX102_SINCE = '2026-10-29';
+function fix102() {
+  try { if (localStorage.getItem('deLearn.fix102') != null) return null; } catch (e) { return null; }
+  const st = S.items[FIX102_ID]; const rec = { v: 1, at: today(), id: FIX102_ID, before: st ? Object.assign({}, st) : null, changed: false };
+  if (st && !st.mastered && (st.wrong || 0) >= 1 && st.seen && st.seen >= FIX102_SINCE && st.lvl < 4) {
+    const missLast = !(st.due > st.seen); // a miss sets due to the day of the answer; a right answer sets it to the next day
+    if (missLast && st.lvl === 2) { st.lvl = 4; st.right = (st.right || 0) + 1; const d = addDays(st.seen, 1); if (!(st.due > d)) st.due = d; rec.changed = true; }
+    else if (!missLast && st.lvl === 3) { st.lvl = 4; rec.changed = true; }
+    if (rec.changed) rec.after = Object.assign({}, st);
+  }
+  try { localStorage.setItem('deLearn.fix102', JSON.stringify(rec)); } catch (e) { return null; }
+  if (rec.changed) save();
+  return rec;
+}
 // v10: application lessons open once the joins and many-to-many pictures (including their v10 steps) are seen
 function rungReady(l) { if (!l.rung) return true; if (l.rung === 2) return ['sql5', 'sqlm'].every(id => visSeen(id) && !v10Pending(id, true)); return !!S.theory.sqlc; }
 function rungReviews(n) { const t = today(), out = [];
@@ -5401,7 +5428,139 @@ function compareResults(user, exp, ordered) {
   const a = normRows(user, ordered), b = normRows(exp, ordered);
   if (a.join('|') === b.join('|')) return { ok: true };
   if (ordered && normRows(user, false).join('|') === normRows(exp, false).join('|')) return { ok: false, msg: 'Right rows, wrong order. Check your ORDER BY.' };
+  // v10.2: the same columns in a different order are the same answer (only ever accepts more, never less)
+  const perm = colPerm(user, exp, ordered); if (perm) return { ok: true, reordered: true };
   return { ok: false, msg: 'Same shape, but some values differ. Compare with the expected output.' };
+}
+function colPerm(user, exp, ordered) {
+  const k = exp.columns.length; if (k > 6 || user.columns.length !== k) return null; const b = normRows(exp, ordered).join('|');
+  const go = (p, left) => { if (!left.length) { const r = { columns: p.map(i => user.columns[i]), values: user.values.map(v => p.map(i => v[i])) }; return normRows(r, ordered).join('|') === b ? p : null; }
+    for (const i of left) { const x = go(p.concat(i), left.filter(j => j !== i)); if (x) return x; } return null; };
+  return go([], [...Array(k).keys()]);
+}
+
+/* ---------- v10.2: result-based checking for SQL code cards ----------
+   Level 3 (type whole lines) used to compare each typed line with the model text, so a correct query written another way
+   (song_id instead of title, no alias, columns swapped) was marked wrong. Now, when the text check fails, the typed lines are
+   put back into the card, the query is run on the card's own data, and its result is compared with the model query's result:
+   - same number of rows and the same values per row; column names, aliases, column order, case, spaces and the final ; do not matter;
+   - row order matters only when the model query itself ends with ORDER BY (the task asks for an order);
+   - a label column may be swapped for the matching key or name of the same table (song_id for title, artist_id for name, or both),
+     but only where the model shows that column, and only when the swap is one-to-one in the data (a repeated title cannot stand in for an ID);
+   - every keyword the card blanks on those lines (DISTINCT, GROUP BY, LEFT JOIN, ...) must still be in the answer, so a query that gives
+     the same result on this small data set by luck (COUNT(*) where nobody repeats) is not accepted.
+   If the card cannot be run (non-SQL, DuckDB-only syntax, run: false) the old text check is all there is. Level 4 runs the query too,
+   but only to inform the self-grade. */
+const cv = x => typeof x === 'number' ? 'n' + (Math.round(x * 100) / 100) : x === null ? 'z' : 's' + String(x).trim();
+const KEYPAIRS = {};
+async function keyPairs(dbKey) {
+  if (KEYPAIRS[dbKey]) return KEYPAIRS[dbKey];
+  const SQL = await getSQL(); const db = new SQL.Database(); const out = [];
+  try {
+    db.exec((DATASETS[dbKey] || DATASETS.music).sql);
+    const tabs = db.exec("SELECT name FROM sqlite_master WHERE type = 'table'"); const names = tabs.length ? tabs[0].values.map(v => v[0]) : [];
+    names.forEach(t => {
+      const info = db.exec("SELECT name, type, pk FROM pragma_table_info('" + String(t).replace(/'/g, "''") + "')")[0].values; const pks = info.filter(c => c[2] > 0);
+      if (pks.length !== 1) return; const key = pks[0][0];
+      info.filter(c => c[2] === 0 && /TEXT/i.test(c[1])).forEach(c => {
+        const r = db.exec('SELECT "' + key + '", "' + c[0] + '" FROM "' + t + '"'); const k2t = new Map(), t2k = new Map(), dup = new Set();
+        (r.length ? r[0].values : []).forEach(([a, b]) => { if (b == null) return; k2t.set(cv(a), cv(b)); if (t2k.has(cv(b))) dup.add(cv(b)); t2k.set(cv(b), cv(a)); });
+        dup.forEach(d => t2k.delete(d)); out.push({ table: t, key, col: c[0], k2t, t2k });
+      });
+    });
+  } finally { db.close(); }
+  return (KEYPAIRS[dbKey] = out);
+}
+// does the last statement end with an ORDER BY of its own (not one inside OVER (...) or a subquery)?
+function outerOrdered(sql) {
+  let s = String(sql).replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''"); let prev;
+  do { prev = s; s = s.replace(/\([^()]*\)/g, '()'); } while (s !== prev);
+  const parts = s.split(';').map(x => x.trim()).filter(Boolean); return /\border\s+by\b/i.test(parts[parts.length - 1] || '');
+}
+// compare a user's result with the model's: see the header above. Returns { ok, map, extra } or null.
+function compareFlex(U, E, ordered, pairs) {
+  const n = E.values.length; if (U.values.length !== n || !E.columns.length || U.columns.length < E.columns.length || U.columns.length > 8) return null;
+  const col = (R, i) => R.values.map(r => cv(r[i])); const ms = a => a.slice().sort().join('\u0001');
+  const base = c => String(c).toLowerCase().replace(/^.*\./, '').replace(/["`\[\]]/g, '').trim();
+  const Uc = U.columns.map((_, i) => col(U, i)), Ec = E.columns.map((_, j) => col(E, j));
+  const rel = (i, j) => { const out = []; if (ms(Uc[i]) === ms(Ec[j])) out.push({ f: v => v, sub: null });
+    const en = base(E.columns[j]);
+    (pairs || []).forEach(p => {
+      if (en === p.col.toLowerCase()) { const t = Uc[i].map(v => p.k2t.get(v)); if (t.every(x => x !== undefined) && ms(t) === ms(Ec[j])) out.push({ f: v => p.k2t.get(v), sub: { table: p.table, user: p.key, model: p.col, keyInUser: true } }); }
+      if (en === p.key.toLowerCase()) { const t = Uc[i].map(v => p.t2k.get(v)); if (t.every(x => x !== undefined) && ms(t) === ms(Ec[j])) out.push({ f: v => p.t2k.get(v), sub: { table: p.table, user: p.col, model: p.key, keyInUser: false } }); }
+    });
+    return out; };
+  const R = E.columns.map((_, j) => U.columns.map((_, i) => rel(i, j)));
+  const key = rows => ordered ? rows.join('\u0003') : rows.slice().sort().join('\u0003');
+  const target = key(E.values.map(r => r.map(cv).join('\u0002')));
+  const asg = [], used = new Set();
+  const rest = () => {
+    const extra = [];
+    for (let i = 0; i < U.columns.length; i++) { if (used.has(i)) continue; let found = null;
+      for (let j = 0; j < E.columns.length && !found; j++) for (const r of R[j][i]) { if (U.values.every(row => r.f(cv(row[i])) === asg[j].r.f(cv(row[asg[j].i])))) { found = { i, j, sub: r.sub }; break; } }
+      if (!found) return null; extra.push(found); }
+    return key(U.values.map(row => asg.map(a => a.r.f(cv(row[a.i]))).join('\u0002'))) === target ? { ok: true, map: asg.map(a => ({ i: a.i, sub: a.r.sub })), extra } : null;
+  };
+  const bt = j => { if (j === E.columns.length) return rest();
+    for (let i = 0; i < U.columns.length; i++) { if (used.has(i)) continue; for (const r of R[j][i]) { used.add(i); asg[j] = { i, r }; const x = bt(j + 1); used.delete(i); if (x) return x; } }
+    return null; };
+  return bt(0);
+}
+// the keywords a card blanks on the given lines (all lines when lines is null): [[DISTINCT]] -> ['DISTINCT'], [[a|b]] -> ['a', 'b']
+function cardKeys(it, lines) {
+  const want = lines ? new Set(lines.map(l => norm(l))) : null; const out = [];
+  it.text.replace(/\{\{|\}\}/g, '').split('\n').forEach(ln => { if (want && !want.has(norm(plain(ln)))) return; const re = /\[\[(.+?)\]\]/g; let m; while ((m = re.exec(ln))) out.push(m[1].split('|')); });
+  return out;
+}
+function hasKey(sql, alts) {
+  const q = ' ' + norm(sql) + ' ';
+  return alts.some(a => { const k = norm(a); if (!k) return true; const e = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp((/^\w/.test(k) ? '(^|[^\\w])' : '') + e + (/\w$/.test(k) ? '(?![\\w])' : '')).test(q); });
+}
+const singular = t => String(t).replace(/_/g, ' ').replace(/ies$/, 'y').replace(/s$/, '');
+// run a user's query and the card's model query on the card's data and explain the difference in plain words.
+// Returns null when the card cannot be checked this way; otherwise { ok, msg, note, uRes, eRes }.
+async function gradeSqlExec(it, userSql, lines) {
+  if (!it || it.kind !== 'code' || it.lang !== 'sql' || !it.run || it.runSql || !String(userSql || '').trim()) return null;
+  const model = plain(it.text); const tail = it.show ? '\n;\n' + it.show : '';
+  let E; try { E = await runSQL(model + tail, null, it.db); } catch (e) { return null; }
+  if (!E.values.length) return null; // a model that returns no rows cannot tell a right query from a broken filter: text check only
+  let U; try { U = await runSQL(userSql + tail, null, it.db); }
+  catch (e) { return { ok: false, err: true, msg: 'Your query could not run. SQLite says: ' + e.message + '.', eRes: E }; }
+  const ordered = outerOrdered(model + tail); const pairs = await keyPairs(it.db);
+  const m = compareFlex(U, E, ordered, pairs);
+  const missing = cardKeys(it, lines).filter(a => !hasKey(userSql, a)).map(a => a[0]);
+  if (m && missing.length) return { ok: false, msg: 'Your query gives the same result on this small data set, but this card practises ' + missing.map(k => '<code>' + esc(k) + '</code>').join(' and ') + ', and your answer does not use it. On other data your query could give a different result, so it is not marked right.', uRes: U, eRes: E };
+  if (m) {
+    const subs = m.map.map(x => x.sub).filter(Boolean), exSubs = m.extra.map(x => x.sub).filter(Boolean);
+    let note = 'Your query is written differently from the model answer, but it returns exactly the same result on this data, so it is correct.';
+    if (exSubs.length || (subs.length && m.extra.length)) { const s = exSubs[0] || subs[0]; const th = singular(s.table);
+      note = 'You showed both <code>' + esc(s.keyInUser ? s.user : s.model) + '</code> and <code>' + esc(s.keyInUser ? s.model : s.user) + '</code>. That is the safest version: the ID keeps two ' + th + 's with the same ' + esc(s.keyInUser ? s.model : s.user) + ' apart, and the ' + esc(s.keyInUser ? s.model : s.user) + ' makes the result easy to read.'; }
+    else if (subs.length) { const s = subs[0]; const th = singular(s.table);
+      note = s.keyInUser
+        ? 'You labelled each row with <code>' + esc(s.user) + '</code>, and the model answer uses <code>' + esc(s.model) + '</code>. Both pick out the same ' + th + 's here, so the counts are the same. Grouping by the ID is actually the safer habit: two different ' + th + 's can share a ' + esc(s.model) + ', and grouping by ' + esc(s.model) + ' would merge them into one row.'
+        : 'You labelled each row with <code>' + esc(s.user) + '</code>, and the model answer uses <code>' + esc(s.model) + '</code>. Every ' + esc(s.user) + ' in this data is different, so the groups are the same, but two ' + th + 's can share a ' + esc(s.user) + ', so the ID is the safer label to group by.'; }
+    return { ok: true, note, uRes: U, eRes: E };
+  }
+  // wrong: say what differs
+  const ug = /\bgroup\s+by\b/i.test(userSql), eg = /\bgroup\s+by\b/i.test(model);
+  const eDist = /count\s*\(\s*distinct\b/i.test(model), uDist = /count\s*\(\s*distinct\b/i.test(userSql);
+  let msg;
+  if (U.values.length !== E.values.length) {
+    if (eg && !ug) msg = 'Your query has no GROUP BY, so all the rows were squeezed into ' + U.values.length + ' result row' + (U.values.length === 1 ? '' : 's') + '. The question asks for one row per group, which needs GROUP BY (the answer has ' + E.values.length + ' rows).';
+    else msg = 'Your query returns ' + U.values.length + ' row' + (U.values.length === 1 ? '' : 's') + ', but the answer has ' + E.values.length + '. Check which rows your WHERE, JOIN or GROUP BY keeps.';
+  } else if (eDist && !uDist) msg = (it.hint && it.hint.nodistinct) || 'Your counts differ: COUNT without DISTINCT counts every row, so a value that appears twice is counted twice. COUNT(DISTINCT ...) counts each different value once.';
+  else if (U.columns.length < E.columns.length) msg = 'Your result has ' + U.columns.length + ' column' + (U.columns.length === 1 ? '' : 's') + ', but the answer needs ' + E.columns.length + ': a label for each row and the value asked for.';
+  else if (ordered && compareFlex(U, E, false, pairs)) msg = 'The right rows, but in the wrong order. The task asks for an order, so check your ORDER BY.';
+  else msg = 'The same number of rows, but some values differ. Compare your result with the answer\'s result below.';
+  return { ok: false, msg, uRes: U, eRes: E };
+}
+function execBox(x, correct) {
+  if (!x) return '';
+  // tables first (your result next to the model's), then the reason that walks through them
+  let h = '';
+  if (x.uRes || x.eRes) h += '<div class="label">Your result</div>' + (x.uRes ? tableHTML(x.uRes, 12) : '<div class="muted small">Your query did not run, so it has no result.</div>') + (x.eRes ? '<div class="label">The model answer\'s result</div>' + tableHTML(x.eRes, 12) : '');
+  return h + '<div class="whyw"><div class="lab">' + (correct ? 'Why it counts as correct' : 'What is wrong') + '</div>' + (correct ? x.note : x.msg) + '</div>';
 }
 
 /* ============================ UI STATE ============================ */
@@ -5601,16 +5760,20 @@ function viewFade(step) {
       (f.lvl > 1 ? '<button class="btn ghost" data-act="dontKnow">I don\'t know: show me</button>' : '') + '</div>';
   } else if (f.lvl === 4 && !f.graded) {
     const sc = f.score; const pct = Math.round(sc.score * 100);
+    const x4 = f.exec;
+    if (x4) h += '<div class="feedback ' + (x4.ok ? 'good' : 'meh') + '"><b>▶ We ran your query on the chart data.</b> ' + (x4.ok ? 'It returns the same result as the model answer.' : 'It does not return the same result yet.') + '</div>' + execBox(x4, x4.ok);
     h += '<div class="feedback ' + (pct >= 75 ? 'good' : 'meh') + '"><b>Keyword match: ' + pct + '%</b>' + (sc.missingKeys.length ? '<br>Missing key terms: ' + sc.missingKeys.map(k => '<code>' + esc(k) + '</code>').join(' ') : '<br>All key terms present.') + '</div>' +
       '<div class="label">Model answer</div>' + (it.kind === 'code' ? '<pre class="code">' + esc(plain(it.text)) + '</pre>' : '<p class="def model">' + esc(plain(it.text)) + '</p>') +
       runBox(it) +
       '<div class="muted small">Same meaning counts. You decide:</div>' +
-      '<div class="actions two"><button class="btn bad" data-act="selfGrade" data-ok="0">✗ I was wrong</button><button class="btn good' + (pct >= 75 ? ' primary' : '') + '" data-act="selfGrade" data-ok="1">✓ I was right</button></div>';
+      '<div class="actions two"><button class="btn bad" data-act="selfGrade" data-ok="0">✗ I was wrong</button><button class="btn good' + (pct >= 75 || (x4 && x4.ok) ? ' primary' : '') + '" data-act="selfGrade" data-ok="1">✓ I was right</button></div>';
   } else {
     const o = f.outcome;
     const msg = o.correct ? (o.event === 'mastered' ? '🏆 Mastered! It joins your flashcard deck.' : '✅ Correct! Next time: Level ' + o.lvl + '.') + (f.close ? ' <span class="muted">(small typo accepted)</span>' : '')
       : (o.event === 'down' ? '↩️ Not quite. Dropping back to Level ' + o.lvl + '. You\'ll see it again soon.' : '↩️ Not quite. You\'ll see it again at the end.');
     h += '<div class="feedback ' + (o.correct ? 'good' : 'badfb') + '">' + msg + '</div>';
+    if (f.exec && f.exec.ok && o.correct) h += execBox(f.exec, true) + '<div class="label">Model answer (another correct way to write it)</div><pre class="code">' + esc(plain(it.text)) + '</pre>' + (it.alt ? '<div class="label">Safest version: label by the ID and show the title too</div><pre class="code">' + esc(it.alt) + '</pre>' : '');
+    if (f.exec && !f.exec.ok && !o.correct) h += execBox(f.exec, false);
     if (!o.correct) h += '<div class="label">Full answer</div>' + (it.kind === 'code' ? '<pre class="code">' + esc(plain(it.text)) + '</pre>' : '<p class="def model">' + esc(plain(it.text)) + '</p>');
     h += runBox(it);
     h += '<div class="actions"><button class="btn primary big" data-act="next" data-autofocus>Continue</button>' +
@@ -5618,6 +5781,8 @@ function viewFade(step) {
   }
   return h;
 }
+// v10.2: the card's code with the typed lines put back in place of the blanks
+function fadeQuery(f) { let bi = 0; return f.segs.map(sg => sg.blank ? (f.vals[bi++] || '') : sg.s).join(''); }
 function runBox(it) {
   if (!it.run) return '';
   return '<div class="runbox"><button class="btn small" data-act="runItem" data-id="' + it.id + '">▶ Run this SQL on the chart data</button><div class="out" id="out-' + it.id + '"></div></div>';
@@ -5810,7 +5975,7 @@ function viewSettings() {
     '<details><summary class="small">Import by pasting text instead</summary><textarea id="importText" rows="4" class="mono" placeholder="Paste backup JSON here"></textarea><button class="btn small" data-act="importPaste">Import pasted backup</button></details></section>' +
     '<section class="card"><h3>AnkiDroid</h3><div class="actions two"><button class="btn" data-act="anki" data-all="0">Export my deck</button><button class="btn" data-act="anki" data-all="1">Export all items</button></div></section>' +
     '<section class="card"><h3>How learning works</h3><p class="small muted">Building blocks first, one phrase at a time, pick → type → spot on different days, exact small words, tiers, 2–3 terms at once, about 1/3 terms and 2/3 code per session.</p><button class="btn" data-act="go" data-to="learn">📖 How learning works</button>' +
-      '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard.</li>' +
+      '<ul class="small plan"><li><b>Code &amp; interview answers:</b> fade-recall ladder L1 choose keywords → L2 type a few words → L3 type whole lines → L4 full recall, then an SM-2 flashcard. SQL lines are checked by running your query: any correct way of writing it counts.</li>' +
       '<li>Content: ' + READY.reduce((a, m) => a + m.lessons.length, 0) + ' lessons, ' + total + ' drill items, ' + probs + ' problems, ' + Object.keys(GROUND).length + ' building blocks.</li></ul></section>' +
     '<section class="card"><h3>Danger zone</h3><button class="btn bad" data-act="reset">Reset all progress</button></section>' +
     '<p class="muted small center">DE Daily · works offline · v10</p></main>' + nav('settings');
@@ -6052,6 +6217,8 @@ function viewBite(step) {
     else h += '<div class="actions"><button class="btn primary big" data-act="checkBite">' + (f.mode === 'full' ? 'Check my answer' : 'Check') + '</button><button class="btn ghost" data-act="biteDontKnow">I don\'t know: show me</button></div>';
   } else if (f.mode === 'full' && !f.graded) {
     const pct = Math.round(f.score.score * 100);
+    const x4 = f.exec;
+    if (x4) h += '<div class="feedback ' + (x4.ok ? 'good' : 'meh') + '"><b>▶ We ran your query on the chart data.</b> ' + (x4.ok ? 'It returns the same result as the model answer.' : 'It does not return the same result yet.') + '</div>' + execBox(x4, x4.ok);
     h += '<div class="feedback ' + (pct >= 75 ? 'good' : 'meh') + '"><b>Keyword match: ' + pct + '%</b>' + (f.score.missingKeys.length ? '<br>Missing key terms: ' + f.score.missingKeys.map(k => '<code>' + esc(k) + '</code>').join(' ') : '') + '</div>' +
       '<div class="label">Model answer</div><p class="def model">' + esc(plain(it.text)) + '</p><div class="muted small">Same meaning counts. You decide:</div>' +
       '<div class="actions two"><button class="btn bad" data-act="biteSelf" data-ok="0">✗ I was wrong</button><button class="btn good' + (pct >= 75 ? ' primary' : '') + '" data-act="biteSelf" data-ok="1">✓ I was right</button></div>';
@@ -6821,11 +6988,28 @@ const ACT = {
   theoryDone: () => { const st = SESSION.steps[SESSION.i]; const first = !S.theory[st.lesson]; S.theory[st.lesson] = S.theory[st.lesson] || today(); addXP(first ? 10 : 3); SESSION.stats.theory++; nextStep(); },
   chip: el => { const i = +el.dataset.i; const slot = F.chosen.indexOf(null); if (slot < 0 || F.used[i]) return; F.chosen[slot] = i; F.used[i] = true; render(); },
   unslot: el => { if (F.checked) return; const s = +el.dataset.i; const v = F.chosen[s]; if (v == null) return; F.used[v] = false; F.chosen[s] = null; render(); },
-  checkFade: () => {
-    const it = ITEMS[F.id];
+  checkFade: async () => {
+    if (!F || F.busy || F.checked) return;
+    const it = ITEMS[F.id]; const f = F;
     if (F.lvl === 1) { F.res = F.blanks.map((b, i) => !!checkBlank(F.options[F.chosen[i]], b.alts, false)); }
-    else if (F.lvl <= 3) { collectInputs(); F.res = F.blanks.map((b, i) => { const r = checkBlank(F.vals[i] || '', b.alts, b.long); if (r === 'close') F.close = true; return !!r; }); }
-    else { collectInputs(); F.score = recallScore(F.vals[0] || '', it); F.checked = true; render(); return; }
+    else if (F.lvl <= 3) {
+      collectInputs(); F.res = F.blanks.map((b, i) => { const r = checkBlank(F.vals[i] || '', b.alts, b.long); if (r === 'close') F.close = true; return !!r; });
+      // v10.2: a typed line that differs from the model text is checked by running the whole query (see gradeSqlExec)
+      if (F.lvl === 3 && !F.res.every(Boolean)) {
+        F.busy = true;
+        try {
+          const lines = F.blanks.map(b => b.s); let x = await gradeSqlExec(it, fadeQuery(F), lines);
+          if (x && x.err && /\bfrom\b/i.test(F.vals.join(' '))) { const y = await gradeSqlExec(it, F.vals.join('\n'), lines); if (y && !y.err) x = y; }
+          f.exec = x; if (x && x.ok) { f.res = f.res.map(() => true); f.close = false; }
+        } catch (e) { f.exec = null; }
+        f.busy = false; if (F !== f || f.checked) return;
+      }
+    }
+    else {
+      collectInputs(); F.score = recallScore(F.vals[0] || '', it); F.busy = true;
+      try { f.exec = await gradeSqlExec(it, f.vals[0] || '', null); } catch (e) { f.exec = null; }
+      f.busy = false; if (F !== f || f.checked) return; F.checked = true; render(); return;
+    }
     finishFade(F.res.every(Boolean)); render();
   },
   dontKnow: () => { collectInputs(); F.res = F.blanks.map(() => false); if (F.lvl === 4) { F.score = recallScore('', ITEMS[F.id]); F.graded = true; } finishFade(false); render(); },
@@ -6961,7 +7145,7 @@ document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') {
     e.preventDefault();
     const ins = [...app().querySelectorAll('.inputs input')]; const k = ins.indexOf(e.target);
-    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked) (F.term ? ACT.tCheck() : F.bite ? ACT.checkBite() : ACT.checkFade());
+    if (k >= 0 && k < ins.length - 1) ins[k + 1].focus(); else if (!F.checked && !F.busy) (F.term ? ACT.tCheck() : F.bite ? ACT.checkBite() : ACT.checkFade());
   }
 });
 document.addEventListener('change', e => {
@@ -6971,6 +7155,7 @@ document.addEventListener('change', e => {
 /* ============================ INIT ============================ */
 // v3 state lives in deLearn.ext, v4 term state in deLearn.terms; deLearn.v1 records are kept as they are
 backupV9(); S = loadState(); E = loadExt(); migrateExt(); T = loadTerms(); migrateTerms(); save(); initFloor10();
+fix102(); // v10.2: one-time, never lowers anything (see fix102)
 // v10 stable question IDs: copy position-keyed answers once (in memory; written with the next save; vs.q itself is kept)
 if (!T.visMig) { Object.keys(T.vis || {}).forEach(lid => { if (ILLUS[lid]) visMigrate(lid); }); }
 try { history.replaceState({ screen: 'home', params: {} }, ''); } catch (e) {}

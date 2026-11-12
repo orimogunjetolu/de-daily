@@ -14,13 +14,14 @@ It builds a scratch web root in source/tests/.www with
   v9/  = index.html of commit 7f59624 (v9.0: + deLearn.aws, AWS track)
   v91/ = index.html of commit 98eb8f9 (v9.1: faster unlock; last version before v10)
   v10/ = index.html of commit e5c4319 (v10: joins step by step; last version before v10.1)
+  v101/ = index.html of commit 192662b (v10.1: last version before the v10.2 SQL checker fix)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624'), ('v91', '98eb8f9'), ('v10', 'e5c4319')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624'), ('v91', '98eb8f9'), ('v10', 'e5c4319'), ('v101', '192662b')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -614,6 +615,63 @@ def preserve_v91(br, src='v91'):
     check(aa['hooks'].get('aws0-t1') == 'my hook', f'[{label}] deLearn.aws hook kept')
     check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
+K102 = os.environ.get('KEEP102') or '/workspace/dd-test/shots102-keep'; os.makedirs(K102, exist_ok=True)
+USER_LINES = ['SELECT st.song_id, COUNT(DISTINCT st.listener_id)', 'GROUP BY st.song_id;']
+SET_L3 = "(() => { S.items['sqlm-c3'] = { lvl: 3, due: today(), right: 2, wrong: 0, seen: '%s', intro: '2026-11-01', mastered: false }; save(); startSession({ mode: 'lesson', lesson: LESSONS.sqlm, steps: [{ type: 'fade', id: 'sqlm-c3' }] }); })()" % yest
+def answer_l3(page, a, b):
+    ins = page.locator('.inputs input'); ins.nth(0).fill(a); ins.nth(1).fill(b); page.click('[data-act="checkFade"]'); page.wait_for_selector('[data-act="next"]', timeout=8000)
+    return page.inner_text('main')
+
+def fix102_state(br):
+    # v10.1 (192662b) state where the old checker really dropped sqlm-c3 from Level 3 to 2 for the user's exact lines; then load v10.2
+    ctx, page, errs = p390(br); label = 'from v10.1 192662b'
+    page.goto(f'{BASE}/v101/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    for l in ['sql5', 'sqlm']:
+        page.evaluate(f"startSession(buildLessonSession('{l}'))"); drive(page, wrong_every=3); page.click('main.summary [data-to="home"]')
+    page.evaluate(SET_L3); txt = answer_l3(page, *USER_LINES)
+    check('Dropping back to Level 2' in txt, f'[{label}] the old build reproduces the bug: the correct answer drops the card to Level 2')
+    page.evaluate("SESSION = null; go('home')")
+    keys = ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws', 'deLearn.floor10']; old = {k: get(page, k) for k in keys}
+    oldprog = page.evaluate(PROG); oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])"); o1 = json.loads(old['deLearn.v1'])
+    check(o1['items']['sqlm-c3']['lvl'] == 2 and get(page, 'deLearn.fix102') is None, f'[{label}] saved state: sqlm-c3 at Level 2, no repair flag yet')
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    for k in keys[1:]: check(get(page, k) == old[k], f'[{label}] {k} byte-identical after loading v10.2')
+    n1 = json.loads(get(page, 'deLearn.v1')); c_old = o1['items'].pop('sqlm-c3'); c_new = n1['items'].pop('sqlm-c3')
+    check(json.dumps(n1, sort_keys=True) == json.dumps(o1, sort_keys=True), f'[{label}] deLearn.v1 identical apart from the sqlm-c3 record (XP, streak, days, other cards, flashcards, theory)')
+    check(c_new['lvl'] == 4 and c_new['right'] == c_old['right'] + 1 and c_new['wrong'] == c_old['wrong'] and c_new['due'] >= c_old['due'] and c_new['intro'] == c_old['intro'], f'[{label}] sqlm-c3 restored: Level {c_old["lvl"]} → {c_new["lvl"]}, counted right, due {c_old["due"]} → {c_new["due"]}')
+    flag = json.loads(get(page, 'deLearn.fix102') or 'null'); check(flag and flag['changed'] and flag['before']['lvl'] == 2, f'[{label}] deLearn.fix102 records the repair (before and after)')
+    newprog = page.evaluate(PROG); lower = [k for k in oldprog if newprog.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not lower, f'[{label}] no lesson or item % lowered ({len(oldprog)} checked) ' + str(lower[:5]))
+    newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); lowm = [m for m, v in oldmod if newmod.get(m, 0) + 1e-9 < v]
+    check(not lowm, f'[{label}] no module % lowered; floor10 holds ' + str(lowm))
+    after1 = {k: get(page, k) for k in keys + ['deLearn.fix102']}; page.reload(); page.wait_for_selector('#startBtn')
+    check(all(get(page, k) == after1[k] for k in after1), f'[{label}] a second load changes nothing (the repair runs once)')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
+def fix102_ui(br):
+    # the user's exact answer is now accepted with an explanation; COUNT(*) is wrong with a plain-words reason (phone width)
+    ctx, page, errs = p390(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    page.evaluate(SET_L3); txt = answer_l3(page, *USER_LINES)
+    check('Correct' in txt and 'Level 4' in txt and 'safer' in txt and 'model answer' in txt.lower(), '[fix102 ui] the user\'s exact answer is marked correct, explains why, shows the model answer as an alternative')
+    check(page.locator('.inputs .inp.bad').count() == 0, '[fix102 ui] no line is highlighted red')
+    lv = page.evaluate("S.items['sqlm-c3'].lvl"); check(lv == 4, f'[fix102 ui] card moves up to Level 4 ({lv})')
+    ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"); check(ov <= 390, f'[fix102 ui] no overflow at 390px ({ov})')
+    page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K102}/a-user-answer-accepted.png', full_page=True)
+    page.evaluate(SET_L3); txt = answer_l3(page, 'SELECT s.title, COUNT(*) AS listeners', 'GROUP BY s.title;')
+    check('Not quite' in txt and 'counted plays' in txt and 'what is wrong' in txt.lower(), '[fix102 ui] COUNT(*) is wrong and the reason says it counted plays, not different listeners')
+    lv = page.evaluate("S.items['sqlm-c3'].lvl"); check(lv == 2, f'[fix102 ui] a wrong answer still drops one level ({lv})')
+    ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"); check(ov <= 390, f'[fix102 ui] no overflow at 390px ({ov})')
+    page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K102}/b-count-star-wrong.png', full_page=True)
+    page.evaluate(SET_L3); txt = answer_l3(page, 'SELECT s.title, COUNT(DISTINCT st.listener_id) AS listeners', 'GROUP BY s.title;')
+    check('Correct' in txt and 'what is wrong' not in txt.lower() and 'why it counts' not in txt.lower(), '[fix102 ui] the model lines are still accepted by the text check, as before')
+    page.evaluate("(() => { S.items['sqlm-c3'] = { lvl: 4, due: today(), right: 3, wrong: 0, seen: null, intro: '2026-11-01', mastered: false }; startSession({ mode: 'lesson', lesson: LESSONS.sqlm, steps: [{ type: 'fade', id: 'sqlm-c3' }] }); })()")
+    page.fill('textarea.recall', 'SELECT st.song_id, COUNT(DISTINCT st.listener_id)\nFROM streams st\nJOIN songs s ON s.song_id = st.song_id\nGROUP BY st.song_id;'); page.click('[data-act="checkFade"]'); page.wait_for_selector('[data-act="selfGrade"]', timeout=8000)
+    check('same result as the model answer' in page.inner_text('main'), '[fix102 ui] Level 4: the query is run and reported before the self-grade')
+    page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K102}/c-level4-run-check.png', full_page=True)
+    check(not errs, '[fix102 ui] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
     if os.environ.get('ONLY') == 'unlock91':
@@ -621,6 +679,8 @@ with sync_playwright() as p:
     if os.environ.get('ONLY') == 'v10':
         preserve_v91(br); preserve_v91(br, 'v10'); [v10_lesson(br, l, 'v10-' + l) for l in ['sql5', 'sqlm', 'sqlc', 'sqlrt']]; v10_back(br)
         print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
+    if os.environ.get('ONLY') == 'fix102':
+        fix102_state(br); fix102_ui(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     if os.environ.get('ONLY') == 'aws9':
         aws9(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -656,6 +716,8 @@ with sync_playwright() as p:
     v10_lesson(br, 'sqlc', 'v10-sqlc')
     v10_lesson(br, 'sqlrt', 'v10-sqlrt')
     v10_back(br)
+    fix102_state(br)
+    fix102_ui(br)
     k1 = lesson_390(br, 'sqlr', 13, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
     k8 = lesson_390(br, 'sqlt', 17, 'v8-sqlt'); check({'cls', 'tap', 'mc', 'run'} <= k8, 'table lesson uses classify, tap-rows, pick and run questions')
     lesson_390(br, 'sql2', 2, 'v81-sql2'); lesson_390(br, 'sql4', 5, 'v81-sql4'); lesson_390(br, 'sql3', 2, 'v81-sql3')  # v8.1: daily_streams and labelled views
@@ -682,7 +744,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v10-1' in caches, 'service worker cache de-daily-v10-1: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v10-2' in caches, 'service worker cache de-daily-v10-2: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()
