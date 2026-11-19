@@ -16,7 +16,7 @@ const old = require(path.join(tmp, 'tests', 'h.js'))(`(() => { const o = {}; Obj
   L.scenes.forEach(s => { o[l + ' · screen · ' + s.h] = JSON.stringify(s); });
   L.qs.forEach((q, i) => { o[l + ' · question · ' + (q.id || l + '.' + i)] = JSON.stringify(q); }); });
   Object.values(ITEMS).filter(i => i.kind === 'code').forEach(i => { o[i.lesson + ' · code card · ' + i.id] = JSON.stringify({ front: i.front, text: i.text, alt: i.alt, hint: i.hint }); }); return o; })()`, {});
-const strip = j => j.replace(/,"v10":1|,"v101":1/g, '');
+const strip = j => j.replace(/,"v10":1|,"v101":1|,"v103":1|,"tf":1/g, '');
 const added = Object.keys(now).filter(k => !(k in old)), changed = Object.keys(now).filter(k => k in old && strip(old[k]) !== strip(now[k])), removed = Object.keys(old).filter(k => !(k in now));
 console.log(`Compared with ${base}: ${added.length} added, ${changed.length} changed, ${removed.length} removed or renamed`);
 added.forEach(k => console.log('ADDED   ' + k)); changed.forEach(k => console.log('CHANGED ' + k)); removed.forEach(k => console.log('REMOVED ' + k));

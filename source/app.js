@@ -2508,13 +2508,13 @@ function illFigHTML(sc, L, run) {
   const outH = !sc.out ? '' : sc.out.err ? '<div class="ill-t"><div class="ill-role">After</div><div class="ill-err">✕ Error: ' + _h(sc.out.err) + '</div></div>'
     : illTable({ n: 'result', c: sc.out.c, r: sc.out.r }, sc.out.m, { role: sc.out.role || 'After: the result', nc: sc.out.nc, name: false, why: illWhy(L, sc, 'out') }) + '<div class="muted small">' + sc.out.r.length + ' row' + (sc.out.r.length === 1 ? '' : 's') + (sc.out.nc && sc.out.nc.length ? ' · <span class="newc-k">highlighted column</span> = added by the query' : '') + '</div>';
   const aft = sc.after ? '<div class="ill-ins' + (sc.after.length === 2 ? ' two' : '') + '">' + sc.after.map((x, i) => illTable(illTab(L, x, ts), x.m, { role: x.role, why: illWhy(L, sc, 'a' + i) })).join('') + '</div>' : '';
-  let n = 0; const stp = t => '<div class="ill-step">' + (++n) + ' · ' + t + '</div>';
+  let n = 0; const stp = t => '<div class="ill-step">' + (++n) + ' · ' + t + '</div>'; // v10.3: numbered in the order they are drawn
   const marked = (sc.ins || []).some(x => (x.m || []).some(k => ILL_ICON[k]));
-  const qyH = sc.sql || sc.code ? stp(sc.sql ? 'Query' : 'Code') + QY(sc.sql || sc.code) : '';
-  const qFirst = marked && qyH && !sc.qlast; // v10: the question/filter comes before the table that is marked against it
-  return '<div class="ill">' + (sc.ask ? '<div class="ill-ask"><b>Question:</b> ' + sc.ask + '</div>' : '') + (qFirst ? qyH : '') +
-    (ins.length ? stp(qFirst ? 'Before: each row marked against this query' : 'Before') + '<div class="ill-ins' + (ins.length === 2 && !sc.stack ? ' two' : '') + '">' + ins.join('') + '</div>' : '') +
-    (qFirst ? '' : qyH) +
+  const hasQ = !!(sc.sql || sc.code); const qyH = () => hasQ ? stp(sc.sql ? 'Query' : 'Code') + QY(sc.sql || sc.code) : '';
+  const qFirst = (marked || sc.qfirst) && hasQ && !sc.qlast; // v10: the question/filter comes before the table that is marked against it (v10.3: also when sc.qfirst)
+  return '<div class="ill">' + (sc.ask ? '<div class="ill-ask"><b>Question:</b> ' + sc.ask + '</div>' : '') + (qFirst ? qyH() : '') +
+    (ins.length ? stp(sc.lab || (qFirst ? 'Before: each row marked against this query' : 'Before')) + '<div class="ill-ins' + (ins.length === 2 && !sc.stack ? ' two' : '') + '">' + ins.join('') + '</div>' : '') +
+    (qFirst ? '' : qyH()) +
     (fig ? '<div class="ill-fig">' + fig + '</div>' : '') +
     (outH || aft ? stp('After') + outH + aft : '') +
     (lgs.length ? '<div class="ill-lg">' + lgs.join('') + '</div>' : '') +
@@ -2528,7 +2528,7 @@ function visSeen(lid) { return !ILLUS[lid] || !!(T.vis && T.vis[lid] && T.vis[li
 function illusSteps(lid, maxQ, onlyNew) {
   const L = ILLUS[lid]; if (!L) return [];
   let out;
-  const nk = T.vis && T.vis[lid] && T.vis[lid].v10 ? 'v101' : 'v10'; // v10.1: learners who finished the v10 steps get only the v10.1 rewrites
+  const nk = relKey(lid); // v10.1: learners who finished the v10 steps get only the v10.1 rewrites; v10.3: then the v10.3 steps
   if (L.order) out = L.order.filter(([k, i]) => !onlyNew || (k === 's' ? L.scenes[i] : L.qs[i])[nk]).map(([k, i]) => k === 's' ? { type: 'illus', lesson: lid, sc: i } : { type: 'vq', lesson: lid, qi: i });
   else {
     const s = L.scenes.map((_, i) => ({ type: 'illus', lesson: lid, sc: i }));
@@ -2542,8 +2542,11 @@ function illusSteps(lid, maxQ, onlyNew) {
 // v10: stable question IDs (legacy questions keep lid.k, k = their original position; new questions carry an id)
 function vqId(lid, qi) { const q = ILLUS[lid].qs[qi]; return q.id || lid + '.' + qi; }
 function vqRec(lid, qi) { const v = T.vis && T.vis[lid]; if (!v) return null; return (v.qid && v.qid[vqId(lid, qi)]) || (v.q && !ILLUS[lid].qs[qi].id && v.q[qi]) || null; }
+// v10.3: the release whose new steps this learner still has to see in a lesson (v10 → v10.1 → v10.3); each key is set when the lesson's last step is done
+function relKey(lid) { const L = ILLUS[lid]; const v = (T.vis && T.vis[lid]) || {}; const has = k => !!L && !!L.order && L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]);
+  if (has('v10') && !v.v10) return 'v10'; if (has('v101') && !v.v101) return 'v101'; if (has('v103') && !v.v103) return 'v103'; return v.v10 ? 'v101' : 'v10'; }
 function v10Pending(lid, v10only) { const L = ILLUS[lid]; if (!L || !L.order) return false; const v = (T.vis && T.vis[lid]) || {}; const has = k => L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]);
-  return has('v10') && !v.v10 || !v10only && has('v101') && !!v.v10 && !v.v101; } // v10only: the v10.1 rewrites never re-lock a rung
+  return has('v10') && !v.v10 || !v10only && has('v101') && !!v.v10 && !v.v101 || !v10only && has('v103') && !v.v103; } // v10only: the v10.1 and v10.3 steps never re-lock a rung
 // existing learners: one lesson a day whose illustration they have not seen yet (theory read or placed),
 // lessons with terms already in progress first, then curriculum order
 function catchUpIllus() {
@@ -2587,7 +2590,7 @@ function initVQ(step) {
 function viewVQ(step) {
   const L = ILLUS[step.lesson], l = LESSONS[step.lesson];
   if (!F || F.stepIndex !== SESSION.i) F = initVQ(step);
-  const f = F, q = f.q; let h = '<div class="kicker">' + (step.isNew ? '🆕 New · ' : '') + '🔍 ' + (step.back ? 'One step back · ' : step.rv ? 'Review · ' : 'Picture question · ') + _h(l.title) + (step.of ? ' · step ' + step.pos + '/' + step.of : '') + '</div>' + (q.link ? '<p class="ill-link">' + q.link + '</p>' : '') + '<h2 class="q">' + q.q + '</h2>';
+  const f = F, q = f.q; let h = '<div class="kicker">' + (step.isNew ? '🆕 New · ' : '') + '🔍 ' + (step.back ? 'One step back · ' : step.rv ? 'Review · ' : 'Picture question · ') + _h(l.title) + (step.of ? ' · step ' + step.pos + '/' + step.of : '') + '</div>' + (q.link ? '<p class="ill-link">' + q.link + '</p>' : '') + (q.planShow ? planBox(step.lesson, q.planShow) : '') + '<h2 class="q">' + q.q + '</h2>';
   const TS = illTables(L, q.ts); const tabs = Object.values(TS).filter(t => !q.only || q.only.includes(t.n));
   // v10: the tables are open by default (a closed toggle counts as not visible)
   if (q.k !== 'tap' && q.k !== 'tapc' && q.ref !== false && tabs.length) h += '<details class="ill-ref" open><summary>The tables</summary><div class="ill-ins' + (tabs.length === 2 ? ' two' : '') + '">' + tabs.map(t => illTable(t, null, {})).join('') + '</div></details>';
@@ -2613,7 +2616,7 @@ function viewVQ(step) {
     h += '<div class="qlines">' + f.lines.map((x, i) => '<button class="qline' + (f.done ? (i === q.ans ? ' ok' : f.pick === i ? ' bad' : '') : f.pick === i ? ' on' : '') + '" data-act="vqLine" data-k="' + i + '"' + (f.done ? ' disabled' : '') + '><span class="ln">' + (i + 1) + '</span><code>' + esc(x) + '</code></button>').join('') + '</div>';
     if (!f.done) h += '<div class="actions"><button class="btn primary big" data-act="vqCheck">✓ Check</button></div>';
   } else if (q.k === 'run') {
-    h += '<textarea id="vqCode" class="mono editor" rows="6" spellcheck="false" autocapitalize="off"' + (f.done ? ' readonly' : '') + '>' + esc(f.code) + '</textarea>' +
+    h += '<textarea id="vqCode" class="mono editor" rows="' + Math.max(6, f.code.split('\n').length + 3) + '" spellcheck="false" autocapitalize="off"' + (f.done ? ' readonly' : '') + '>' + esc(f.code) + '</textarea>' +
       (f.out ? '<div class="out">' + f.out + '</div>' : '') +
       (!f.done ? '<div class="actions three"><button class="btn" data-act="vqRun">▶ Run</button><button class="btn primary" data-act="vqCheck">✓ Check</button></div>' : '');
   }
@@ -3477,6 +3480,370 @@ ILLUS.sqlrt = { id: 'sqlrt', rung: 3, tables: {
 }
 
 /* v10: a specific reason for every marked row of the older pictures, keyed 'lesson|picture title'; arrays follow the rows (null = unmarked) */
+/* ---------- v10.3: CTEs and derived tables built up by hand (Steps 1–8 of sql7) ----------
+   The same six stream rows throughout: (1,14) (2,14) (3,14) (4,22) (5,31) (6,31). listener_id is shown only where a question
+   needs it (Step 2's two-column piles and Step 8's real task). New steps carry v103:1 and an explicit id; the three legacy
+   scenes and two legacy questions keep their positions and follow as the tail of L.order. Learners who already saw sql7's
+   pictures get only the v103 steps as a "🆕 New" catch-up (see relKey / v10Pending). Nothing here adds a term or code card,
+   so no lesson or module % can change. */
+const CTP = { streams: ILT('streams', ['stream_id', 'song_id'], [[1, 14], [2, 14], [3, 14], [4, 22], [5, 31], [6, 31]], 'CREATE TABLE streams (stream_id INTEGER PRIMARY KEY, song_id INTEGER);') };
+const CTL = { streams: ILT('streams', ['stream_id', 'listener_id', 'song_id'], [[1, 7, 14], [2, 7, 14], [3, 7, 14], [4, 8, 22], [5, 8, 31], [6, 8, 31]], 'CREATE TABLE streams (stream_id INTEGER PRIMARY KEY, listener_id INTEGER, song_id INTEGER);') };
+const CTL7 = { streams: ILT('streams', CTL.streams.c, CTL.streams.r.concat([[7, 8, 14]]), CTL.streams.ddl) }; // Step 8: one row added (a new song for listener 8)
+const CTL8 = { streams: ILT('streams', CTL.streams.c, CTL7.streams.r.concat([[8, 7, 14]]), CTL.streams.ddl) }; // then a repeat play for listener 7
+const CT_P7 = ILT('pile_7', ['stream_id', 'song_id'], [[1, 14], [2, 14], [3, 14]]), CT_P8 = ILT('pile_8', ['stream_id', 'song_id'], [[4, 22], [5, 31], [6, 31]]);
+const CT_LS = ILT('listener_songs', ['listener_id', 'songs'], [[7, 1], [8, 2]]);
+const CT_QC = 'SELECT listener_id,\n       COUNT(*) AS streams_n,\n       COUNT(DISTINCT song_id) AS songs\nFROM streams\nGROUP BY listener_id;';
+const CTSHOP = { orders: ILT('orders', ['order_id', 'customer_id'], [[1, 21], [2, 22], [3, 22], [4, 23], [5, 22], [6, 22]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER);') };
+const CT_SC = ILT('song_counts', ['song_id', 'stream_count'], [[14, 3], [22, 1], [31, 2]]);
+const CT_ROLE = 'streams: 6 practice rows (the app’s streams table also has listener_id; it is left out until a question needs it)';
+const CT_ROLEL = 'streams: the same 6 rows, now with listener_id';
+const CT_PILE = ['song_id 14: pile 14', 'song_id 14: pile 14', 'song_id 14: pile 14', 'song_id 22: pile 22', 'song_id 31: pile 31', 'song_id 31: pile 31'];
+const CT_AGG = ILT('aggregates', ['aggregate', 'many values become'], [['COUNT(*)', 'how many rows'], ['SUM', 'the values added up'], ['AVG', 'their average'], ['MAX', 'the highest value'], ['MIN', 'the lowest value']]);
+const CT_Q1 = 'WITH song_counts AS (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n)\nSELECT MAX(stream_count)\nFROM song_counts;';
+const CT_Q5 = 'SELECT MAX(stream_count)\nFROM (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n) AS song_counts;';
+const CT_Q6 = 'WITH song_counts AS (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n),\navg_count AS (\n  SELECT AVG(stream_count) AS avg_streams\n  FROM song_counts\n)\nSELECT song_counts.song_id, song_counts.stream_count\nFROM song_counts, avg_count\nWHERE song_counts.stream_count > avg_count.avg_streams;';
+const CT_Q6D = 'SELECT sc.song_id, sc.stream_count\nFROM (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n) AS sc,\n(\n  SELECT AVG(stream_count) AS avg_streams\n  FROM (\n    SELECT song_id, COUNT(*) AS stream_count\n    FROM streams\n    GROUP BY song_id\n  ) AS sc2\n) AS ac\nWHERE sc.stream_count > ac.avg_streams;';
+const CT_Q8 = 'WITH listener_songs AS (\n  SELECT listener_id, COUNT(DISTINCT song_id) AS songs\n  FROM streams\n  GROUP BY listener_id\n)\nSELECT AVG(songs) AS avg_songs\nFROM listener_songs;';
+const CT_BAD1 = 'SELECT song_id, COUNT(*) AS stream_count\nFROM streams\nGROUP BY song_id\nWHERE COUNT(*) > AVG(COUNT(*));';
+const CT_BAD2 = 'SELECT song_id, COUNT(*) AS stream_count\nFROM streams\nGROUP BY song_id\nHAVING COUNT(*) > AVG(COUNT(*));';
+const CT_TAB = t => '<div class="ill-ins">' + illTable(t, null, {}) + '</div>';
+function v103Seq(L, seq, tail) { // like v10Seq, but the new steps are flagged v103 (tables first: tf)
+  L.order = [];
+  seq.forEach(x => { if (x.s) { x.s.v103 = 1; x.s.tf = 1; L.order.push(['s', L.scenes.push(x.s) - 1]); } else { x.q.v103 = 1; L.order.push(['q', L.qs.push(x.q) - 1]); } });
+  if (tail) L.order = L.order.concat(tail);
+}
+{
+  const L = ILLUS.sql7; L.id = 'sql7'; L.tsets = { p: CTP, a: { song_counts: CT_SC }, l: CTL, l7: CTL7, l8: CTL8, shop: CTSHOP };
+  const legacy = L.scenes.map((_, i) => ['s', i]).concat(L.qs.map((_, i) => ['q', i]));
+  const P = { ts: 'p' }, PL = { ts: 'l' }, SH = { ts: 'shop' };
+  v103Seq(L, [
+    // ---- Step 1: piles by hand, then GROUP BY and COUNT(*) ----
+    S_({ h: 'Step 1 · Sort the streams into piles by hand', ts: 'p',
+      link: 'This lesson builds a query in two steps, and it starts with something you can do by hand on six rows.',
+      ask: 'How many streams did each song get?',
+      say: 'Each row of <code>streams</code> is one play: stream_id numbers the play, and song_id says which song was played. To answer by hand, sort the rows into piles, one pile per song: every row with the same song_id goes into the same pile. Then count the rows in each pile. Start with song 14 on the next screen.',
+      ins: [{ t: 'streams', role: CT_ROLE }] }),
+    Q_(tapq('sql7.g1a', 'Put every row whose song_id is 14 into one pile. Tap those rows.', 'streams', [0, 1, 2], 'Streams 1, 2 and 3 all have song_id 14, so they share one pile.', P)),
+    Q_(mcq('sql7.g1b', 'Now pile the other rows the same way. How many rows are in each song’s pile?',
+      ['song 14: 3, song 22: 1, song 31: 2', 'song 14: 3, song 22: 1, song 31: 1', 'every song: 2, because 6 rows ÷ 3 songs = 2', 'song 14: 1, song 22: 1, song 31: 1'],
+      [null, 'Streams 5 and 6 both have song_id 31, so song 31’s pile has 2 rows, not 1.', 'Dividing gives the average pile size, not each song’s own count. The piles have different sizes.', 'That counts the songs, one each. Count the rows inside each pile instead.'],
+      'Song 14’s pile holds streams 1, 2 and 3 (3 rows), song 22’s pile holds stream 4 (1 row), and song 31’s pile holds streams 5 and 6 (2 rows).', P)),
+    S_({ h: 'Step 1 · Your piles in SQL: GROUP BY and COUNT(*)', ts: 'p', fig: 'flow', qfirst: 1,
+      link: 'You sorted the six rows into three piles: 3 rows for song 14, 1 for song 22 and 2 for song 31.',
+      ask: 'How do you tell SQL to make the same piles and count them?',
+      say: 'Read the query first. <b>GROUP BY</b> means “put rows with the same value into one pile”, and the column written after it is the value you pile by, so <code>GROUP BY song_id</code> makes one pile per song. Then look at the marked table: each colour is one of your piles, and the line under each row says which pile it went into. <b>COUNT(*)</b> counts the rows in each pile. <code>AS stream_count</code> gives that count a name, called an <b>alias</b>, so that a later step can refer to it. Each pile becomes one result row: 6 rows go in, 3 rows come out, and the counts are the ones you found by hand.',
+      sql: 'SELECT song_id, COUNT(*) AS stream_count\nFROM streams\nGROUP BY song_id;',
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g0', 'g1', 'g2', 'g2'], why: CT_PILE, role: CT_ROLE }],
+      out: { c: ['song_id', 'stream_count'], r: [[14, 3], [22, 1], [31, 2]], m: ['g0', 'g1', 'g2'], nc: [1], why: ['pile 14 has 3 rows', 'pile 22 has 1 row', 'pile 31 has 2 rows'] },
+      lg: { g: '🎨 same colour = same pile' } }),
+    Q_(mcq('sql7.g1c', 'In <code>GROUP BY song_id</code>, what does song_id tell SQL?',
+      ['which value to pile the rows by: rows with the same song_id share a pile', 'which rows to keep: only the rows that have a song_id', 'how to sort the result: by song_id, smallest first', 'what to count: the number of different song_ids'],
+      [null, 'Keeping or dropping rows is the job of WHERE. GROUP BY keeps every row and puts each one into a pile.', 'Sorting is the job of ORDER BY. GROUP BY makes piles and does not promise any order.', 'COUNT(*) does the counting. GROUP BY only decides which rows share a pile.'],
+      'GROUP BY song_id puts rows with the same song_id into one pile, and each pile becomes one result row.', P)),
+    Q_(mcq('sql7.g1t', '🛒 A shop’s <code>orders</code> table has one row per order. Pile the orders by customer_id by hand. How many orders did each customer place?',
+      ['customer 21: 1, customer 22: 4, customer 23: 1', 'customer 21: 1, customer 22: 3, customer 23: 2', 'every customer: 2, because 6 orders ÷ 3 customers = 2', 'customer 21: 1, customer 22: 1, customer 23: 1'],
+      [null, 'Orders 2, 3, 5 and 6 all have customer_id 22, so that pile has 4 rows; only order 4 has customer_id 23.', 'Dividing gives the average pile size, not each customer’s own count.', 'That counts the customers. Count the rows inside each customer’s pile.'],
+      'Customer 21’s pile holds order 1, customer 22’s holds orders 2, 3, 5 and 6, and customer 23’s holds order 4. In SQL that is GROUP BY customer_id with COUNT(*).', SH)),
+    // ---- Step 2: the two-column trap, by hand first ----
+    S_({ h: 'Step 2 · Pile by two columns, by hand', ts: 'p',
+      link: 'In Step 1, rows shared a pile when their song_id matched, so song 14’s pile held 3 rows.',
+      ask: 'What piles do you get if two rows share a pile only when their stream_id and their song_id both match?',
+      say: 'Step 1 matched rows on song_id only. This step changes one thing: two rows go into the same pile only when their stream_id matches <b>and</b> their song_id matches. Before you answer, look down the stream_id column: does any value appear twice?',
+      ins: [{ t: 'streams', role: CT_ROLE }] }),
+    Q_(mcq('sql7.g2a', 'Rows share a pile only when stream_id and song_id both match. What piles do you get?',
+      ['6 piles of 1 row each', '3 piles of 3, 1 and 2 rows, the same as in Step 1', '2 piles of 3 rows', '1 pile of 6 rows'],
+      [null, 'Streams 1, 2 and 3 have the same song_id but different stream_ids (1, 2 and 3), so they now go into different piles.', 'No two rows match on stream_id, so no pile can hold 3 rows.', 'Rows share a pile only when their values match, and every stream_id is different.'],
+      'Every stream_id is different (1 to 6), so no two rows match on both columns. Each row ends up alone: 6 piles of 1 row.', P)),
+    S_({ h: 'Step 2 · Two columns in GROUP BY: every count is 1', ts: 'p', qfirst: 1,
+      link: 'You found 6 piles of 1 row, because no two rows share a stream_id.',
+      ask: 'What does SQL return for GROUP BY stream_id, song_id?',
+      say: 'Read the query, then the piles under each row of streams, then the result: one row per pile, and every stream_count is 1. Grouping by two columns together makes one pile per combination of their values, and here every combination is different, so putting stream_id into GROUP BY split song 14’s pile back into three single rows. The answer to “how many streams did each song get?” is lost. (Columns that together identify each row of a table are called a <b>composite key</b>; stream_id alone already identifies every row here.) The rule that follows: <b>GROUP BY whatever one row of your answer means</b>. “How many streams per song?” means one answer row per song, so you group by song_id and nothing else.',
+      sql: 'SELECT stream_id, song_id, COUNT(*) AS stream_count\nFROM streams\nGROUP BY stream_id, song_id;',
+      ins: [{ t: 'streams', role: CT_ROLE, why: ['pile (1, 14): only stream 1', 'pile (2, 14): only stream 2', 'pile (3, 14): only stream 3', 'pile (4, 22): only stream 4', 'pile (5, 31): only stream 5', 'pile (6, 31): only stream 6'] }],
+      out: { c: ['stream_id', 'song_id', 'stream_count'], r: [[1, 14, 1], [2, 14, 1], [3, 14, 1], [4, 22, 1], [5, 31, 1], [6, 31, 1]], nc: [2], m: ['x', 'x', 'x', '', 'x', 'x'],
+        why: ['song 14 counted as 1, but it has 3 streams', 'song 14 again: its pile was split', 'song 14 a third time: its pile was split', 'song 22 really has 1 stream, so this count is right only by chance', 'song 31 counted as 1, but it has 2 streams', 'song 31 again: its pile was split'] },
+      lg: { x: '✕ a wrong count for the question “streams per song”' } }),
+    Q_(mcq('sql7.g2b', 'Which GROUP BY answers “how many streams did each song get?”',
+      ['GROUP BY song_id', 'GROUP BY stream_id, song_id', 'GROUP BY stream_id', 'no GROUP BY, only COUNT(*)'],
+      [null, 'stream_id is different on every row, so every pile holds one row and every count is 1.', 'That makes one pile per stream: 6 piles of 1 row, the same problem.', 'Without GROUP BY, COUNT(*) treats all 6 rows as one pile and returns 6.'],
+      'One row of the answer means one song, so you pile by song_id alone.', Object.assign({ sql: 'SELECT song_id, COUNT(*) AS stream_count\nFROM streams\nGROUP BY ____;' }, P))),
+    S_({ h: 'Step 2 · When two columns are right', ts: 'l',
+      link: 'GROUP BY stream_id, song_id was wrong because one answer row should mean one song.',
+      ask: 'How many times did each listener stream each song?',
+      say: 'This question changes one thing: one answer row now means one listener on one song. The table now shows listener_id, so you can see who made each stream. Rows share a pile when both their listener_id and their song_id match. Find listener 7’s streams of song 14 on the next screen.',
+      ins: [{ t: 'streams', role: CT_ROLEL }] }),
+    Q_(tapq('sql7.g2c', 'Tap every stream where listener 7 played song 14.', 'streams', [0, 1, 2], 'Streams 1, 2 and 3 all have listener_id 7 and song_id 14, so they share one pile of 3 rows.', PL)),
+    S_({ h: 'Step 2 · GROUP BY listener_id, song_id', ts: 'l', fig: 'flow', qfirst: 1,
+      link: 'You found one pile with 3 rows: listener 7 played song 14 three times.',
+      ask: 'What does SQL return when one answer row means one listener on one song?',
+      say: 'Read the query, then the marked table: each colour is one listener-and-song pile. Here two columns are right, because the question asks for one row per listener and song. In these six rows each song happens to be streamed by only one listener, so the counts match Step 1’s. If listener 8 also streamed song 14 (Step 8 tries exactly that), song 14 would become two result rows, (7, 14) and (8, 14), because they are different listener-and-song pairs.',
+      sql: 'SELECT listener_id, song_id, COUNT(*) AS times\nFROM streams\nGROUP BY listener_id, song_id;',
+      ins: [{ t: 'streams', role: CT_ROLEL, m: ['g0', 'g0', 'g0', 'g1', 'g2', 'g2'], why: ['listener 7, song 14: pile (7, 14)', 'listener 7, song 14: the same pile', 'listener 7, song 14: the same pile', 'listener 8, song 22: pile (8, 22)', 'listener 8, song 31: pile (8, 31)', 'listener 8, song 31: the same pile'] }],
+      out: { c: ['listener_id', 'song_id', 'times'], r: [[7, 14, 3], [8, 22, 1], [8, 31, 2]], nc: [2], m: ['g0', 'g1', 'g2'], why: ['streams 1, 2 and 3: listener 7 played song 14 three times', 'stream 4: listener 8 played song 22 once', 'streams 5 and 6: listener 8 played song 31 twice'] },
+      lg: { g: '🎨 same colour = same pile' } }),
+    Q_(mcq('sql7.g2d', '🛒 In the shop’s <code>orders</code> table, which GROUP BY answers “how many orders did each customer place?”',
+      ['GROUP BY customer_id', 'GROUP BY order_id, customer_id', 'GROUP BY order_id', 'no GROUP BY, only COUNT(*)'],
+      [null, 'order_id is different on every row, so every pile holds one order and every count is 1.', 'That makes one pile per order, so every count is 1.', 'Without GROUP BY, COUNT(*) counts all 6 orders as one pile.'],
+      'One answer row means one customer, so you pile by customer_id. Adding order_id would split each customer’s pile into single orders.', SH)),
+    // ---- Step 3: what an aggregate is ----
+    S_({ h: 'Step 3 · An aggregate squashes many rows into one number', ts: 'a', fig: 'cnt', fp: [['stream rows', 6], ['song counts', 3], ['average', 1]], qfirst: 1,
+      link: 'In Steps 1 and 2, COUNT(*) turned each pile of rows into one number.',
+      ask: 'What does AVG do to the three song counts?',
+      say: 'Follow the numbers in the picture: 6 stream rows became 3 song counts, and the 3 counts become 1 average. Both arrows are done by an <b>aggregate</b>: a function that squashes many rows into one number. In Step 1, COUNT(*) squashed each pile of streams into one count (6 rows in, 3 rows out). Here AVG squashes the three counts, 3, 1 and 2, into one number: (3 + 1 + 2) ÷ 3 = 2. COUNT, SUM, AVG, MAX and MIN are the common aggregates.',
+      sql: 'SELECT AVG(stream_count) AS avg_streams\nFROM song_counts;',
+      ins: [{ tab: CT_SC, role: 'song_counts: Step 1’s result (one count per song)', m: ['g0', 'g1', 'g2'], why: ['pile 14 squashed by COUNT(*) into 3', 'pile 22 squashed into 1', 'pile 31 squashed into 2'] }],
+      out: { c: ['avg_streams'], r: [[2]], m: ['n'], why: ['AVG squashes 3, 1 and 2 into one number: (3 + 1 + 2) ÷ 3 = 2'] },
+      lg: { g: '🎨 one colour per song', n: '＋ one number made from many rows' } }),
+    Q_(mcq('sql7.g3a', 'song_counts has 3 rows. How many rows does <code>SELECT AVG(stream_count) FROM song_counts</code> return, and why?',
+      ['1 row: an aggregate squashes many rows into one number', '3 rows: one average per song', '6 rows: one per stream', '2 rows, because the average is 2'],
+      [null, 'There is no GROUP BY here, so all 3 rows form one pile and AVG gives one number for it.', 'This query reads song_counts (3 rows), not streams, and it still squashes them into one number.', '2 is the value in the one result row, not the number of rows.'],
+      'Without GROUP BY, the whole table is one pile, so AVG returns one row holding one number: 2.', Object.assign({ show: CT_TAB(CT_SC), ref: false }, P))),
+    Q_(mcq('sql7.g3b', '🛒 The shop counted orders per customer: 1, 4 and 1. Use the table of aggregates: which one turns those three counts into 6, the total number of orders?',
+      ['SUM', 'COUNT(*)', 'MAX', 'AVG'],
+      [null, 'COUNT(*) gives how many rows there are: 3 customers, not 6 orders.', 'MAX gives the highest count, 4.', 'AVG gives (1 + 4 + 1) ÷ 3 = 2.'],
+      'SUM adds the values up: 1 + 4 + 1 = 6. Each aggregate squashes the same three rows into a different single number.',
+      { ref: false, show: '<div class="ill-ins two">' + illTable(ILT('customer_counts', ['customer_id', 'order_count'], [[21, 1], [22, 4], [23, 1]]), null, {}) + illTable(CT_AGG, null, { role: 'The common aggregates' }) + '</div>' })),
+    // ---- Step 4: two steps as a CTE ----
+    S_({ h: 'Step 4 · The highest count, by hand first', ts: 'p',
+      link: 'Step 3 showed that an aggregate squashes many rows into one number.',
+      ask: 'What is the highest number of streams any song got?',
+      say: 'This question needs two steps. Step 1 counts each song’s streams, which you have done: that is song_counts. Step 2 squashes those counts into the highest one. Find it by hand in song_counts before you see any SQL.',
+      ins: [{ tab: CT_SC, role: 'song_counts: step 1’s result' }] }),
+    Q_(mcq('sql7.g4a', 'By hand: what is the highest stream_count, and which aggregate finds it?',
+      ['3, found by MAX(stream_count)', '3, found by COUNT(stream_count)', '6, found by SUM(stream_count)', '31, found by MAX(song_id)'],
+      [null, 'COUNT(stream_count) counts the rows of song_counts: it happens to give 3 too, but it would still say 3 if the counts were 9, 1 and 2.', 'SUM adds the counts up (3 + 1 + 2 = 6). That is the total number of streams, not the highest count.', 'song_id is a label, not a count; the highest label tells you nothing about streams.'],
+      'The counts are 3, 1 and 2, so the highest is 3 (song 14). MAX squashes the counts into the highest one.', Object.assign({ show: CT_TAB(CT_SC), ref: false }, P))),
+    S_({ h: 'Step 4 · Two steps in one query: a CTE', ts: 'p', fig: 'cnt', fp: [['stream rows', 6], ['song_counts rows', 3], ['answer', 1]], stack: true,
+      link: 'You found the highest count by hand: 3, for song 14. It took two steps: count each song’s streams, then take the highest count.',
+      ask: 'How do you write both steps as one query?',
+      say: 'Read the query from the top. <code>WITH song_counts AS ( … )</code> runs step 1, the GROUP BY from Step 1, and gives its result the name song_counts. A named result like this is a <b>CTE</b> (common table expression): a temporary table that exists only while this one query runs. The bottom SELECT is step 2: it reads song_counts like any table, and MAX squashes its three counts into the highest, 3. Check the two names: the alias stream_count is made in step 1 and used inside MAX in step 2, and the name song_counts is made after WITH and used after FROM.',
+      sql: CT_Q1,
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g0', 'g1', 'g2', 'g2'], why: CT_PILE, role: 'step 1 reads streams' },
+        { tab: CT_SC, role: 'song_counts: the CTE (step 1’s result)', m: ['m', 'x', 'x'], why: ['3 is the highest count, so MAX returns it', '1 is lower than 3', '2 is lower than 3'] }],
+      out: { c: ['MAX(stream_count)'], r: [[3]], m: ['m'], why: ['the highest of 3, 1 and 2'] },
+      lg: { g: '🎨 same colour = same pile', x: '✕ not the highest count' } }),
+    Q_({ id: 'sql7.g4b', k: 'run', ts: 'p', q: 'Write the CTE yourself: fill in the three blanks so the query returns the highest number of streams any song got.',
+      code: 'WITH song_counts AS (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY ____\n)\nSELECT ____(stream_count)\nFROM ____;', sol: CT_Q1,
+      need: [['\\bWITH\\b', 'WITH'], ['GROUP\\s+BY\\s+(\\w+\\.)?song_id\\b', 'GROUP BY song_id'], ['\\bMAX\\s*\\(', 'MAX']],
+      why: 'Step 1 piles by song_id, step 2 takes MAX of the counts, and step 2 reads FROM the CTE’s name, song_counts. The answer is 3.' }),
+    Q_(mcq('sql7.g4c', 'One change: what do you change to get the <b>lowest</b> number of streams any song got, and what is it?',
+      ['MAX becomes MIN; the answer is 1 (song 22)', 'MAX becomes MIN; the answer is 0', 'GROUP BY song_id becomes GROUP BY stream_id; the answer is 1', 'MAX becomes COUNT; the answer is 3'],
+      [null, 'A song with no streams has no rows in streams, so it never gets a pile and never appears in song_counts. The lowest count there is 1.', 'Grouping by stream_id also gives 1, but only because every pile then holds one row: it answers a different question.', 'COUNT(stream_count) counts the songs (3), not the lowest count.'],
+      'Only the last SELECT changes: MIN(stream_count) squashes 3, 1 and 2 into the lowest, 1. Step 1 stays the same, because the 3-row table is still what you need.', Object.assign({ sql: CT_Q1 }, P))),
+    Q_(mcq('sql7.g4t', '🛒 The shop wants the most orders any one customer placed. What goes in the blank?',
+      ['MAX(order_count), which gives 4 (customer 22)', 'MAX(customer_id), which gives 23', 'COUNT(order_count), which gives 3', 'SUM(order_count), which gives 6'],
+      [null, 'customer_id is a label; the highest label says nothing about orders.', 'COUNT(order_count) counts the customers (3).', 'SUM adds every customer’s orders together (6 orders in total).'],
+      'Step 1 counts each customer’s orders (1, 4 and 1), and step 2 takes the highest: MAX gives 4, for customer 22.',
+      Object.assign({ sql: 'WITH customer_counts AS (\n  SELECT customer_id, COUNT(*) AS order_count\n  FROM orders\n  GROUP BY customer_id\n)\nSELECT ____\nFROM customer_counts;' }, SH))),
+    // ---- Step 5: the same steps as a derived table ----
+    S_({ h: 'Step 5 · The same two steps as a derived table', ts: 'p', stack: true,
+      link: 'In Step 4 the CTE put step 1 on top, named it song_counts, and put step 2 underneath.',
+      ask: 'Can step 1 go inside step 2’s FROM instead?',
+      say: 'This time step 1 sits inside the brackets after FROM. A query in brackets used as a table in FROM is called a <b>derived table</b>. It builds the same 3-row song_counts and gives the same answer, 3. Read it inside out: first the brackets (step 1), then the outer SELECT (step 2). <code>AS song_counts</code> after the closing bracket gives the derived table a name, an alias. The bracketed table exists nowhere else: it is not stored in the database, so the outer query needs a name to call it by. MySQL refuses a derived table without a name, as did Postgres before version 16; SQLite and newer Postgres accept one without it, but name it anyway.',
+      sql: CT_Q5,
+      ins: [{ t: 'streams', m: ['g0', 'g0', 'g0', 'g1', 'g2', 'g2'], why: CT_PILE, role: 'inside the brackets: step 1 reads streams' },
+        { tab: CT_SC, role: 'the derived table, named song_counts by AS', m: ['m', 'x', 'x'], why: ['3 is the highest count, so MAX returns it', '1 is lower than 3', '2 is lower than 3'] }],
+      out: { c: ['MAX(stream_count)'], r: [[3]], m: ['m'], why: ['the same answer as the CTE: 3'] },
+      lg: { g: '🎨 same colour = same pile', x: '✕ not the highest count' } }),
+    Q_(mcq('sql7.g5a', 'What goes in the blank, and why must it be there?',
+      ['any name, such as song_counts: the bracketed table exists nowhere else, so it needs a name', 'streams: the name must be a stored table', 'stream_count: the name must match the counted column', 'nothing: the brackets already name the table'],
+      [null, 'The name does not have to be a stored table: the derived table is a new, temporary one. Reusing the name streams would only confuse readers.', 'stream_count names a column inside the table. The blank names the whole table.', 'Brackets only mark where the inner query starts and ends; they give it no name.'],
+      'The alias after the closing bracket names the derived table so the outer query can refer to it. Any name works; song_counts says what it holds.',
+      Object.assign({ sql: 'SELECT MAX(stream_count)\nFROM (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n) AS ____;' }, P))),
+    S_({ h: 'Step 5 · CTE and derived table side by side', ts: 'p', lab: 'The two forms, part by part',
+      link: 'You have now seen the same two steps written both ways, and both return 3.',
+      ask: 'Where does each part go in the two forms?',
+      say: 'Read the table one row at a time. In a CTE, step 1 goes on top, after <code>WITH song_counts AS</code>; in a derived table it goes inside <code>FROM ( … )</code>. In a CTE the name comes before the brackets; in a derived table it comes after them. You read a CTE from top to bottom, and a derived table from the inside out. Both give the same answer, 3.',
+      ins: [{ tab: ILT('two_forms', ['part', 'CTE', 'derived table'], [['step 1 goes', 'on top, in WITH', 'inside FROM ( )'], ['the name goes', 'before ( )', 'after ( )'], ['you read it', 'top to bottom', 'inside out'], ['answer', 3, 3]]), role: 'The two forms compared' }] }),
+    Q_(mcq('sql7.g5b', 'In the derived-table version, which part runs first?',
+      ['the query inside the brackets (step 1)', 'the outer SELECT MAX(stream_count)', 'the alias song_counts', 'it depends on the order the lines are typed'],
+      [null, 'The outer SELECT reads the derived table, so the derived table has to exist first.', 'The alias is only a name; it does not run.', 'SQL does not run lines in typing order. The outer query needs the bracketed result first.'],
+      'Read a derived table inside out: the brackets build song_counts, then the outer SELECT takes MAX of it.', Object.assign({ sql: CT_Q5 }, P))),
+    Q_(mcq('sql7.g5t', '🛒 A colleague runs this on MySQL and gets the error “Every derived table must have its own alias”. What is the fix?',
+      ['add a name after the closing bracket, for example <code>) AS customer_counts</code>', 'rename the orders table', 'add GROUP BY to the outer query', 'move COUNT(*) into the outer query'],
+      [null, 'The stored table is fine. The error is about the bracketed table, which has no name.', 'The outer query needs one number, the highest count, so it needs no GROUP BY.', 'The count has to be made per customer inside the brackets, before MAX can use it.'],
+      'The bracketed table exists only inside this query, so MySQL insists on a name for it. Adding <code>AS customer_counts</code> after the closing bracket fixes the error.',
+      Object.assign({ sql: 'SELECT MAX(order_count)\nFROM (\n  SELECT customer_id, COUNT(*) AS order_count\n  FROM orders\n  GROUP BY customer_id\n);' }, SH))),
+    // ---- Step 6: three steps ----
+    S_({ h: 'Step 6 · Songs above the average, by hand', ts: 'p',
+      link: 'Steps 4 and 5 used two steps: count, then one aggregate. This question needs one more step.',
+      ask: 'Which songs got more streams than the average song?',
+      say: 'By hand: the counts are 3, 1 and 2, so the average is (3 + 1 + 2) ÷ 3 = 2. Then compare each song’s count with 2. Answer the next two questions before you see the SQL.',
+      ins: [{ tab: CT_SC, role: 'song_counts: step 1’s result' }] }),
+    Q_(mcq('sql7.g6a', 'The average count is 2. Which songs got more streams than 2?',
+      ['only song 14 (3 streams)', 'songs 14 and 31 (3 and 2 streams)', 'only song 22 (1 stream)', 'all three songs'],
+      [null, '2 is not bigger than 2, so song 31 is not above the average.', 'Song 22 is below the average, not above it.', 'Songs 22 and 31 have 1 and 2 streams, and neither is bigger than 2.'],
+      'Only 3 is bigger than 2, so only song 14 is above the average.', Object.assign({ show: CT_TAB(CT_SC), ref: false }, P))),
+    Q_(mcq('sql7.g6b', 'That took three steps: (1) count per song, (2) average the counts, (3) keep the songs above the average. What does step 3 need?',
+      ['each song’s count from step 1 and the average from step 2, at the same time', 'only the streams table', 'only the average from step 2', 'only the songs table'],
+      [null, 'streams has no counts in it; step 1 makes them.', 'The average alone cannot say which song is above it; you also need each song’s count.', 'songs has no stream counts.'],
+      'Step 3 compares two things: each song’s count (step 1) and the one average (step 2). So it reads from both steps.', Object.assign({ show: CT_TAB(CT_SC), ref: false }, P))),
+    S_({ h: 'Step 6 · Three steps as a CTE', ts: 'p',
+      link: 'You worked out that step 3 needs each song’s count and the average at the same time.',
+      ask: 'How does the query put each count next to the average?',
+      say: 'Read the query from the top. The two CTEs are separated by a comma, and the second one, avg_count, reads the first: it holds one row with the average, 2. In the last SELECT, <code>FROM song_counts, avg_count</code> pairs every row of song_counts with every row of avg_count (the comma does the same as the CROSS JOIN in the joins lesson). avg_count has only one row, so each song simply gets the average written next to it: that is the table above. WHERE then tests each row: 3 &gt; 2 keeps song 14, 1 is not bigger than 2, and 2 is not bigger than 2, so songs 22 and 31 are dropped.',
+      sql: CT_Q6,
+      ins: [{ tab: ILT('song_counts × avg_count', ['song_id', 'stream_count', 'avg_streams'], [[14, 3, 2], [22, 1, 2], [31, 2, 2]]), role: 'FROM song_counts, avg_count: each song row with the one average row next to it', m: ['m', 'x', 'x'], why: ['kept: 3 &gt; 2', 'dropped: 1 is not bigger than 2', 'dropped: 2 is not bigger than 2'] }],
+      out: { c: ['song_id', 'stream_count'], r: [[14, 3]], m: ['m'], why: ['song 14: 3 streams, above the average of 2'] },
+      lg: { m: '✓ kept: count above the average', x: '✕ dropped: count not above the average' } }),
+    Q_({ id: 'sql7.g6c', k: 'run', ts: 'p', q: 'Fill in the two blanks in step 3 so the query returns the songs above the average.',
+      code: 'WITH song_counts AS (\n  SELECT song_id, COUNT(*) AS stream_count\n  FROM streams\n  GROUP BY song_id\n),\navg_count AS (\n  SELECT AVG(stream_count) AS avg_streams\n  FROM song_counts\n)\nSELECT song_counts.song_id, song_counts.stream_count\nFROM song_counts, ____\nWHERE song_counts.stream_count ____ avg_count.avg_streams;', sol: CT_Q6,
+      need: [['FROM\\s+song_counts\\s*,\\s*avg_count', 'FROM song_counts, avg_count'], ['>', 'the comparison &gt;']],
+      why: 'avg_count has to be in FROM before WHERE can use its avg_streams, and &gt; keeps only the counts bigger than the average: song 14 with 3.' }),
+    Q_(mcq('sql7.g6d', 'One change: which songs got <b>fewer</b> streams than the average, and what do you change?',
+      ['&gt; becomes &lt;; only song 22 (1 stream)', '&gt; becomes &lt;; songs 22 and 31', 'AVG becomes MIN; only song 22', '&gt; becomes &lt;; no songs, because the average is 2'],
+      [null, '2 is not below 2, so song 31 is not kept.', 'MIN would compare with the lowest count, 1, and nothing is below 1.', 'Song 22 has 1 stream, and 1 &lt; 2.'],
+      'Steps 1 and 2 stay the same and the average is still 2. Only the sign changes: 1 &lt; 2 keeps song 22; 3 and 2 are not below 2.', Object.assign({ show: CT_TAB(CT_SC), ref: false }, P))),
+    S_({ h: 'Step 6 · The same three steps as derived tables', ts: 'p',
+      link: 'The CTE wrote step 1 once and used it twice: in avg_count and in the last SELECT.',
+      ask: 'What happens when step 1 is needed twice and there is no CTE?',
+      say: 'A derived table’s name only works where it is written, so the average cannot reuse sc. Step 1 has to be written twice: once as sc for the comparison, and again as sc2 inside the average. The result is the same, song 14 with 3 streams, but you read it inside out through brackets inside brackets, and a change to step 1 must be made in two places. That is the reason to choose a CTE once a query has three or more steps, or uses a step more than once: write each step once, name it, and reuse it.',
+      sql: CT_Q6D,
+      ins: [{ tab: CT_SC, role: 'step 1’s result, built twice: as sc and as sc2', m: ['d', 'd', 'd'], why: ['built twice: in sc and in sc2', 'built twice: in sc and in sc2', 'built twice: in sc and in sc2'] }],
+      out: { c: ['song_id', 'stream_count'], r: [[14, 3]], m: ['m'], why: ['the same answer as the CTE: song 14 with 3 streams'] },
+      lg: { d: '2× built twice: step 1 is written twice' } }),
+    Q_(mcq('sql7.g6e', 'Why is the CTE the better choice for this three-step query?',
+      ['step 1 is written once and reused; the derived-table version writes it twice', 'the CTE returns a different, more accurate answer', 'a derived table cannot use GROUP BY', 'a CTE is stored in the database, so it is always faster'],
+      [null, 'Both versions return song 14 with 3 streams.', 'Both versions use GROUP BY inside the brackets.', 'A CTE is not stored: it exists only while the one query runs.'],
+      'With a CTE you name step 1 once and use the name twice. Once a query has three or more steps, or reuses a step, that is easier to read and to change.', P)),
+    Q_(mcq('sql7.g6t', '🛒 The shop’s order counts are 1, 4 and 1 (customers 21, 22 and 23), so the average is 2. Which customers placed more orders than the average customer?',
+      ['only customer 22 (4 orders)', 'customers 21 and 23', 'all three customers', 'none, because the average is 4'],
+      [null, '21 and 23 placed 1 order each, which is below the average of 2.', 'Only a count bigger than 2 is above the average.', 'The average is (1 + 4 + 1) ÷ 3 = 2; 4 is the highest count.'],
+      'The same three steps: count per customer (1, 4, 1), average the counts (2), keep the counts above 2: customer 22.', SH)),
+    // ---- Step 7: spot the mistake ----
+    S_({ h: 'Step 7 · Spot the mistake', ts: 'p',
+      link: 'Step 6 needed a separate step for the average, because the average is built from the counts.',
+      ask: 'Someone wrote this to find the songs above the average. What is wrong with it?',
+      say: 'Read the query line by line and decide what is wrong before the next screen. The data is the same six streams.',
+      sql: CT_BAD1, norun: true,
+      ins: [{ t: 'streams', role: CT_ROLE }] }),
+    Q_(mcq('sql7.g7a', 'What is the first problem with this query?',
+      ['WHERE tests single rows before the piles exist, so it cannot use COUNT(*); a test on piles goes in HAVING, after GROUP BY', 'COUNT(*) needs a column name inside the brackets', 'song_id cannot be selected together with COUNT(*)', 'the alias stream_count must be used instead of COUNT(*)'],
+      [null, 'COUNT(*) is correct: the * means “count the rows”.', 'song_id is in GROUP BY, so it has one value per pile and is safe to select.', 'Changing the name does not help: WHERE still runs before any count exists.'],
+      'WHERE filters single rows before they are piled, so no count exists yet when it runs, and it must be written before GROUP BY. A test on whole piles belongs in HAVING.', Object.assign({ sql: CT_BAD1 }, P))),
+    S_({ h: 'Step 7 · WHERE runs before the piles exist', ts: 'p',
+      link: 'You found the first problem: WHERE cannot test a count.',
+      ask: 'What does SQLite say, and where does a test on piles go?',
+      say: 'SQLite refuses the query with a syntax error, because WHERE must come before GROUP BY. That order is the point: <b>WHERE</b> tests single rows before they are put into piles, so when it runs the piles do not exist yet and there is no COUNT(*) to test. <b>HAVING</b> runs after GROUP BY and tests whole piles, so a condition on a count goes there.',
+      sql: CT_BAD1, ins: [{ t: 'streams', role: CT_ROLE }], out: { err: 'near "WHERE": syntax error' } }),
+    S_({ h: 'Step 7 · HAVING fixes the order, not the nesting', ts: 'p',
+      link: 'Moving the test into HAVING fixes the first problem.',
+      ask: 'Does HAVING COUNT(*) &gt; AVG(COUNT(*)) work?',
+      say: 'No: SQLite still refuses it (Postgres says “aggregate function calls cannot be nested”). <code>AVG(COUNT(*))</code> puts one aggregate inside another. Inside one pile, COUNT(*) is a single number, and in one pass SQL cannot also average the counts of all the piles. The average has to come from the finished table of counts, which is a separate step: exactly what song_counts and avg_count do in Step 6. (A window function, <code>AVG(COUNT(*)) OVER ()</code>, is the one way to average the counts inside the same query; window functions are the next lesson.) The question to ask yourself: <b>am I aggregating something that is already aggregated? If yes, add a step.</b>',
+      sql: CT_BAD2, ins: [{ t: 'streams', role: CT_ROLE }], out: { err: 'misuse of aggregate function COUNT()' } }),
+    Q_(mcq('sql7.g7b', 'Why does <code>HAVING COUNT(*) &gt; AVG(COUNT(*))</code> still fail?',
+      ['AVG(COUNT(*)) puts one aggregate inside another; the average of the counts needs its own step', 'HAVING cannot use COUNT(*)', 'AVG only works on stored columns, never on numbers', 'HAVING must come before GROUP BY'],
+      [null, 'HAVING COUNT(*) &gt; 2 is fine. The problem is the nested AVG(COUNT(*)).', 'AVG works on any numbers, including the counts in song_counts. It just needs them to exist first, in their own step.', 'HAVING comes after GROUP BY, as it is written here.'],
+      'The counts must be finished before they can be averaged. Count in step 1, average in step 2, compare in step 3. (Only a window function, AVG(COUNT(*)) OVER (), from the next lesson, can do it inside one query.)', Object.assign({ sql: CT_BAD2 }, P))),
+    Q_(mcq('sql7.g7c', '🛒 This query should find the customers with more orders than the average customer. How do you fix it?',
+      ['count per customer in a CTE, average those counts in a second step, then compare', 'change HAVING to WHERE', 'replace AVG(COUNT(*)) with AVG(order_id)', 'add order_id to GROUP BY'],
+      [null, 'WHERE runs before the piles exist, so it cannot test a count at all.', 'AVG(order_id) averages ID numbers, which mean nothing as quantities.', 'That splits every customer’s pile into single orders, so every count becomes 1.'],
+      'It aggregates something already aggregated (an average of counts), so it needs another step: count, then average, then compare.',
+      Object.assign({ sql: 'SELECT customer_id\nFROM orders\nGROUP BY customer_id\nHAVING COUNT(*) > AVG(COUNT(*));' }, SH))),
+    // ---- Step 8: a real task, planned before writing (listeners 7 and 8; then one row changed at a time) ----
+    S_({ h: 'Step 8 · A real task: plan before you write', ts: 'l',
+      link: 'Step 7 ended with a question to ask: am I aggregating something already aggregated? If yes, add a step.',
+      ask: 'What is the average number of different songs each listener streamed?',
+      say: 'This is the same streams table, with listener_id shown: listener 7 made streams 1, 2 and 3, and listener 8 made streams 4, 5 and 6. “Different songs” means that a song a listener streamed several times counts once. Work it out by hand first, then plan the query before you write it.',
+      ins: [{ t: 'streams', role: CT_ROLEL }] }),
+    Q_(tapq('sql7.g8a', 'Put listener 7’s streams into one pile: tap every row whose listener_id is 7.', 'streams', [0, 1, 2], 'Streams 1, 2 and 3 have listener_id 7, so they form listener 7’s pile. Streams 4, 5 and 6 form listener 8’s pile.', PL)),
+    S_({ h: 'Step 8 · Two piles, one per listener', ts: 'l', lab: 'Before: streams, one colour per listener',
+      link: 'You put streams 1, 2 and 3 into listener 7’s pile.',
+      ask: 'What is in each listener’s pile?',
+      say: 'Each colour in streams is one pile, and the two tables under “After” are the same piles laid out on their own. Listener 7’s pile has three rows, all song 14. Listener 8’s pile also has three rows: songs 22, 31 and 31.',
+      ins: [{ t: 'streams', role: CT_ROLEL, m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['listener_id 7: pile 7', 'listener_id 7: pile 7', 'listener_id 7: pile 7', 'listener_id 8: pile 8', 'listener_id 8: pile 8', 'listener_id 8: pile 8'] }],
+      after: [{ tab: CT_P7, role: 'Listener 7’s pile' }, { tab: CT_P8, role: 'Listener 8’s pile' }],
+      lg: { g: '🎨 same colour = same listener' } }),
+    Q_(mcq('sql7.g8b', 'Look at the two piles. How many <b>different</b> songs did each listener stream?',
+      ['listener 7: 1 (only song 14); listener 8: 2 (songs 22 and 31)', 'listener 7: 3; listener 8: 3', 'listener 7: 1; listener 8: 3', 'listener 7: 42; listener 8: 84'],
+      [null, '3 and 3 count the rows, which are streams. Listener 7 played the same song three times, so that is one different song.', 'Song 31 appears twice in listener 8’s pile, but it is one song: 22 and 31 make 2.', 'Those are the song IDs added up; IDs are labels, not counts.'],
+      'Listener 7 streamed song 14 three times: 1 different song. Listener 8 streamed 22, 31 and 31: 2 different songs.', { ref: false, show: '<div class="ill-ins two">' + illTable(CT_P7, null, { role: 'Listener 7’s pile' }) + illTable(CT_P8, null, { role: 'Listener 8’s pile' }) + '</div>' })),
+    Q_(mcq('sql7.g8c', 'One row of <code>streams</code> stands for one play: this listener played this song once. Step 1 turns the piles into a new result table. What does one row of step 1’s <b>result</b> stand for?',
+      ['one listener, with a count beside them', 'one play (one stream)', 'one song', 'one listener on one song'],
+      [null, 'That is what one row of streams, the input, stands for. Step 1’s result has one row per pile, and the piles are listeners.', 'Piling by song would give one row per song, which is the opposite question.', 'That needs GROUP BY listener_id, song_id (Step 2). Here each listener needs just one count.'],
+      'A row of the input and a row of the result mean different things. streams: one row = one play. Step 1’s result: one row = one listener, because the piles are listeners. What one result row stands for is what goes after GROUP BY: GROUP BY listener_id.', Object.assign({ plan: 'row', pl: 'One row of step 1’s result is' }, PL))),
+    S_({ h: 'Step 8 · COUNT(*) or COUNT(DISTINCT song_id)?', ts: 'l', qfirst: 1,
+      link: 'One row of step 1’s result is one listener, so step 1 groups by listener_id. Now pick what it counts.',
+      ask: 'Which count answers “how many different songs?”',
+      say: 'Read the query, then the piles, then the result. COUNT(*) counts the rows in each pile: 3 and 3. <b>DISTINCT</b> means “count each song once”, so COUNT(DISTINCT song_id) counts the different songs: listener 7 streamed song 14 three times, which is 1 different song, and listener 8 streamed 22 and 31, which is 2. The task asks for different songs, so step 1 uses COUNT(DISTINCT song_id).',
+      sql: CT_QC,
+      ins: [{ t: 'streams', role: CT_ROLEL, m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['listener 7: song 14', 'listener 7: song 14 again', 'listener 7: song 14 a third time', 'listener 8: song 22', 'listener 8: song 31', 'listener 8: song 31 again'] }],
+      out: { c: ['listener_id', 'streams_n', 'songs'], r: [[7, 3, 1], [8, 3, 2]], m: ['g0', 'g1'], nc: [1, 2], why: ['listener 7: 3 rows, but only 1 different song (14)', 'listener 8: 3 rows, 2 different songs (22 and 31)'] },
+      lg: { g: '🎨 same colour = same listener' } }),
+    Q_(mcq('sql7.g8d', 'Plan: what does step 1 count for each listener?',
+      ['COUNT(DISTINCT song_id): each different song once (1 and 2)', 'COUNT(*): every stream (3 and 3)', 'COUNT(DISTINCT listener_id)', 'SUM(song_id)'],
+      [null, 'COUNT(*) counts rows, so it answers “how many streams?”. Listener 7 has 3 streams but only 1 different song.', 'Inside one listener’s pile there is only one listener_id, so this is always 1.', 'Adding song IDs gives a meaningless number, not a count.'],
+      'COUNT(DISTINCT song_id) counts each song once per listener: 1 for listener 7 and 2 for listener 8.', Object.assign({ plan: 'cnt', pl: 'Step 1 counts' }, PL))),
+    Q_(mcq('sql7.g8e', 'Plan: step 2 averages the counts 1 and 2. What does it divide by?',
+      ['the number of listeners, 2: (1 + 2) ÷ 2 = 1.5', 'the number of songs, 3: (1 + 2) ÷ 3 = 1', 'the number of streams, 6: (1 + 2) ÷ 6 = 0.5', 'nothing: it adds them, 1 + 2 = 3'],
+      [null, 'Step 1’s result has one row per listener, not per song, and AVG divides by the number of rows it averages.', 'The streams were already squashed into the counts in step 1; step 2 never sees the 6 stream rows.', 'Adding is SUM. The task asks for an average.'],
+      'AVG adds the counts and divides by how many rows step 1’s result has: 2 listeners. (1 + 2) ÷ 2 = 1.5.', Object.assign({ plan: 'avg', pl: 'Step 2 does', ref: false, show: CT_TAB(CT_LS) }, PL))),
+    Q_(mcq('sql7.g8s', 'Plan: after step 2 you have the average, 1.5. Do you need a step 3 that compares each listener with the average?',
+      ['No: reread the question; it asks only for the average, so stop once that is answered', 'Yes: every CTE query needs three steps', 'Yes: step 3 must find the listener with the most songs using MAX', 'Yes: step 3 must keep the listeners above 1.5'],
+      [null, 'Steps 4 and 5 needed only two steps. The number of steps comes from the question, not from a rule.', 'That answers a different question: “who streamed the most different songs?”', 'That answers “which listeners are above the average?”, the Step 6 kind of question. This task stops at the average.'],
+      'Reread the question: “What is the average number of different songs each listener streamed?” Step 2 already returns that one number, so the query is done. An extra step would answer a question nobody asked.', Object.assign({ plan: 'stop', pl: 'Steps needed' }, PL))),
+    Q_({ id: 'sql7.g8f', k: 'run', ts: 'l', planShow: ['row', 'cnt', 'avg', 'stop'], q: 'Now write it from your plan: fill in the three blanks so the query returns the average number of different songs per listener.',
+      code: 'WITH listener_songs AS (\n  SELECT listener_id, COUNT(____ song_id) AS songs\n  FROM streams\n  GROUP BY ____\n)\nSELECT ____(songs) AS avg_songs\nFROM listener_songs;', sol: CT_Q8,
+      need: [['\\bDISTINCT\\b', 'DISTINCT'], ['GROUP\\s+BY\\s+(\\w+\\.)?listener_id\\b', 'GROUP BY listener_id'], ['\\bAVG\\s*\\(', 'AVG']],
+      why: 'COUNT(DISTINCT song_id) counts each different song once per listener (1 and 2), GROUP BY listener_id makes one row per listener, and AVG divides by the 2 listeners: 1.5. With COUNT(*) you would get 3, the average number of streams.' }),
+    S_({ h: 'Step 8 · Check your query, step by step', ts: 'l', plan: ['row', 'cnt', 'avg', 'stop'], stack: true,
+      link: 'You wrote the query from your plan: one row per listener, COUNT(DISTINCT song_id), then AVG, and no step 3.',
+      ask: 'What does each step of the query return?',
+      say: 'Step 1, the CTE listener_songs, piles the streams by listener_id and counts each different song once: listener 7’s three plays of song 14 count as 1, and listener 8’s songs 22, 31 and 31 count as 2. Step 2 averages those two counts over the 2 listeners: (1 + 2) ÷ 2 = 1.5. That answers the question, so the query stops there. Note that this averages over the listeners who appear in streams: a listener with no streams has no pile and is left out. To count them as 0, you would start from listeners with a LEFT JOIN, as in the joins lesson.',
+      sql: CT_Q8,
+      ins: [{ t: 'streams', role: CT_ROLEL, m: ['g0', 'd', 'd', 'g1', 'g1', 'd'], why: ['listener 7: song 14', 'listener 7: song 14 again, so DISTINCT does not count it', 'listener 7: song 14 a third time, still not counted', 'listener 8: song 22', 'listener 8: song 31', 'listener 8: song 31 again, so DISTINCT does not count it'] },
+        { tab: CT_LS, role: 'listener_songs: step 1 (one row per listener)', m: ['g0', 'g1'], why: ['listener 7: only song 14', 'listener 8: songs 22 and 31'] }],
+      out: { c: ['avg_songs'], r: [[1.5]], m: ['n'], why: ['(1 + 2) ÷ 2 listeners = 1.5'] },
+      lg: { g: '🎨 same colour = same listener', d: '2× a song this listener already streamed: counted once', n: '＋ one number made from the counts' } }),
+    S_({ h: 'Step 8 · Change one row: listener 8 streams song 14', ts: 'l7',
+      link: 'Your query gave 1.5 on the six rows. Now one row is added, and nothing else changes.',
+      ask: 'What happens to each count when listener 8 also streams song 14?',
+      say: 'This is the full table with one new row, stream 7: listener 8 plays song 14. Pile the rows by listener again and count each pile both ways before you answer.',
+      ins: [{ t: 'streams', role: 'streams: the six rows plus stream 7', m: ['', '', '', '', '', '', 'n'], why: [null, null, null, null, null, null, 'new: listener 8 streams song 14, a song they had not streamed before'] }],
+      lg: { n: '＋ the one new row' } }),
+    Q_(mcq('sql7.g8g', 'With stream 7 added, what is COUNT(*) for each listener, and the average?',
+      ['listener 7: 3, listener 8: 4; average 3.5', 'listener 7: 3, listener 8: 3; average 3', 'listener 7: 4, listener 8: 4; average 4', 'listener 7: 3, listener 8: 4; average 7'],
+      [null, 'Stream 7 belongs to listener 8, so their pile now has 4 rows.', 'Stream 7 is listener 8’s; listener 7 still has 3 rows.', '7 is the total. The average divides it by the 2 listeners: 3.5.'],
+      'COUNT(*) counts rows: listener 7 still has 3, listener 8 now has 4. (3 + 4) ÷ 2 = 3.5.', { ts: 'l7' })),
+    Q_(mcq('sql7.g8h', 'And COUNT(DISTINCT song_id) for each listener, and the average?',
+      ['listener 7: 1, listener 8: 3; average 2', 'listener 7: 1, listener 8: 2; average 1.5', 'listener 7: 1, listener 8: 4; average 2.5', 'listener 7: 2, listener 8: 3; average 2.5'],
+      [null, 'Song 14 is new for listener 8 (they had 22 and 31), so their count rises to 3.', 'Listener 8’s pile has 4 rows but only 3 different songs, because 31 appears twice.', 'Listener 7 still streamed only song 14: that is 1.'],
+      'Listener 7: only song 14, so 1. Listener 8: songs 22, 31 and 14, so 3. (1 + 3) ÷ 2 = 2.', { ts: 'l7' })),
+    S_({ h: 'Step 8 · Stream 7: both counts rise', ts: 'l7', qfirst: 1,
+      link: 'You worked out 3.5 for COUNT(*) and 2 for COUNT(DISTINCT song_id).',
+      ask: 'Why did both counts go up for listener 8?',
+      say: 'Stream 7 is a new row for listener 8, so COUNT(*) rises from 3 to 4. It is also a song listener 8 had not streamed before, so COUNT(DISTINCT song_id) rises from 2 to 3. Listener 7’s pile did not change. The averages are now 3.5 and 2.',
+      sql: CT_QC,
+      ins: [{ t: 'streams', role: 'streams: the six rows plus stream 7', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1', 'n'], why: ['listener 7: song 14', 'listener 7: song 14 again', 'listener 7: song 14 a third time', 'listener 8: song 22', 'listener 8: song 31', 'listener 8: song 31 again', 'new row for listener 8, and a new song for them'] }],
+      out: { c: ['listener_id', 'streams_n', 'songs'], r: [[7, 3, 1], [8, 4, 3]], m: ['g0', 'n'], nc: [1, 2], why: ['listener 7: unchanged (3 rows, 1 song)', 'listener 8: 3 → 4 rows, and 2 → 3 different songs'] },
+      lg: { g: '🎨 same colour = same listener', n: '＋ changed by stream 7' } }),
+    S_({ h: 'Step 8 · Change one more row: listener 7 streams song 14 again', ts: 'l8',
+      link: 'Stream 7 raised both counts, because it was a new song for listener 8.',
+      ask: 'Listener 7 streams song 14 once more. Which average changes?',
+      say: 'This is the full table again, now with stream 8: listener 7 plays song 14, a song they have already streamed three times. Count listener 7’s pile both ways before you answer.',
+      ins: [{ t: 'streams', role: 'streams: the seven rows plus stream 8', m: ['', '', '', '', '', '', '', 'n'], why: [null, null, null, null, null, null, null, 'new: listener 7 streams song 14 again (a repeat play)'] }],
+      lg: { n: '＋ the one new row' } }),
+    Q_(mcq('sql7.g8i', 'With stream 8 added, which average changes?',
+      ['the COUNT(*) average rises to 4; the COUNT(DISTINCT song_id) average stays 2', 'both change: 4 and 2.5', 'neither changes', 'only the COUNT(DISTINCT song_id) average changes, to 2.5'],
+      [null, 'Listener 7 still streamed only one different song, 14, so their distinct count stays 1 and the average stays 2.', 'Stream 8 is a new row, so COUNT(*) for listener 7 rises from 3 to 4.', 'Song 14 is not new for listener 7, so their distinct count does not move.'],
+      'COUNT(*): listener 7 has 4 rows and listener 8 has 4, so (4 + 4) ÷ 2 = 4. COUNT(DISTINCT song_id): still 1 and 3, so the average stays 2.', { ts: 'l8' })),
+    S_({ h: 'Step 8 · Repeat plays and new songs', ts: 'l8', qfirst: 1,
+      link: 'You found that stream 8 moved the COUNT(*) average but not the DISTINCT average.',
+      ask: 'When does each count go up?',
+      say: 'Read the result, then the summary table of the three versions of the data. Stream 8 repeats a song listener 7 already had, so COUNT(*) rises (3 → 4) but COUNT(DISTINCT song_id) stays at 1. The rule from all three versions: <b>COUNT(*) rises on every play, including a repeat; COUNT(DISTINCT song_id) rises only when a listener streams a song they had not streamed before.</b> That is why a question about different songs needs DISTINCT.',
+      sql: CT_QC,
+      ins: [{ t: 'streams', role: 'streams: the seven rows plus stream 8', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1', 'g1', 'n'], why: ['listener 7: song 14', 'listener 7: song 14 again', 'listener 7: song 14 a third time', 'listener 8: song 22', 'listener 8: song 31', 'listener 8: song 31 again', 'listener 8: song 14', 'new: listener 7 plays song 14 a fourth time'] }],
+      out: { c: ['listener_id', 'streams_n', 'songs'], r: [[7, 4, 1], [8, 4, 3]], m: ['n', 'g1'], nc: [1, 2], why: ['listener 7: 3 → 4 rows, still 1 different song', 'listener 8: unchanged (4 rows, 3 songs)'] },
+      after: [{ tab: ILT('three_versions', ['rows', 'COUNT(*) avg', 'DISTINCT avg'], [['6: the start', 3, 1.5], ['7: + stream 7', 3.5, 2], ['8: + stream 8', 4, 2]]), role: 'The averages for the three versions of streams', m: ['', 'n', 'n'], why: [null, 'a new song for listener 8: both averages rise', 'a repeat play for listener 7: only COUNT(*) rises'] }],
+      lg: { g: '🎨 same colour = same listener', n: '＋ changed by the new row' } }),
+    Q_(mcq('sql7.g8t', '🛒 A shop wants the average number of different products each customer bought. Which step 1 is right?',
+      ['SELECT customer_id, COUNT(DISTINCT product_id) AS products FROM purchases GROUP BY customer_id', 'SELECT customer_id, COUNT(*) AS products FROM purchases GROUP BY customer_id', 'SELECT product_id, COUNT(DISTINCT customer_id) AS customers FROM purchases GROUP BY product_id', 'SELECT purchase_id, customer_id, COUNT(DISTINCT product_id) FROM purchases GROUP BY purchase_id, customer_id'],
+      [null, 'COUNT(*) counts purchases: customer 21 bought product 7 twice, so it would say 3 instead of 2.', 'That counts customers per product, the opposite question.', 'purchase_id is different on every row, so every pile holds one purchase and every count is 1.'],
+      'One row of step 1’s result means one customer, and it counts each different product once: 2 for customer 21 and 1 for customer 22. Step 2 then averages them over the 2 customers: 1.5, and stops there.',
+      { ref: false, show: CT_TAB(ILT('purchases', ['purchase_id', 'customer_id', 'product_id'], [[1, 21, 7], [2, 21, 7], [3, 21, 9], [4, 22, 8]])) }))
+  ], legacy);
+}
+
 var ILL_WHY = {
   'sql5|INNER JOIN: only matches': {
     i0: ['song 10 (Last Last) has artist_id 1', 'song 11 (Free Mind) has artist_id 2', 'no song has artist_id 3, so INNER JOIN drops Asake'],
@@ -6563,7 +6930,7 @@ const ACT = {
   ctNext: () => { F.k++; F.picked = null; if (F.k >= F.c.steps.length) { const r = A.ct[F.c.id] || { n: 0 }; r.done = today(); r.n++; r.miss = F.miss; A.ct[F.c.id] = r; saveAws(); addXP(F.miss ? 5 : 10); } render(); window.scrollTo(0, 0); },
   startCt: el => startSession({ steps: [{ type: 'ct', id: el.dataset.id }], mode: 'aws' }),
   /* v6 illustration steps */
-  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order) { vs.v10 = vs.v10 || today(); vs.v101 = vs.v101 || today(); } saveTerms(); save(); } nextStep(); },
+  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order) { vs.v10 = vs.v10 || today(); vs.v101 = vs.v101 || today(); vs.v103 = vs.v103 || today(); } saveTerms(); save(); } nextStep(); },
   illRun: async () => { const st = SESSION.steps[SESSION.i]; const sc = ILLUS[st.lesson].scenes[st.sc];
     try { F.run = tableHTML(await runIll(sc.sql, st.lesson, sc.ts), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
     render(); },
@@ -6584,7 +6951,8 @@ const ACT = {
     try {
       const u = await runIll(F.code, st.lesson, q.ts), e = await runIll(q.sol, st.lesson, q.ts); F.out = tableHTML(u, 20);
       const c = compareResults(u, e, false); const bad = q.forbid && new RegExp(q.forbid, 'i').test(F.code);
-      finishVQ(c.ok && !bad, bad ? 'Right rows, but this question asks you to do it without that keyword.' : c.ok ? '' : c.msg);
+      const miss = c.ok && !bad && q.need ? q.need.find(([re]) => !new RegExp(re, 'i').test(F.code)) : null; // v10.3: the question's keywords must stay (as on v10.2 code cards)
+      finishVQ(c.ok && !bad && !miss, bad ? 'Right rows, but this question asks you to do it without that keyword.' : miss ? 'The result matches, but the query must still use ' + miss[1] + '; without it, it matches only by luck on these six rows.' : c.ok ? '' : c.msg);
     } catch (err) { F.out = '<div class="bad small">SQL error: ' + esc(err.message) + '</div>'; finishVQ(false, 'The query has an error.'); }
     render();
   },
