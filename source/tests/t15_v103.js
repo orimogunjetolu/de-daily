@@ -15,7 +15,9 @@ const BASE = process.argv[2] || '9ab5ff9';
   const st = L.order.map(([k, i]) => k === 's' ? 'S:' + L.scenes[i].h : 'Q:' + (L.qs[i].id || 'sql7.' + i));
   out.seq = st; out.legacyQ = [L.qs[0].id, L.qs[1].id, L.qs[0].q, L.qs[1].q]; out.legacyS = L.scenes.slice(0, 3).map(s => s.h);
   const nw = L.order.filter(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v103);
-  out.tailLegacy = JSON.stringify(L.order.slice(nw.length)) === JSON.stringify([['s', 0], ['s', 1], ['s', 2], ['q', 0], ['q', 1]]);
+  // v10.4: Steps 9–12 (v104) follow Steps 1–8; the legacy CTE picture stays; the two old UNION pictures and questions are retired (Step 10 replaces them)
+  const rest = L.order.slice(nw.length); const n4 = rest.filter(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v104).length;
+  out.tailLegacy = rest.slice(0, n4).every(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v104) && JSON.stringify(rest.slice(n4)) === JSON.stringify([['s', 0]]) && JSON.stringify(L.retired) === JSON.stringify([['s', 1], ['s', 2], ['q', 0], ['q', 1]]);
   out.newFirst = L.order.slice(0, nw.length).every(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).v103);
   const nS = L.scenes.filter(s => s.v103), nQ = L.qs.filter(q => q.v103); out.nS = nS.length; out.nQ = nQ.length;
   out.ids = nQ.every(q => /^sql7\\.g[1-8]/.test(q.id || '')) && new Set(nQ.map(q => q.id)).size === nQ.length;
@@ -28,7 +30,7 @@ const BASE = process.argv[2] || '9ab5ff9';
   out.rows = pairs(L.tsets.p.streams) === '[[1,14],[2,14],[3,14],[4,22],[5,31],[6,31]]' && pairs(L.tsets.l.streams) === pairs(L.tsets.p.streams) && L.tsets.p.streams.c.join() === 'stream_id,song_id' && L.tsets.l.streams.c.join() === 'stream_id,listener_id,song_id';
   out.lUse = [...new Set(L.order.filter(([k, i]) => (k === 's' ? L.scenes[i] : L.qs[i]).ts === 'l').map(([k, i]) => ((k === 's' ? L.scenes[i].h : L.qs[i].id) || '').replace(/ ·.*$/, '').replace(/^sql7\\.g(\\d).*/, 'Step $1')))];
   const blob = JSON.stringify(nS) + JSON.stringify(nQ); out.noPlays = !/(FROM|JOIN|TABLE)\\s+plays?\\b|play_id|<code>plays?<|\\bplays\\s*\\(/i.test(blob); // the word “plays” in prose is fine; a plays TABLE is not
-  out.tables = [...new Set(Object.values(L.tsets).flatMap(ts => Object.keys(ts)))];
+  out.tables = [...new Set(Object.entries(L.tsets).filter(([k]) => ['p', 'a', 'l', 'l7', 'l8', 'shop'].includes(k)).flatMap(([, ts]) => Object.keys(ts)))]; // the v10.3 table sets (v10.4 adds its own, checked in t16)
   // rule checks: thinking before naming (GROUP BY named after the by-hand piles; HAVING after the learner spotted WHERE; CTE after the by-hand MAX)
   const at = x => st.indexOf(x);
   out.handFirst = at('Q:sql7.g1b') < at('S:Step 1 · Your piles in SQL: GROUP BY and COUNT(*)') && at('Q:sql7.g2a') < at('S:Step 2 · Two columns in GROUP BY: every count is 1') && at('Q:sql7.g4a') < at('S:Step 4 · Two steps in one query: a CTE') && at('Q:sql7.g6a') < at('S:Step 6 · Three steps as a CTE') && at('Q:sql7.g7a') < at('S:Step 7 · WHERE runs before the piles exist') && at('Q:sql7.g8b') < at('Q:sql7.g8c') && at('Q:sql7.g8e') < at('Q:sql7.g8f') && at('Q:sql7.g8f') < at('S:Step 8 · Check your query, step by step');
@@ -63,14 +65,14 @@ const BASE = process.argv[2] || '9ab5ff9';
   // returning learner who saw sql7's pictures before v10.3: only the new steps, labelled new, one lesson a day; finishing clears it
   const ord = []; orderedReadyModules().forEach(m => m.lessons.forEach(l => ord.push(l.id)));
   ord.slice(0, ord.indexOf('sql7') + 1).forEach(id => { S.theory[id] = '2026-11-01'; });
-  const prev = {}; ord.slice(0, ord.indexOf('sql7')).forEach(id => { if (ILLUS[id]) prev[id] = { seen: '2026-11-01', v10: '2026-11-01', v101: '2026-11-01', v103: '2026-11-01', q: {} }; });
+  const prev = {}; ord.slice(0, ord.indexOf('sql7')).forEach(id => { if (ILLUS[id]) prev[id] = { seen: '2026-11-01', v10: '2026-11-01', v101: '2026-11-01', v103: '2026-11-01', v104: '2026-11-01', q: {} }; }); // v10.4: earlier lessons' v10.4 steps already seen, so sql7 is the pending one
   T.vis = prev; T.vis.sql7 = { seen: '2026-11-01', q: { 0: { n: 1, ok: '2026-11-01', miss: null }, 1: { n: 1, ok: '2026-11-01', miss: null } } };
   const before = JSON.stringify(T.vis.sql7.q);
   out.pending = v10Pending('sql7') && !v10Pending('sql7', true); const cu = catchUpIllus(); out.cu = cu;
   const only = illusSteps('sql7', null, true); out.onlyNew = only.length === nw.length && only.every(x => x.isNew && (x.type === 'illus' ? L.scenes[x.sc] : L.qs[x.qi]).v103);
   const p = buildDailySession(); out.dailyDbg = [p.counts.catchUp, p.counts.illus, p.counts.lesson && p.counts.lesson.id]; out.dailyCU = p.counts.catchUp === 'sql7' && p.steps.filter(s => s.lesson === 'sql7').length === nw.length && p.steps.filter(s => s.lesson === 'sql7').every(s => s.isNew);
   out.oldAnswers = JSON.stringify(T.vis.sql7.q) === before && !!vqRec('sql7', 0) && !!vqRec('sql7', 1);
-  T.vis.sql7.v103 = '2026-11-20'; out.done = !v10Pending('sql7') && (!catchUpIllus() || catchUpIllus().id !== 'sql7');
+  T.vis.sql7.v103 = '2026-11-20'; T.vis.sql7.v104 = '2026-11-20'; out.done = !v10Pending('sql7') && (!catchUpIllus() || catchUpIllus().id !== 'sql7');
   // learners who finished sql5 under v10.1 are not sent back to sql5; the rung stays open
   T.vis.sql5 = { seen: '2026-10-30', v10: '2026-11-01', v101: '2026-11-04', q: {} }; T.vis.sqlm = { seen: '2026-10-30', v10: '2026-11-01', q: {} };
   out.sql5 = !v10Pending('sql5') && relKey('sql5') === 'v101' && rungReady(LESSONS.sqlc);
@@ -87,7 +89,7 @@ const BASE = process.argv[2] || '9ab5ff9';
   ok(R.ids, 'new questions carry new, unique IDs (sql7.g1… to sql7.g8…)');
   ok(R.legacyQ[0] === undefined && R.legacyQ[1] === undefined && R.legacyQ[2] === JSON.parse(OLD.q[0]).q && R.legacyQ[3] === JSON.parse(OLD.q[1]).q, 'legacy questions keep their positions (sql7.0, sql7.1) and text');
   ok(OLD.s.length === 3 && R.legacyS.every((h, i) => h === JSON.parse(OLD.s[i]).h), 'legacy scenes keep their positions');
-  ok(R.newFirst && R.tailLegacy, 'teaching order: Steps 1–8 first, then the legacy CTE and UNION pictures and questions');
+  ok(R.newFirst && R.tailLegacy, 'teaching order: Steps 1–8, then Steps 9–12 (v10.4), then the legacy CTE picture; the old UNION pictures are retired');
   R.steps.forEach(s => ok(s.sc >= 1 && s.mc >= 1 && s.transfer, `Step ${s.n}: ${s.sc} screen(s), ${s.qs} question(s), ${s.mc} choice question(s), a non-music transfer question`));
   ok(R.linkAsk, 'every new screen links to the previous step, asks its question first, and is drawn tables first (tf)');
   ok(R.mcW, 'every wrong option of every new choice question is explained');

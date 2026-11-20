@@ -7,7 +7,7 @@ const R = H(`(() => { const out = {}; const D = '2026-11-04'; const T0 = today; 
   // 1) IDs
   const ids = []; let orderOk = true, backOk = true;
   Object.keys(ILLUS).forEach(lid => { const L = ILLUS[lid]; L.qs.forEach((q, i) => ids.push(vqId(lid, i)));
-    if (L.order) { const s = L.order.filter(x => x[0] === 's').map(x => x[1]).sort((a, b) => a - b), q = L.order.filter(x => x[0] === 'q').map(x => x[1]).sort((a, b) => a - b);
+    if (L.order) { const O = L.order.concat(L.retired || [], L.parked || []); /* v10.4: steps replaced by rebuilt ones are listed in L.retired */ const s = O.filter(x => x[0] === 's').map(x => x[1]).sort((a, b) => a - b), q = O.filter(x => x[0] === 'q').map(x => x[1]).sort((a, b) => a - b);
       orderOk = orderOk && s.length === L.scenes.length && s.every((v, i) => v === i) && q.length === L.qs.length && q.every((v, i) => v === i); }
     L.qs.forEach(q => { if (q.back && !L.qs.some(x => x.id === q.back)) backOk = false; }); });
   out.idsUnique = new Set(ids).size === ids.length; out.nIds = ids.length; out.orderOk = orderOk; out.backOk = backOk;

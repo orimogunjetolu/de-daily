@@ -105,8 +105,14 @@ table.mini.ill td.null span{display:inline-block;padding:0 5px;border:1.5px dash
 .mk-x td{opacity:.55;text-decoration:line-through}.mk-x td.mk,.mk-x td.null{text-decoration:none}.mk-x td.mk{color:var(--bad);opacity:1}
 .mk-d{background:repeating-linear-gradient(45deg,var(--mehbg),var(--mehbg) 6px,transparent 6px,transparent 12px)}.mk-d td.mk{color:var(--meh)}
 .mk-n{background:#dbeafe}.mk-n td.mk{color:#1d4ed8}@media (prefers-color-scheme:dark){.mk-n{background:#14284a}.mk-n td.mk{color:#93c5fd}}
-.mk-g0{background:#e0f2fe}.mk-g1{background:#fce7f3}.mk-g2{background:#ede9fe}.mk-g3{background:#fef3c7}
-@media (prefers-color-scheme:dark){.mk-g0{background:#0c2d40}.mk-g1{background:#3d1530}.mk-g2{background:#2a1f4a}.mk-g3{background:#3a2c0a}}
+/* v10.4: groups use a colour-blind-safe palette (blue, vermilion, green, purple) plus a shape per group; the strong colour runs down the left edge of each row and its reason line */
+.mk-g0{--gc:#0072b2;--gt:#d9eaf7}.mk-g1{--gc:#d55e00;--gt:#fbe2cf}.mk-g2{--gc:#009e73;--gt:#d2efe5}.mk-g3{--gc:#8e44ad;--gt:#ecdcf4}
+@media (prefers-color-scheme:dark){.mk-g0{--gc:#56b4e9;--gt:#0e2c42}.mk-g1{--gc:#f08a3c;--gt:#3f2311}.mk-g2{--gc:#3ccf9f;--gt:#0f3529}.mk-g3{--gc:#c99be0;--gt:#33203f}}
+.mk-g0,.mk-g1,.mk-g2,.mk-g3,table.mini.ill tr.why.mk-g0,table.mini.ill tr.why.mk-g1,table.mini.ill tr.why.mk-g2,table.mini.ill tr.why.mk-g3{background:var(--gt)}
+table.mini.ill tr[class*="mk-g"]>td:first-child{box-shadow:inset 5px 0 0 var(--gc)}table.mini.ill tr[class*="mk-g"] td.mk{color:var(--gc);font-size:.95rem}
+table.mini.ill tr.why[class*="mk-g"] td{color:var(--ink)}.lg .gly{font-weight:700;letter-spacing:2px}
+.fc[class*="mk-g"]{background:var(--gc);border-color:var(--gc)}
+.ill .ill-step~.ill-step::before{content:'↓ ';color:var(--pri);font-size:.9rem}
 table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px var(--pri)}.newc-k{box-shadow:inset 0 -2px 0 var(--pri)}
 .ill-err{padding:8px 10px;border-radius:10px;background:var(--badbg);color:var(--bad);font-weight:600;font-size:.9rem}
 .ill-lg{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.lg{font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
@@ -2838,6 +2844,7 @@ Object.assign(ILL_FIGS, { anat: anatFig, ddl: ddlFig, place: placeFig, bp: bpFig
 /* ---------- v6 illustration rendering (before → query → after) ---------- */
 const ILL_LG = { m: '✓ kept / matched', u: '◐ kept with no match: the other side is NULL', x: '✕ not in the result', d: '2× appears twice (a duplicate)', n: '＋ new or changed', g: '🎨 same colour = same group' };
 const ILL_ICON = { m: '✓', u: '◐', x: '✕', d: '2×', n: '＋' };
+const ILL_GLY = { g0: '●', g1: '▲', g2: '■', g3: '◆' }; // v10.4: a shape per colour group, so groups read without relying on colour alone
 function illCell(v) {
   if (v === null || v === undefined) return '<td class="null"><span>NULL</span></td>';
   const s = String(v); const vis = s.replace(/^ +| +$/g, m => '␣'.repeat(m.length));
@@ -2846,14 +2853,14 @@ function illCell(v) {
 // one table; marks colour rows; tap = {sel:Set-like array, done, ans} turns rows into buttons
 function illTable(t, m, o) {
   o = o || {}; m = m || []; const nc = o.nc || [];
-  const hasMk = m.some(x => x && ILL_ICON[x]);
+  const hasMk = m.some(x => x && (ILL_ICON[x] || ILL_GLY[x]));
   return '<div class="ill-t">' + (o.role ? '<div class="ill-role">' + o.role + '</div>' : '') + (o.name !== false ? '<div class="ill-name"><code>' + _h(t.n) + '</code> · ' + t.r.length + ' row' + (t.r.length === 1 ? '' : 's') + '</div>' : '') +
     '<div class="ill-scroll"><table class="mini ill"><tr>' + (hasMk ? '<th class="mk"></th>' : '') + t.c.map((c, i) => '<th' + (o.tapc ? illThTap(o.tapc, i) : nc.includes(i) ? ' class="newc"' : '') + '>' + _h(c).replace(/_/g, '_<wbr>') + '</th>').join('') + '</tr>' +
     t.r.map((r, i) => {
       const mk = m[i] || ''; let cls = mk ? 'mk-' + mk : ''; let attr = '';
       if (o.tap) { const on = o.tap.sel.includes(i); cls += ' tapr' + (on ? ' on' : ''); if (o.tap.done) { const want = o.tap.ans.includes(i); cls += want === on ? (want ? ' good' : '') : ' wrong'; } else attr = ' data-act="vqTap" data-r="' + i + '" tabindex="0" role="button" aria-pressed="' + on + '"'; }
       const why = o.why && o.why[i] ? '<tr class="why mk-' + mk + '"><td colspan="' + (r.length + (hasMk ? 1 : 0)) + '">' + (ILL_ICON[mk] ? '<b>' + ILL_ICON[mk] + '</b> ' : '') + o.why[i] + '</td></tr>' : '';
-      return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>' + why;
+      return '<tr class="' + cls + '"' + attr + '>' + (hasMk ? '<td class="mk">' + (ILL_ICON[mk] || ILL_GLY[mk] || '') + '</td>' : '') + r.map((v, j) => illCell(v).replace('<td', nc.includes(j) ? '<td data-new="1"' : '<td')).join('') + '</tr>' + why;
     }).join('') + '</table></div></div>';
 }
 function illThTap(tc, i) { const on = tc.sel.includes(i); let c = 'tapc' + (on ? ' on' : ''); if (tc.done) { const want = tc.ans.includes(i); c += want === on ? (want ? ' good' : '') : ' wrong'; return ' class="' + c + '"'; }
@@ -2895,7 +2902,7 @@ function illFigHTML(sc, L, run) {
   const ts = sc.ts; const ins = (sc.ins || []).map((x, i) => x.raw ? '<div class="ill-t"><div class="ill-role">' + (x.role || 'Input') + '</div><pre class="qy raw">' + _h(x.raw) + '</pre></div>' : illTable(illTab(L, x, ts), x.m, { role: x.role, why: illWhy(L, sc, 'i' + i) }));
   const used = new Set(); (sc.ins || []).forEach(x => (x.m || []).forEach(k => used.add(k))); ((sc.out && sc.out.m) || []).forEach(k => used.add(k)); (sc.after || []).forEach(x => (x.m || []).forEach(k => used.add(k)));
   const lg = Object.assign({}, ILL_LG, sc.lg || {}); const lgs = []; ['m', 'u', 'x', 'd', 'n'].forEach(k => { if (used.has(k)) lgs.push('<span class="lg mk-' + k + '">' + lg[k] + '</span>'); });
-  if ([...used].some(k => /^g/.test(k))) lgs.push('<span class="lg">' + lg.g + '</span>');
+  const gl = ['g0', 'g1', 'g2', 'g3'].filter(k => used.has(k)); if (gl.length) lgs.push('<span class="lg"><span class="gly">' + gl.map(k => '<span class="mk-g' + k[1] + '" style="background:none;color:var(--gc)">' + ILL_GLY[k] + '</span>').join('') + '</span> ' + lg.g.replace(/^🎨\s*/, '') + '</span>');
   let fig = '';
   if (/^venn-/.test(sc.fig || '')) { const a = illTab(L, sc.ins[0], ts), b = illTab(L, sc.ins[1], ts); fig = vennSVG(sc.fig.slice(5), a.n, b.n, sc.vl); }
   else if (sc.fig === 'lr') fig = lrFig(illTab(L, sc.ins[0], ts).n, illTab(L, sc.ins[1], ts).n);
@@ -2940,9 +2947,15 @@ function vqId(lid, qi) { const q = ILLUS[lid].qs[qi]; return q.id || lid + '.' +
 function vqRec(lid, qi) { const v = T.vis && T.vis[lid]; if (!v) return null; return (v.qid && v.qid[vqId(lid, qi)]) || (v.q && !ILLUS[lid].qs[qi].id && v.q[qi]) || null; }
 // v10.3: the release whose new steps this learner still has to see in a lesson (v10 → v10.1 → v10.3); each key is set when the lesson's last step is done
 function relKey(lid) { const L = ILLUS[lid]; const v = (T.vis && T.vis[lid]) || {}; const has = k => !!L && !!L.order && L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]);
-  if (has('v10') && !v.v10) return 'v10'; if (has('v101') && !v.v101) return 'v101'; if (has('v103') && !v.v103) return 'v103'; return v.v10 ? 'v101' : 'v10'; }
+  if (has('v10') && !v.v10) return 'v10'; if (has('v101') && !v.v101) return 'v101'; if (has('v103') && !v.v103) return 'v103'; if (has('v104') && !v.v104) return 'v104'; if (has('v105') && !v.v105) return 'v105'; return v.v10 ? 'v101' : 'v10'; }
 function v10Pending(lid, v10only) { const L = ILLUS[lid]; if (!L || !L.order) return false; const v = (T.vis && T.vis[lid]) || {}; const has = k => L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]);
-  return has('v10') && !v.v10 || !v10only && has('v101') && !!v.v10 && !v.v101 || !v10only && has('v103') && !v.v103; } // v10only: the v10.1 and v10.3 steps never re-lock a rung
+  return has('v10') && !v.v10 || !v10only && has('v101') && !!v.v10 && !v.v101 || !v10only && has('v103') && !v.v103 || !v10only && has('v104') && !v.v104 || !v10only && has('v105') && !v.v105; } // v10only: the v10.1 and v10.3 steps never re-lock a rung
+// v10.4: a code card or problem the learner has not started waits until they have seen its lesson's v10.4 steps,
+// so no card tests a keyword (RECURSIVE, UNION, a window function…) before it is taught. Started items are never touched.
+function v104Held(lid) { const L = ILLUS[lid]; if (!L || !L.order) return false; const v = (T.vis && T.vis[lid]) || {}; return !v.v104 && L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i]).v104); }
+function itemHeld(id) { const it = ITEMS[id]; return !!it && it.kind !== 'term' && !S.items[id] && !S.cards[id] && v104Held(it.lesson); }
+function problemHeld(p) { return !!p && !S.problems[p.id] && v104Held(p.lesson); }
+function stepsShowV104(steps) { return steps.some(x => { const L = ILLUS[x.lesson]; const o = L && (x.type === 'illus' ? L.scenes[x.sc] : x.type === 'vq' ? L.qs[x.qi] : null); return !!(o && o.v104); }); }
 // existing learners: one lesson a day whose illustration they have not seen yet (theory read or placed),
 // lessons with terms already in progress first, then curriculum order
 function catchUpIllus() {
@@ -2956,7 +2969,9 @@ function catchUpIllus() {
 }
 async function runIll(sql, lid, ts) {
   const SQL = await getSQL(); const db = new SQL.Database();
-  try { db.exec(illSetupSQL(ILLUS[lid], ts)); const r = db.exec(sql); return r.length ? r[r.length - 1] : { columns: [], values: [] }; } finally { db.close(); }
+  try { db.exec(illSetupSQL(ILLUS[lid], ts)); const r = db.exec(sql); if (r.length) return r[r.length - 1];
+    try { const st = db.prepare(sql.trim().replace(/;\s*$/, '')); const c = st.getColumnNames(); st.free(); return { columns: c, values: [] }; } catch (e) { return { columns: [], values: [] }; } // v10.4: an empty result keeps its column names
+  } finally { db.close(); }
 }
 function illSetupSQL(L, ts) {
   const lit = v => v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'";
@@ -4240,6 +4255,965 @@ function v103Seq(L, seq, tail) { // like v10Seq, but the new steps are flagged v
   ], legacy);
 }
 
+/* ---------- v10.4: every SQL lesson after joins rebuilt the v10.3 way ----------
+   Trace by hand on tiny tables → the whole idea in SQL → one-change checks → spot the mistake → a shop transfer →
+   combine known pieces → plan → the lesson's own cards and problems. New steps carry v104:1 (and tf:1: tables first).
+   Learners who already saw a lesson get only its v104 steps as a "🆕 New" catch-up (relKey / v10Pending), and a code card
+   or problem they have not started waits until those steps are seen (itemHeld / problemHeld). Started items, terms, XP,
+   streak and SM-2 records are never touched; nothing here adds a term, code card or problem, so no % can change. */
+// v10.4a: the lessons as they were before v10.4, so a parked lesson (see V104_ON at the end of this block) shows exactly its v10.3 steps
+var V104_ORIG = {}; ['sqlrt', 'sql6', 'sql7', 'sql8', 'sql9'].forEach(lid => { const L = ILLUS[lid]; V104_ORIG[lid] = { order: L.order ? L.order.slice() : null, retired: L.retired, ns: L.scenes.length, nq: L.qs.length }; });
+function v104Seq(L, seq) { // returns the order entries for the new steps (the caller decides where they go)
+  return seq.map(x => x.old ? x.old : x.s ? (x.s.v104 = 1, x.s.tf = 1, ['s', L.scenes.push(x.s) - 1]) : (x.q.v104 = 1, ['q', L.qs.push(x.q) - 1])); }
+const V4_CE = ILT('chart_entries', ['chart_date', 'position', 'song_id'], [['2026-10-16', 1, 1], ['2026-10-16', 2, 2], ['2026-10-16', 6, 11], ['2026-10-17', 1, 1], ['2026-10-17', 2, 2], ['2026-10-17', 4, 11], ['2026-10-17', 5, 4]],
+  'CREATE TABLE chart_entries (chart_date TEXT, position INTEGER, song_id INTEGER);');
+const V4_SONGS = ILT('songs', ['song_id', 'title', 'artist_id'], [[1, 'Heaven Baby', 1], [2, 'SLICK', 2], [4, 'Owo Oluwa', 4], [11, 'Goodbye (Warm Up)', 1]], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT, artist_id INTEGER);');
+const V4_ART = ILT('artists', ['artist_id', 'name'], [[1, 'Ayra Starr'], [2, 'Victony'], [4, 'Kizz Daniel']], 'CREATE TABLE artists (artist_id INTEGER PRIMARY KEY, name TEXT);');
+
+{ // ---- sqlrt: the chart task traced by hand, planned, then written (the shop steps of v10 stay first) ----
+  const L = ILLUS.sqlrt; L.id = 'sqlrt';
+  const CE2 = ILT('chart_entries', V4_CE.c, V4_CE.r.map((r, i) => i === 0 ? ['2026-10-16', 6, 1] : r), V4_CE.ddl);
+  L.tsets = { c: { chart_entries: V4_CE, songs: V4_SONGS, artists: V4_ART }, c2: { chart_entries: CE2, songs: V4_SONGS, artists: V4_ART },
+    shop: { orders: ILT('orders', ['order_id', 'customer_id', 'order_date'], [[1, 21, '2026-10-03'], [2, 21, '2026-10-03'], [3, 22, '2026-10-05'], [4, 22, '2026-10-19']], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, order_date TEXT);') } };
+  const C = { ts: 'c' }, C2 = { ts: 'c2' };
+  const ROLE = 'chart_entries: 7 real rows copied from the app (two chart days)';
+  const JOINED = ILT('top5_with_artist', ['chart_date', 'position', 'title', 'artist'], [['2026-10-16', 1, 'Heaven Baby', 'Ayra Starr'], ['2026-10-16', 2, 'SLICK', 'Victony'], ['2026-10-17', 1, 'Heaven Baby', 'Ayra Starr'], ['2026-10-17', 2, 'SLICK', 'Victony'], ['2026-10-17', 4, 'Goodbye (Warm Up)', 'Ayra Starr'], ['2026-10-17', 5, 'Owo Oluwa', 'Kizz Daniel']]);
+  const JM = ['g0', 'g1', 'g0', 'g1', 'g0', 'g2'];
+  const JQ = 'SELECT c.chart_date, c.position, s.title, a.name AS artist\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.position <= 5;';
+  const CNT = 'SELECT a.name AS artist,\n       COUNT(*) AS entries,\n       COUNT(DISTINCT c.chart_date) AS days\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.position <= 5\nGROUP BY a.artist_id, a.name;';
+  const FULL = 'SELECT a.name AS artist, COUNT(DISTINCT c.chart_date) AS days\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.position <= 5\nGROUP BY a.artist_id, a.name\nHAVING COUNT(DISTINCT c.chart_date) > 1;';
+  const BAD = FULL.replace('HAVING COUNT(DISTINCT c.chart_date) > 1', 'HAVING COUNT(*) > 1');
+  const REQ = 'The request: <b>Which artists had a song in the top 5 on more than one chart day?</b>';
+  const plan = (id, key, pl, q, o, w, why) => Q_(mcq(id, q, o, w, why, Object.assign({ plan: key, pl, link: REQ }, C)));
+  const add = v104Seq(L, [
+    S_({ h: 'Chart task · The request and the rows', ts: 'c',
+      link: 'You planned and built the shop task one piece at a time. The chart task has the same shape, with one extra trap.',
+      ask: 'Which artists had a song in the top 5 on more than one chart day?',
+      say: 'These three tables are small copies of the app’s real tables: 7 chart rows from two days, plus only the songs and artists those rows need. A chart row tells you the day, the position and the song_id. It does not hold the artist: you reach the artist through songs. Trace the answer by hand first, one piece at a time.',
+      ins: [{ t: 'chart_entries', role: ROLE }, { t: 'songs', role: 'songs: the 4 songs in those rows' }, { t: 'artists', role: 'artists: their 3 artists' }], stack: true }),
+    Q_(tapq('sqlrt.v1', 'Piece 1, by hand: tap every chart row that is in the <b>top 5</b>.', 'chart_entries', [0, 1, 3, 4, 5, 6], 'Top 5 means position 1, 2, 3, 4 or 5. Only Goodbye (Warm Up) on 2026-10-16 is out: it was at position 6.', C)),
+    S_({ h: 'Chart task 1 · Keep the top-5 rows', ts: 'c', qfirst: 1,
+      link: 'You found 6 rows in the top 5 and 1 row outside it.',
+      ask: 'Which SQL keeps only the top-5 rows?',
+      say: 'Read the query, then the marked table. <code>WHERE position &lt;= 5</code> tests one row at a time and keeps positions 1 to 5. <code>&lt;=</code> means “less than or equal to”, so position 5 stays in.',
+      sql: 'SELECT chart_date, position, song_id\nFROM chart_entries\nWHERE position <= 5;',
+      ins: [{ t: 'chart_entries', role: ROLE, m: ['m', 'm', 'x', 'm', 'm', 'm', 'm'], why: ['position 1: in the top 5', 'position 2: in the top 5', 'position 6: outside the top 5', 'position 1: in the top 5', 'position 2: in the top 5', 'position 4: in the top 5', 'position 5: still in the top 5'] }],
+      out: { c: ['chart_date', 'position', 'song_id'], r: [['2026-10-16', 1, 1], ['2026-10-16', 2, 2], ['2026-10-17', 1, 1], ['2026-10-17', 2, 2], ['2026-10-17', 4, 11], ['2026-10-17', 5, 4]] },
+      lg: { m: '✓ top 5: kept', x: '✕ position 6: removed' } }),
+    Q_(mcq('sqlrt.v2', 'Why <code>position &lt;= 5</code> and not <code>position &lt; 5</code>?', ['&lt; 5 would drop position 5, which is in the top 5', 'they give the same rows here', '&lt;= 5 also keeps position 6', 'position is text, so &lt; does not work'],
+      [null, 'Owo Oluwa is at position 5 on 2026-10-17. With &lt; 5 it would be dropped, and Kizz Daniel would vanish.', '6 is not less than or equal to 5, so it is removed either way.', 'position is a number column, so &lt; and &lt;= compare numbers.'],
+      'Top 5 includes position 5. <code>&lt;= 5</code> keeps 1 to 5; <code>&lt; 5</code> keeps only 1 to 4.', C)),
+    S_({ h: 'Chart task 2 · Reach the artist through songs', ts: 'c', qfirst: 1,
+      link: 'Piece 1 left 6 top-5 rows, each with a song_id but no artist.',
+      ask: 'Who is the artist of each top-5 row?',
+      say: 'Follow the arrows you learned in joins: <code>chart_entries.song_id</code> → <code>songs</code> gives the artist_id, and <code>songs.artist_id</code> → <code>artists</code> gives the name. Each chart row matches exactly one song and each song one artist, so the joins add columns without adding rows: 6 rows in, 6 rows out. The colour shows the artist: blue for Ayra Starr, orange for Victony, green for Kizz Daniel.',
+      sql: JQ,
+      ins: [{ tab: ILT('after piece 1', ['chart_date', 'position', 'song_id'], [['2026-10-16', 1, 1], ['2026-10-16', 2, 2], ['2026-10-17', 1, 1], ['2026-10-17', 2, 2], ['2026-10-17', 4, 11], ['2026-10-17', 5, 4]]), role: 'Before: the 6 top-5 rows', m: JM, why: ['song 1 → artist 1: Ayra Starr', 'song 2 → artist 2: Victony', 'song 1 → artist 1: Ayra Starr', 'song 2 → artist 2: Victony', 'song 11 → artist 1: Ayra Starr', 'song 4 → artist 4: Kizz Daniel'] }],
+      out: { c: ['chart_date', 'position', 'title', 'artist'], r: JOINED.r, m: JM, nc: [2, 3] },
+      lg: { g: 'same colour and shape = same artist' } }),
+    Q_(mcq('sqlrt.v3', 'Look at the result of piece 2. How many rows belong to Ayra Starr?', ['3', '2', '1', '6'],
+      [null, '2 is the number of different days. Count rows: Heaven Baby on 10-16, Heaven Baby on 10-17 and Goodbye (Warm Up) on 10-17.', 'Ayra Starr has two different songs in these rows, and one of them appears twice.', '6 is every top-5 row, for all three artists.'],
+      'Three rows: Heaven Baby on 2026-10-16, Heaven Baby on 2026-10-17 and Goodbye (Warm Up) on 2026-10-17.', { ref: false, show: illTable(JOINED, JM, { role: 'After piece 2: the result' }) })),
+    S_({ h: 'Chart task 3 · One pile per artist', ts: 'c', lab: 'Before: the 6 rows, one colour per artist',
+      link: 'You counted 3 rows for Ayra Starr.',
+      ask: 'What is in each artist’s pile?',
+      say: 'Put every row with the same artist into one pile. Under “After” each pile is drawn on its own. The question asks about <b>days</b>, so look at the chart_date column in each pile: Ayra Starr’s pile has 3 rows but only 2 different dates, because she had two songs in the top 5 on 2026-10-17.',
+      ins: [{ tab: JOINED, role: 'top-5 rows with their artist (the result of piece 2)', m: JM, why: ['Ayra Starr pile', 'Victony pile', 'Ayra Starr pile', 'Victony pile', 'Ayra Starr pile (same day as the row above it but one)', 'Kizz Daniel pile'] }],
+      after: [{ tab: ILT('ayra_starr_pile', ['chart_date', 'title'], [['2026-10-16', 'Heaven Baby'], ['2026-10-17', 'Heaven Baby'], ['2026-10-17', 'Goodbye (Warm Up)']]), role: 'Ayra Starr: 3 rows, 2 days (a pile of the result)', m: ['g0', 'g0', 'd'], why: ['day 1: 2026-10-16', 'day 2: 2026-10-17', 'also 2026-10-17: the same day again'] },
+        { tab: ILT('victony_pile', ['chart_date', 'title'], [['2026-10-16', 'SLICK'], ['2026-10-17', 'SLICK']]), role: 'Victony: 2 rows, 2 days (a pile of the result)', m: ['g1', 'g1'] },
+        { tab: ILT('kizz_daniel_pile', ['chart_date', 'title'], [['2026-10-17', 'Owo Oluwa']]), role: 'Kizz Daniel: 1 row, 1 day (a pile of the result)', m: ['g2'] }],
+      lg: { g: 'same colour and shape = same artist', d: '2× a date already in this pile' } }),
+    Q_(mcq('sqlrt.v4', 'Count Ayra Starr’s pile two ways: how many <b>rows</b>, and how many <b>different days</b>?', ['3 rows, 2 different days', '3 rows, 3 different days', '2 rows, 2 different days', '3 rows, 1 different day'],
+      [null, '2026-10-17 appears twice in her pile; one date counted twice is still one day.', 'Her pile has 3 rows: Heaven Baby twice and Goodbye (Warm Up) once.', 'She was in the top 5 on 2026-10-16 too, with Heaven Baby at #1.'],
+      'Rows: 3. Different dates: 2026-10-16 and 2026-10-17, so 2 days.', { ref: false, show: illTable(ILT('ayra_starr_pile', ['chart_date', 'title'], [['2026-10-16', 'Heaven Baby'], ['2026-10-17', 'Heaven Baby'], ['2026-10-17', 'Goodbye (Warm Up)']]), null, { role: 'Ayra Starr’s pile (part of the result of piece 2)' }) })),
+    S_({ h: 'Chart task 4 · COUNT(*) or COUNT(DISTINCT chart_date)?', ts: 'c', qfirst: 1,
+      link: 'You counted 3 rows but 2 days for Ayra Starr. This is the same choice as in the CTE lesson’s listener task: count rows, or count each value once.',
+      ask: 'Which count gives each artist’s number of days?',
+      say: 'Read the query, then the piles, then the result. <code>COUNT(*)</code> counts the rows in each pile: 3, 2, 1. <code>COUNT(DISTINCT c.chart_date)</code> counts each date once per pile: 2, 2, 1. The two counts only differ for Ayra Starr, because only she had two top-5 songs on the same day. The question asks about days, so the days column is the one to test.',
+      sql: CNT,
+      ins: [{ tab: JOINED, role: 'top-5 rows with their artist (the result of piece 2)', m: ['g0', 'g1', 'g0', 'g1', 'd', 'g2'], why: ['Ayra Starr: 2026-10-16', 'Victony: 2026-10-16', 'Ayra Starr: 2026-10-17', 'Victony: 2026-10-17', 'Ayra Starr: 2026-10-17 again, so DISTINCT does not count this date twice', 'Kizz Daniel: 2026-10-17'] }],
+      out: { c: ['artist', 'entries', 'days'], r: [['Ayra Starr', 3, 2], ['Victony', 2, 2], ['Kizz Daniel', 1, 1]], m: ['g0', 'g1', 'g2'], nc: [1, 2], why: ['3 rows but 2 different days', '2 rows on 2 different days', '1 row on 1 day'] },
+      lg: { g: 'same colour and shape = same artist', d: '2× the same date again: counted once by DISTINCT' } }),
+    S_({ h: 'Chart task · Change one row: Heaven Baby was #6 on 2026-10-16', ts: 'c2',
+      link: 'With the 7 rows, both counts said Ayra Starr was in the top 5 more than once. Now one row changes and nothing else.',
+      ask: 'If Heaven Baby had been at position 6 on 2026-10-16, on how many days was Ayra Starr in the top 5?',
+      say: 'This is the full chart table again with one changed row (marked ＋). Find Ayra Starr’s rows (songs 1 and 11) that are still in the top 5, and count their dates.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: the 7 rows with row 1 changed', m: ['n', '', '', '', '', '', ''], why: ['changed: Heaven Baby is now at position 6 on 2026-10-16, outside the top 5'] }],
+      lg: { n: '＋ the one changed row' } }),
+    Q_(mcq('sqlrt.v5', 'With the changed row, what are Ayra Starr’s COUNT(*) and COUNT(DISTINCT chart_date)?', ['COUNT(*) = 2, days = 1', 'COUNT(*) = 3, days = 2', 'COUNT(*) = 2, days = 2', 'COUNT(*) = 1, days = 1'],
+      [null, 'That was before the change. The 2026-10-16 row is now position 6, so WHERE removes it.', 'Both of her remaining top-5 rows are on 2026-10-17: one date.', 'She still has two top-5 rows on 2026-10-17: Heaven Baby (#1) and Goodbye (Warm Up) (#4).'],
+      'Her top-5 rows are now Heaven Baby (#1) and Goodbye (Warm Up) (#4), both on 2026-10-17: 2 rows, 1 day. A test on COUNT(*) &gt; 1 would wrongly say “more than one day”.', C2)),
+    S_({ h: 'Chart task · The trap, in SQL', ts: 'c2', qfirst: 1,
+      link: 'You found 2 rows but only 1 day for Ayra Starr on the changed data.',
+      ask: 'Which count still tells the truth about days?',
+      say: 'Same query as piece 3, on the changed table. Ayra Starr now has 2 entries on a single day. <code>COUNT(*) &gt; 1</code> would keep her, although she was in the top 5 on one day only. <code>COUNT(DISTINCT c.chart_date)</code> says 1, which is the truth. Two top-5 songs on the same day is exactly the trap in the lesson’s problem.',
+      sql: CNT,
+      ins: [{ t: 'chart_entries', role: 'chart_entries: the 7 rows with row 1 changed', m: ['x', 'g1', 'x', 'g0', 'g1', 'g0', 'g2'], why: ['position 6: removed by WHERE', 'Victony: 2026-10-16', 'position 6: removed by WHERE', 'Ayra Starr: 2026-10-17', 'Victony: 2026-10-17', 'Ayra Starr: 2026-10-17 again', 'Kizz Daniel: 2026-10-17'] }],
+      out: { c: ['artist', 'entries', 'days'], r: [['Ayra Starr', 2, 1], ['Victony', 2, 2], ['Kizz Daniel', 1, 1]], m: ['n', 'g1', 'g2'], nc: [1, 2], why: ['changed: 2 entries, but both on 2026-10-17, so 1 day', 'unchanged: 2 rows on 2 days', 'unchanged'] },
+      lg: { g: 'same colour and shape = same artist', x: '✕ outside the top 5', n: '＋ changed by the new row' } }),
+    { old: ['q', L.qs.findIndex(q => q.id === 'sqlrt.n1')] }, // the v10 question, reused here (not copied)
+    S_({ h: 'Chart task 5 · Keep the artists on more than one day: HAVING', ts: 'c', qfirst: 1,
+      link: 'Back to the original 7 rows. Piece 4 gave days = 2, 2 and 1.',
+      ask: 'Which artists had a song in the top 5 on more than one chart day?',
+      say: 'The test is about a count, and a count belongs to a pile, so it goes in <b>HAVING</b>, which runs after GROUP BY (WHERE runs earlier, on single rows). <code>HAVING COUNT(DISTINCT c.chart_date) &gt; 1</code> keeps a pile when its number of different days is more than one.',
+      sql: FULL,
+      ins: [{ tab: ILT('after piece 4', ['artist', 'days'], [['Ayra Starr', 2], ['Victony', 2], ['Kizz Daniel', 1]]), role: 'Before: one row per artist', m: ['m', 'm', 'x'], why: ['2 &gt; 1: kept', '2 &gt; 1: kept', '1 is not more than 1: removed'] }],
+      out: { c: ['artist', 'days'], r: [['Ayra Starr', 2], ['Victony', 2]], m: ['m', 'm'], why: ['top 5 on 2026-10-16 and 2026-10-17', 'top 5 on 2026-10-16 and 2026-10-17'] },
+      lg: { m: '✓ more than one day', x: '✕ one day only' } }),
+    Q_({ id: 'sqlrt.v6', k: 'line', ts: 'c2', q: 'Spot the mistake. On the changed data (Heaven Baby #6 on 2026-10-16) this query lists Ayra Starr. Tap the line that lets her in.', code: BAD, ans: 6,
+      why: 'COUNT(*) counts rows, and Ayra Starr has 2 top-5 rows, both on 2026-10-17. The question asks for days, so the test must be COUNT(DISTINCT c.chart_date) &gt; 1.',
+      lw: 'The joins, the top-5 filter and the grouping all match the plan. Only the count in HAVING counts the wrong thing.' }),
+    plan('sqlrt.v7', 'cgrain', 'One result row', 'Plan 1 of 4: what does one row of the final result stand for?', ['one artist', 'one chart row', 'one chart day', 'one song'],
+      [null, 'Chart rows are what you count; the answer lists each artist once.', 'Days are what you count for each artist, not what each answer row is.', 'Ayra Starr has two songs; the question asks about her, not each song.'], 'The request asks “which artists”, so each artist appears once: GROUP BY the artist.'),
+    plan('sqlrt.v8', 'cpieces', 'Pieces', 'Plan 2 of 4: which pieces does the query need?',
+      ['WHERE position &lt;= 5, joins to songs and artists, GROUP BY the artist, COUNT(DISTINCT chart_date), HAVING … &gt; 1', 'WHERE position &lt;= 5, GROUP BY the artist, COUNT(*), HAVING … &gt; 1', 'GROUP BY chart_date and COUNT(*)', 'WHERE COUNT(DISTINCT chart_date) &gt; 1'],
+      [null, 'COUNT(*) counts rows; with two top-5 songs on one day it counts that day twice.', 'That makes one row per day, but the answer needs one row per artist.', 'WHERE runs on single rows before piles exist, so it cannot hold a count.'], 'Each piece came from one trace step: filter, reach the artist, pile, count days, test.'),
+    plan('sqlrt.v9', 'corder', 'Order SQL runs it', 'Plan 3 of 4: in what order does the database run those pieces?',
+      ['FROM + JOIN → WHERE → GROUP BY → HAVING → SELECT', 'SELECT → FROM → WHERE → GROUP BY → HAVING', 'WHERE → FROM → GROUP BY → SELECT → HAVING', 'GROUP BY → WHERE → HAVING → SELECT'],
+      [null, 'SELECT is written first but runs last: it picks the columns from the piles that passed.', 'WHERE needs rows to test, so FROM comes first; HAVING runs before SELECT.', 'WHERE runs before GROUP BY: it removes position 6 before the piles are made.'],
+      'Rows first (FROM, JOIN), single-row filter (WHERE), piles (GROUP BY), pile test (HAVING), then the columns you show (SELECT). It is the order you traced by hand.'),
+    plan('sqlrt.v10', 'crows', 'Rows expected', 'Plan 4 of 4: on these 7 practice rows, how many rows should the answer have?', ['2: Ayra Starr and Victony', '3: every artist', '1: only Ayra Starr', '6: one per top-5 row'],
+      [null, 'Kizz Daniel was in the top 5 on 2026-10-17 only.', 'Victony was in the top 5 on both days too (SLICK, #2 both days).', 'The joins keep 6 rows, but GROUP BY makes one row per artist and HAVING keeps two.'],
+      'Writing down the row count before you run the query lets you check the result at a glance.'),
+    Q_({ id: 'sqlrt.v11', k: 'run', ts: 'c', planShow: ['cgrain', 'cpieces', 'corder', 'crows'], q: 'Guided write: fill in the three blanks, then check. Your plan is above.',
+      code: 'SELECT a.name AS artist, COUNT(DISTINCT c.chart_date) AS days\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nWHERE c.position ____\nGROUP BY a.artist_id, a.name\nHAVING COUNT(____ c.chart_date) ____;', sol: FULL,
+      need: [['position\\s*(<=\\s*5|<\\s*6)', 'the top-5 filter'], ['HAVING\\s+COUNT\\s*\\(\\s*DISTINCT', 'HAVING COUNT(DISTINCT …)']],
+      why: '<code>&lt;= 5</code> keeps the top 5, <code>DISTINCT</code> counts each day once, and <code>&gt; 1</code> means more than one day: Ayra Starr and Victony.' }),
+    Q_({ id: 'sqlrt.v12', k: 'run', ts: 'c', planShow: ['cgrain', 'cpieces', 'corder', 'crows'], q: 'Now the whole query from your plan, with nothing filled in. Return the artist name (artist) and the number of different days (days).',
+      code: '-- one row per artist; write the whole query\n____', sol: FULL,
+      need: [['position\\s*(<=\\s*5|<\\s*6)', 'the top-5 filter'], ['HAVING\\s+COUNT\\s*\\(\\s*DISTINCT', 'HAVING COUNT(DISTINCT …)'], ['JOIN\\s+artists', 'a join to artists']],
+      why: 'Filter the top 5 in WHERE, join songs and artists to reach the name, GROUP BY the artist, and keep the piles with COUNT(DISTINCT c.chart_date) &gt; 1. The lesson’s problem asks the same question on all 30 chart rows.' }),
+    Q_(mcq('sqlrt.v13', '🛒 Shop: “Which customers ordered on more than one day?” Customer 21 placed two orders on 2026-10-03. Which test is right?', ['HAVING COUNT(DISTINCT order_date) &gt; 1', 'HAVING COUNT(*) &gt; 1', 'WHERE COUNT(DISTINCT order_date) &gt; 1', 'HAVING COUNT(DISTINCT order_id) &gt; 1'],
+      [null, 'COUNT(*) counts orders: customer 21 has 2 orders but on one day, so they would pass wrongly.', 'WHERE cannot use a count; piles do not exist yet.', 'order_id is different on every row, so this counts orders again.'],
+      'Count each day once per customer: customer 21 has 1 day, customer 22 has 2 days (2026-10-05 and 2026-10-19), so only 22 passes.', { ts: 'shop' })),
+    S_({ h: 'Chart task · Now the real chart', ts: 'c',
+      link: 'You traced, planned and wrote the chart task on 7 rows.',
+      ask: 'What changes on the full chart?',
+      say: 'Only the size. The lesson’s problem runs the same query on all 30 rows of the real <code>chart_entries</code> (three days), with the real songs and artists. Your plan stays the same: one row per artist, top-5 filter, joins, GROUP BY the artist, COUNT(DISTINCT chart_date), HAVING &gt; 1. Ayra Starr again has two songs in the top 5 on 2026-10-17, so the DISTINCT trap is real there too.',
+      ins: [{ t: 'chart_entries', role: ROLE }] })
+  ]);
+  // the old one-screen "Same plan, new data" step is replaced by the traced steps (its question sqlrt.n1 is reused inside them)
+  const isOld = ([t, i]) => t === 's' && L.scenes[i].h === 'Same plan, new data: the naija chart';
+  L.retired = L.order.filter(isOld);
+  L.order = L.order.filter(x => !isOld(x) && !(x[0] === 'q' && L.qs[x[1]].id === 'sqlrt.n1')).concat(add);
+}
+
+{ // ---- sql6 Subqueries: scalar, IN, derived table, EXISTS / NOT EXISTS, the NOT IN NULL trap, then combined ----
+  const L = ILLUS.sql6; L.id = 'sql6';
+  const legacy = L.scenes.map((_, i) => ['s', i]).concat(L.qs.map((_, i) => ['q', i]));
+  const SONGS = ILT('songs', ['song_id', 'title', 'artist_id', 'duration_sec'], [[1, 'Heaven Baby', 1, 159], [2, 'SLICK', 2, 106], [4, 'Owo Oluwa', 4, 177], [7, 'Love Na Drug', 7, 237], [14, 'Calm Down', 14, 239]], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT, artist_id INTEGER, duration_sec INTEGER);');
+  const SONGS4 = ILT('songs', SONGS.c, SONGS.r.slice(0, 4), SONGS.ddl);
+  const ARTS = ILT('artists', ['artist_id', 'name'], [[1, 'Ayra Starr'], [2, 'Victony'], [4, 'Kizz Daniel'], [7, 'Brymo'], [14, 'Rema'], [12, 'Burna Boy']], 'CREATE TABLE artists (artist_id INTEGER PRIMARY KEY, name TEXT);');
+  const CHD = ILT('chart_entries', ['chart_date', 'song_id'], [['2026-10-15', 1], ['2026-10-16', 1], ['2026-10-17', 1], ['2026-10-16', 2], ['2026-10-17', 2], ['2026-10-17', 4]], 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER);');
+  const ST = ILT('songs', ['song_id', 'title'], [[1, 'Heaven Baby'], [2, 'SLICK'], [4, 'Owo Oluwa'], [7, 'Love Na Drug'], [14, 'Calm Down']], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT);');
+  const CHE = ILT('chart_entries', ['chart_date', 'position', 'song_id'], [['2026-10-15', 1, 2], ['2026-10-16', 1, 1], ['2026-10-16', 2, 2], ['2026-10-17', 1, 1], ['2026-10-17', 5, 4]], 'CREATE TABLE chart_entries (chart_date TEXT, position INTEGER, song_id INTEGER);');
+  const LIS = ILT('listeners', ['listener_id', 'name'], [[1, 'Ada'], [2, 'Tunde'], [3, 'Zainab'], [4, 'Chidi']], 'CREATE TABLE listeners (listener_id INTEGER PRIMARY KEY, name TEXT);');
+  const STN = ILT('streams', ['stream_id', 'listener_id', 'song_id'], [[1, 1, 14], [2, 2, 14], [3, null, 14], [4, 3, 8]], 'CREATE TABLE streams (stream_id INTEGER PRIMARY KEY, listener_id INTEGER, song_id INTEGER);');
+  const STN2 = ILT('streams', STN.c, [[1, 1, 14], [2, 2, 14], [4, 3, 8]], STN.ddl);
+  const CHP = ILT('chart_entries', ['chart_date', 'position', 'streams'], [['2026-10-16', 1, 100], ['2026-10-16', 2, 60], ['2026-10-16', 3, 20], ['2026-10-17', 1, 120], ['2026-10-17', 2, 75], ['2026-10-17', 3, 45]], 'CREATE TABLE chart_entries (chart_date TEXT, position INTEGER, streams INTEGER);');
+  const SHOP = { orders: ILT('orders', ['order_id', 'customer_id', 'total'], [[1, 21, 5000], [2, 22, 3000], [3, 21, 1000], [4, 23, 7000]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, total INTEGER);'),
+    customers: ILT('customers', ['customer_id', 'name'], [[21, 'Bisi'], [22, 'Kunle'], [23, 'Ngozi'], [24, 'Tobi']], 'CREATE TABLE customers (customer_id INTEGER PRIMARY KEY, name TEXT);') };
+  L.tsets = { s: { songs: SONGS }, s4: { songs: SONGS4 }, a: { songs: SONGS, artists: ARTS }, d: { chart_entries: CHD }, e: { songs: ST, chart_entries: CHE }, n: { listeners: LIS, streams: STN }, n2: { listeners: LIS, streams: STN2 }, p: { chart_entries: CHP }, shop: SHOP };
+  const RS = 'songs: 5 real songs copied from the app (title, artist and length)';
+  const Q1 = 'SELECT title, duration_sec\nFROM songs\nWHERE duration_sec > (SELECT AVG(duration_sec) FROM songs);';
+  const Q2 = 'SELECT name\nFROM artists\nWHERE artist_id IN (\n  SELECT artist_id FROM songs WHERE duration_sec > 200\n);';
+  const QE = 'SELECT s.title\nFROM songs s\nWHERE EXISTS (\n  SELECT 1 FROM chart_entries c\n  WHERE c.song_id = s.song_id AND c.position = 1\n);';
+  const QNI = 'SELECT name\nFROM listeners\nWHERE listener_id NOT IN (\n  SELECT listener_id FROM streams WHERE song_id = 14\n);';
+  const QNE = 'SELECT l.name\nFROM listeners l\nWHERE NOT EXISTS (\n  SELECT 1 FROM streams st\n  WHERE st.listener_id = l.listener_id AND st.song_id = 14\n);';
+  const QP2 = 'SELECT s.title\nFROM songs s\nWHERE EXISTS (SELECT 1 FROM chart_entries c WHERE c.song_id = s.song_id)\n  AND NOT EXISTS (\n    SELECT 1 FROM chart_entries c\n    WHERE c.song_id = s.song_id AND c.position <= 3\n  );';
+  const QP1 = "SELECT position, streams\nFROM chart_entries\nWHERE chart_date = '2026-10-17'\n  AND streams > (\n    SELECT AVG(streams)\n    FROM chart_entries\n    WHERE chart_date = '2026-10-17'\n  );";
+  const QP1BAD = "SELECT position, streams\nFROM chart_entries\nWHERE chart_date = '2026-10-17'\n  AND streams > (\n    SELECT AVG(streams)\n    FROM chart_entries\n  );";
+  const S = { ts: 's' }, A = { ts: 'a' }, E = { ts: 'e' }, N = { ts: 'n' }, SH = { ts: 'shop' };
+  const LG_KEEP = { m: '✓ kept', x: '✕ not kept' };
+  const add = v104Seq(L, [
+    // ---- Step 1: a scalar subquery (one value) ----
+    S_({ h: 'Step 1 · Songs longer than average, by hand', ts: 's',
+      link: 'In GROUP BY you squashed many rows into one number with AVG. Here that one number is needed inside another question.',
+      ask: 'Which songs are longer than the average song?',
+      say: 'Work it out by hand in two steps. First the average length: (159 + 106 + 177 + 237 + 239) ÷ 5 = 918 ÷ 5 = <b>183.6</b> seconds. Then compare each song with 183.6. The second step needs the answer of the first, which is what a subquery is for.',
+      ins: [{ t: 'songs', role: RS }] }),
+    Q_(tapq('sql6.v1', 'The average length is 183.6 seconds. Tap every song longer than that.', 'songs', [3, 4], 'Love Na Drug (237) and Calm Down (239) are above 183.6. Owo Oluwa (177) is close but below.', S)),
+    S_({ h: 'Step 1 · The inner query alone: one value', ts: 's', qfirst: 1,
+      link: 'You worked out 183.6 by hand before comparing.',
+      ask: 'What does the first step return on its own?',
+      say: 'Run the first step by itself. It returns <b>one row and one column</b>: a single value, 183.6. A query that returns a single value is called a <b>scalar</b> query (“scalar” just means one value).',
+      sql: 'SELECT AVG(duration_sec) AS avg_len\nFROM songs;',
+      ins: [{ t: 'songs', role: RS, m: ['g0', 'g0', 'g0', 'g0', 'g0'], why: ['159 seconds', '106 seconds', '177 seconds', '237 seconds', '239: all five go into one average'] }],
+      out: { c: ['avg_len'], r: [[183.6]], m: ['n'], why: ['918 ÷ 5 = 183.6: one row, one column'] },
+      lg: { g: 'every row goes into the one average', n: '＋ one value made from all rows' } }),
+    S_({ h: 'Step 1 · Put the inner query where the number goes', ts: 's', qfirst: 1,
+      link: 'The first step returned one value, 183.6.',
+      ask: 'How do you use that value inside the second step without typing it?',
+      say: 'Read the query. Where you would type 183.6, the query has <code>(SELECT AVG(duration_sec) FROM songs)</code> in brackets. A query inside brackets inside another query is a <b>subquery</b>. The database runs it first, gets 183.6, and then the outer WHERE compares every row with it. Unlike a typed number, it stays right when songs change.',
+      sql: Q1,
+      ins: [{ t: 'songs', role: RS, m: ['x', 'x', 'x', 'm', 'm'], why: ['159 is not more than 183.6', '106 is not more than 183.6', '177 is not more than 183.6', '237 &gt; 183.6', '239 &gt; 183.6'] }],
+      out: { c: ['title', 'duration_sec'], r: [['Love Na Drug', 237], ['Calm Down', 239]], m: ['m', 'm'], why: ['longer than average', 'longer than average'] }, lg: LG_KEEP }),
+    Q_(mcq('sql6.v2', 'Change one row: Calm Down is removed, so 4 songs are left (shown below). Which songs are longer than the new average?', ['Owo Oluwa and Love Na Drug', 'only Love Na Drug', 'Love Na Drug and Calm Down', 'all four'],
+      [null, 'The average drops to (159 + 106 + 177 + 237) ÷ 4 = 169.75, and Owo Oluwa (177) is now above it.', 'Calm Down is no longer in the table.', 'SLICK (106) and Heaven Baby (159) are below 169.75.'],
+      'The subquery is re-run on the new rows: 679 ÷ 4 = 169.75. Owo Oluwa (177) and Love Na Drug (237) are above it. A typed 183.6 would have missed Owo Oluwa.', { ts: 's4' })),
+    S_({ h: 'Step 1 · Spot the mistake: a subquery with many rows', ts: 's', qfirst: 1,
+      link: 'A scalar subquery must return one value. A colleague forgot the AVG.',
+      ask: 'What does SQLite compare each song with now?',
+      say: 'The inner query <code>SELECT duration_sec FROM songs</code> returns 5 values, not one. Postgres refuses to run this (“more than one row returned by a subquery used as an expression”). SQLite runs it but silently uses only the <b>first</b> value, 159, so the answer looks fine but is wrong: Owo Oluwa (177) gets in although it is below the average.',
+      sql: 'SELECT title, duration_sec\nFROM songs\nWHERE duration_sec > (SELECT duration_sec FROM songs);',
+      ins: [{ t: 'songs', role: RS, m: ['x', 'x', 'm', 'm', 'm'], why: ['159 is not more than 159', '106 is not more than 159', '177 &gt; 159: kept, although it is below the average', '237 &gt; 159', '239 &gt; 159'] }],
+      out: { c: ['title', 'duration_sec'], r: [['Owo Oluwa', 177], ['Love Na Drug', 237], ['Calm Down', 239]], m: ['x', 'm', 'm'], why: ['wrong: 177 is below the real average, 183.6', 'right, but only by luck', 'right, but only by luck'] },
+      lg: { m: '✓ kept', x: '✕ wrong or not kept' } }),
+    Q_(mcq('sql6.v3', 'Why must a subquery used with &gt; return exactly one value?', ['&gt; compares one number with one number; with many values the comparison has no single meaning', 'subqueries can only return one row anywhere', 'AVG needs one row', 'because songs has a primary key'],
+      [null, 'An IN subquery (Step 2) returns many rows on purpose. Only a subquery used as a single value must return one.', 'AVG reads many rows and returns one; that is why it works here.', 'The key does not decide how many rows the inner query returns.'],
+      'A subquery used where one value goes (after &gt;, =, &lt;) must be scalar: one row, one column.', S)),
+    Q_(mcq('sql6.v4', '🛒 Shop: “Which orders are bigger than the average order?” Which WHERE is right?', ['WHERE total &gt; (SELECT AVG(total) FROM orders)', 'WHERE total &gt; AVG(total)', 'WHERE total &gt; (SELECT total FROM orders)', 'HAVING total &gt; AVG(total)'],
+      [null, 'AVG is an aggregate; WHERE tests single rows and cannot use it directly. Wrap it in a subquery.', 'That inner query returns every total, not the average.', 'There is no GROUP BY here; HAVING tests piles, not single orders.'],
+      'The average is (5000 + 3000 + 1000 + 7000) ÷ 4 = 4000, so orders 1 (5000) and 4 (7000) are bigger.', SH)),
+    ...legacy.map(old => ({ old })),
+    // ---- Step 2: IN with a list ----
+    S_({ h: 'Step 2 · Artists with a long song, by hand', ts: 'a',
+      link: 'Step 1’s subquery returned one value. This one returns a list.',
+      ask: 'Which artists have at least one song over 200 seconds?',
+      say: 'Two steps again. First find the songs over 200 seconds in <code>songs</code> and write down their artist_id: Love Na Drug (artist 7) and Calm Down (artist 14), so the list is <b>7, 14</b>. Then look up those IDs in <code>artists</code>.',
+      ins: [{ t: 'songs', role: RS }, { t: 'artists', role: 'artists: the same 5 artists plus Burna Boy (no song here)' }], stack: true }),
+    Q_(tapq('sql6.v5', 'The list of artist IDs is 7, 14. Tap the artists whose artist_id is in that list.', 'artists', [3, 4], 'Brymo (7) and Rema (14). Every other artist_id is not in the list.', A)),
+    S_({ h: 'Step 2 · The inner query returns a list', ts: 'a', qfirst: 1,
+      link: 'You wrote down the list 7, 14 by hand.',
+      ask: 'What does the first step return on its own?',
+      say: 'This inner query returns <b>one column with many rows</b>: a list of values. A list cannot go after &gt; or =, which need one value. It goes after <b>IN</b>, which asks “is this value one of the list?”',
+      sql: 'SELECT artist_id\nFROM songs\nWHERE duration_sec > 200;',
+      ins: [{ t: 'songs', role: RS, m: ['x', 'x', 'x', 'm', 'm'], why: ['159: not over 200', '106: not over 200', '177: not over 200', '237: over 200, artist 7', '239: over 200, artist 14'] }],
+      out: { c: ['artist_id'], r: [[7], [14]], m: ['m', 'm'], why: ['from Love Na Drug', 'from Calm Down'] }, lg: LG_KEEP }),
+    S_({ h: 'Step 2 · IN checks each artist against the list', ts: 'a', qfirst: 1,
+      link: 'The inner query returned the list 7, 14.',
+      ask: 'Which artists have at least one song over 200 seconds?',
+      say: 'The outer query reads <code>artists</code> one row at a time and keeps a row when its artist_id is <b>IN</b> the list. Burna Boy (12) has no song here, so he is never in the list.',
+      sql: Q2,
+      ins: [{ t: 'artists', role: 'artists', m: ['x', 'x', 'x', 'm', 'm', 'x'], why: ['1 is not in (7, 14)', '2 is not in (7, 14)', '4 is not in (7, 14)', '7 is in the list', '14 is in the list', '12 is not in the list'] }],
+      out: { c: ['name'], r: [['Brymo'], ['Rema']], m: ['m', 'm'], why: ['Love Na Drug, 237 s', 'Calm Down, 239 s'] }, lg: LG_KEEP }),
+    Q_(mcq('sql6.v6', 'Change one thing: <code>duration_sec &gt; 150</code> instead of 200. How many artists come back?', ['4: Ayra Starr, Kizz Daniel, Brymo and Rema', '2: Brymo and Rema', '5: everyone with a song', '6: every artist'],
+      [null, 'The list grows: songs over 150 seconds are Heaven Baby (1), Owo Oluwa (4), Love Na Drug (7) and Calm Down (14).', 'SLICK (106) is the only song not over 150, so Victony is out.', 'Burna Boy has no song in this table, so his ID is never in the list.'],
+      'The new list is 1, 4, 7, 14, so four artists match. Only the inner query changed; the outer query is the same.', A)),
+    S_({ h: 'Step 2 · Spot the mistake: = with a list', ts: 'a', qfirst: 1,
+      link: 'IN takes a list. A colleague wrote = instead.',
+      ask: 'Why is Rema missing?',
+      say: '<code>=</code> needs one value, but the inner query returns two. Postgres refuses the query. SQLite runs it and silently uses only the first value of the list, 7, so only Brymo comes back. The fix is IN.',
+      sql: 'SELECT name\nFROM artists\nWHERE artist_id = (\n  SELECT artist_id FROM songs WHERE duration_sec > 200\n);',
+      ins: [{ t: 'artists', role: 'artists', m: ['x', 'x', 'x', 'm', 'x', 'x'], why: ['1 is not 7: dropped', '2 is not 7: dropped', '4 is not 7: dropped', '7 equals 7: kept', 'wrong: 14 is in the list, but = only saw the first value, 7', '12 is not 7: dropped'] }],
+      out: { c: ['name'], r: [['Brymo']], m: ['m'], why: ['only the first value of the list was used'] }, lg: { m: '✓ kept', x: '✕ not kept (Rema wrongly)' } }),
+    Q_(mcq('sql6.v7', 'A subquery returns <b>one column with many rows</b>. Which operator can use it?', ['IN', '=', '&gt;', 'BETWEEN'],
+      [null, '= compares with one value; with a list SQLite uses only the first one.', '&gt; also needs one value.', 'BETWEEN needs two single values, a low and a high.'],
+      'One value: =, &gt;, &lt;. A list: IN (or NOT IN).', A)),
+    Q_(mcq('sql6.v8', '🛒 Shop: “Which customers placed an order over 4000?” Which query is right?', ['SELECT name FROM customers WHERE customer_id IN (SELECT customer_id FROM orders WHERE total &gt; 4000)', 'SELECT name FROM customers WHERE customer_id = (SELECT customer_id FROM orders WHERE total &gt; 4000)', 'SELECT name FROM customers WHERE total &gt; 4000', 'SELECT name FROM customers WHERE customer_id IN (SELECT total FROM orders WHERE total &gt; 4000)'],
+      [null, 'Two orders are over 4000 (customers 21 and 23), so = would use only the first.', 'customers has no total column; totals live in orders.', 'The list must hold customer IDs, not totals: 5000 is never a customer_id.'],
+      'The inner query lists 21 and 23, so Bisi and Ngozi come back.', SH)),
+    // ---- Step 3: a subquery in FROM (derived table) ----
+    S_({ h: 'Step 3 · A subquery in FROM, by hand', ts: 'd',
+      link: 'Steps 1 and 2 put a subquery in WHERE. A subquery can also stand in for a whole table in FROM; you met this in the CTE lesson’s Step 5 as a derived table.',
+      ask: 'On average, on how many chart days did each song appear?',
+      say: 'By hand: pile the rows by song_id and count each pile. Song 1 has 3 rows, song 2 has 2 and song 4 has 1. Then average the three counts: (3 + 2 + 1) ÷ 3 = <b>2</b>. The first step makes a small table of counts; the second step reads it.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: 6 real rows (date and song only)', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g2'], why: ['song 1', 'song 1', 'song 1', 'song 2', 'song 2', 'song 4'] }],
+      after: [{ tab: ILT('t', ['song_id', 'n'], [[1, 3], [2, 2], [4, 1]]), role: 'Step 1 by hand: one row per song', m: ['g0', 'g1', 'g2'], why: ['3 days', '2 days', '1 day'] }],
+      lg: { g: 'same colour and shape = same song' } }),
+    S_({ h: 'Step 3 · The derived table in SQL', ts: 'd', qfirst: 1,
+      link: 'By hand, step 1 made the table of counts 3, 2, 1, and step 2 averaged them to 2.',
+      ask: 'How does the query hold step 1’s small table?',
+      say: 'The bracketed query in FROM is step 1; its result is a temporary table that exists only inside this query. It is called a <b>derived table</b>, and it needs a name after the bracket (<code>AS t</code>) so the outer query can read it. This is the card sql6-c4, and the same shape as the CTE lesson’s Step 5.',
+      sql: 'SELECT AVG(n) AS avg_days_per_song\nFROM (\n  SELECT song_id, COUNT(*) AS n\n  FROM chart_entries\n  GROUP BY song_id\n) AS t;',
+      ins: [{ tab: ILT('t', ['song_id', 'n'], [[1, 3], [2, 2], [4, 1]]), role: 't: the derived table (step 1)', m: ['g0', 'g1', 'g2'], why: ['song 1: 3 days', 'song 2: 2 days', 'song 4: 1 day'] }],
+      out: { c: ['avg_days_per_song'], r: [[2.0]], m: ['n'], why: ['(3 + 2 + 1) ÷ 3 = 2'] },
+      lg: { g: 'same colour and shape = same song', n: '＋ one value made from the counts' } }),
+    Q_(mcq('sql6.v9', 'In <code>FROM ( … ) AS t</code>, what is <code>t</code>?', ['the name given to step 1’s result so the outer query can read it', 'a column of chart_entries', 'a real table stored in the database', 'a keyword that means “total”'],
+      [null, 'Columns come from inside the brackets (song_id, n); t names the whole result.', 'It exists only while this one query runs.', 't is just a name; you could call it song_days.'],
+      'A derived table needs a name (an alias) after the closing bracket: <code>) AS t</code>.', { ts: 'd' })),
+    Q_(mcq('sql6.v10', '🛒 Shop: average number of orders per customer, with a derived table. Which FROM is right?', ['FROM (SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id) AS t', 'FROM orders AS (SELECT COUNT(*) FROM orders)', 'FROM (SELECT COUNT(*) FROM orders) AS t', 'FROM (SELECT customer_id, COUNT(*) AS n FROM orders) AS t'],
+      [null, 'The subquery goes inside the brackets and its name after them.', 'Without GROUP BY customer_id this counts all orders as one number: 4.', 'COUNT(*) with customer_id but no GROUP BY squashes everything into one row.'],
+      'Step 1 gives one row per customer (21 → 2, 22 → 1, 23 → 1); the outer AVG(n) gives 4 ÷ 3 ≈ 1.33.', SH)),
+    // ---- Step 4: EXISTS, NOT EXISTS and the correlated subquery ----
+    S_({ h: 'Step 4 · Songs that were #1, by hand', ts: 'e',
+      link: 'So far the inner query ran once. Now it is checked once for every song.',
+      ask: 'Which songs have been #1 at least once?',
+      say: 'Go down <code>songs</code> one row at a time. For each song, look in <code>chart_entries</code> for a row with <b>this song’s</b> song_id and position 1. If you find at least one, the song is in the answer. The table under “After” is that check, written out.',
+      ins: [{ t: 'songs', role: 'songs: 5 real songs' }, { t: 'chart_entries', role: 'chart_entries: 5 real rows' }], stack: true,
+      after: [{ tab: ILT('check_per_song', ['title', 'rows with this song_id and position 1', 'found one?'], [['Heaven Baby', '2026-10-16, 2026-10-17', 'yes'], ['SLICK', '2026-10-15', 'yes'], ['Owo Oluwa', 'none (its only row is #5)', 'no'], ['Love Na Drug', 'none (no chart rows)', 'no'], ['Calm Down', 'none (no chart rows)', 'no']]), role: 'The check, one song at a time (a worked result)', m: ['m', 'm', 'x', 'x', 'x'], why: ['two #1 rows', 'one #1 row', 'charted, but never #1', 'never charted', 'never charted'] }],
+      lg: LG_KEEP }),
+    Q_(tapq('sql6.v11', 'Tap every song that has been #1 at least once.', 'songs', [0, 1], 'Heaven Baby (song 1) was #1 on 2026-10-16 and 2026-10-17; SLICK (song 2) on 2026-10-15.', E)),
+    S_({ h: 'Step 4 · EXISTS: is there at least one matching row?', ts: 'e', qfirst: 1,
+      link: 'By hand you checked each song for at least one #1 row.',
+      ask: 'How does SQL do the same check for every song?',
+      say: 'Read the inner query: <code>c.song_id = s.song_id</code> uses <code>s</code>, the song the outer query is looking at. A subquery that uses the outer row is called <b>correlated</b>: it is checked again for every song, exactly like your by-hand table. <b>EXISTS</b> is TRUE when the inner query finds at least one row. What it selects does not matter, so people write <code>SELECT 1</code>.',
+      sql: QE,
+      ins: [{ t: 'songs', role: 'songs', m: ['m', 'm', 'x', 'x', 'x'], why: ['EXISTS finds 2 rows: TRUE', 'EXISTS finds 1 row: TRUE', 'EXISTS finds 0 rows (#5 is not #1): FALSE', 'EXISTS finds 0 rows: FALSE', 'EXISTS finds 0 rows: FALSE'] }],
+      out: { c: ['title'], r: [['Heaven Baby'], ['SLICK']], m: ['m', 'm'], why: ['#1 on 2026-10-16 and 2026-10-17', '#1 on 2026-10-15'] }, lg: LG_KEEP }),
+    Q_(mcq('sql6.v12', 'Change one thing: <code>c.position = 1</code> becomes <code>c.position &lt;= 5</code>. Which songs come back?', ['Heaven Baby, SLICK and Owo Oluwa', 'Heaven Baby and SLICK', 'all five songs', 'Love Na Drug and Calm Down'],
+      [null, 'Owo Oluwa’s row is at position 5, which is &lt;= 5.', 'Love Na Drug and Calm Down have no chart rows at all, so EXISTS is FALSE for them.', 'Those are the two songs with no chart rows: the opposite answer.'],
+      'Every chart row here is in the top 5, so the question becomes “which songs charted?”: songs 1, 2 and 4.', E)),
+    S_({ h: 'Step 4 · NOT EXISTS: no matching row at all', ts: 'e', qfirst: 1,
+      link: 'EXISTS kept the songs with at least one #1 row. Change one word.',
+      ask: 'Which songs have never been #1?',
+      say: 'Adding <b>NOT</b> flips the test: a song is kept when the inner query finds <b>no</b> row. The result is exactly the three songs EXISTS removed.',
+      sql: QE.replace('WHERE EXISTS', 'WHERE NOT EXISTS'),
+      ins: [{ t: 'songs', role: 'songs', m: ['x', 'x', 'm', 'm', 'm'], why: ['has #1 rows: removed', 'has a #1 row: removed', 'no #1 row: kept', 'no chart rows: kept', 'no chart rows: kept'] }],
+      out: { c: ['title'], r: [['Owo Oluwa'], ['Love Na Drug'], ['Calm Down']], m: ['m', 'm', 'm'], why: ['best position: #5', 'never charted', 'never charted'] }, lg: LG_KEEP }),
+    S_({ h: 'Step 4 · Spot the mistake: the inner query forgets the song', ts: 'e', qfirst: 1,
+      link: 'The correlated line <code>c.song_id = s.song_id</code> ties the inner query to each song. A colleague left it out.',
+      ask: 'Why does every song come back?',
+      say: 'Without <code>c.song_id = s.song_id</code> the inner query asks “is there any #1 row in the whole chart?”. The answer is yes for every song, so EXISTS is TRUE five times. The query runs without an error, which makes this easy to miss.',
+      sql: 'SELECT s.title\nFROM songs s\nWHERE EXISTS (\n  SELECT 1 FROM chart_entries c\n  WHERE c.position = 1\n);',
+      ins: [{ t: 'songs', role: 'songs', m: ['m', 'm', 'x', 'x', 'x'], why: ['right: was #1', 'right: was #1', 'wrong: kept, but never #1', 'wrong: kept, but never charted', 'wrong: kept, but never charted'] }],
+      out: { c: ['title'], r: [['Heaven Baby'], ['SLICK'], ['Owo Oluwa'], ['Love Na Drug'], ['Calm Down']], m: ['m', 'm', 'x', 'x', 'x'], why: ['right: was #1', 'right: was #1', 'should not be here', 'should not be here', 'should not be here'] },
+      lg: { m: '✓ right', x: '✕ wrongly kept' } }),
+    Q_(mcq('sql6.v13', 'Why did leaving out <code>c.song_id = s.song_id</code> return all five songs?', ['the inner query no longer looks at the current song, so it finds a #1 row for every song', 'EXISTS always returns TRUE', 'SELECT 1 returns the number 1, which counts as TRUE', 'the join to songs is missing'],
+      [null, 'EXISTS is FALSE when the inner query finds no rows, as NOT EXISTS showed.', 'What the inner query selects never matters to EXISTS, only whether a row is found.', 'There is no join here; the link between the two queries is the correlated condition.'],
+      'The correlated condition is what makes the check “for this song”. Without it every song gets the same answer.', E)),
+    Q_(mcq('sql6.v14', '🛒 Shop: “Which customers have never ordered?” (Tobi has no orders.) Which query is right?', ['SELECT name FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)', 'SELECT name FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o)', 'SELECT name FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)', 'SELECT name FROM customers c JOIN orders o ON o.customer_id = c.customer_id'],
+      [null, 'Without the correlated condition, orders is never empty, so NOT EXISTS is FALSE for everyone: 0 rows.', 'EXISTS keeps the customers who did order: the opposite.', 'An inner join keeps only customers with orders, once per order.'],
+      'For each customer, look for one of their orders; keep them when there is none. Only Tobi.', SH)),
+    // ---- Step 5: the NOT IN NULL trap ----
+    S_({ h: 'Step 5 · Listeners who never played song 14, by hand', ts: 'n',
+      link: 'NOT EXISTS answered “never”. NOT IN looks like it does the same, but it has a trap.',
+      ask: 'Which listeners never streamed song 14?',
+      say: 'This practice copy of streams has one row with a missing listener (NULL): the play was logged before the listener signed in. By hand: song 14 was streamed by listener 1 (Ada), listener 2 (Tunde) and an unknown listener. Zainab (3) streamed song 8 only, and Chidi (4) streamed nothing. So the answer is <b>Zainab and Chidi</b>.',
+      ins: [{ t: 'listeners', role: 'listeners: the app’s 4 listeners' }, { t: 'streams', role: 'streams: practice copy with one missing listener_id', m: ['', '', 'n', ''], why: [null, null, 'listener_id is NULL: we do not know who played it'] }], stack: true,
+      lg: { n: '＋ the row with a missing value' } }),
+    Q_(tapq('sql6.v15', 'Tap the listeners who never streamed song 14.', 'listeners', [2, 3], 'Zainab only streamed song 8, and Chidi has no streams. Ada and Tunde both streamed song 14.', N)),
+    S_({ h: 'Step 5 · NOT IN returns nobody', ts: 'n', qfirst: 1,
+      link: 'By hand the answer was Zainab and Chidi.',
+      ask: 'Why does NOT IN return 0 rows?',
+      say: 'The inner query lists the listeners of song 14: <b>1, 2 and NULL</b>. NULL means “not known”. For Zainab, <code>3 NOT IN (1, 2, NULL)</code> means 3 ≠ 1 and 3 ≠ 2 and 3 ≠ NULL. The last one cannot be answered (we do not know who NULL is), so SQL calls it <b>UNKNOWN</b>, and “TRUE and UNKNOWN” is UNKNOWN. WHERE keeps only TRUE, so Zainab is dropped, and so is everyone else.',
+      sql: QNI,
+      ins: [{ t: 'listeners', role: 'listeners', m: ['x', 'x', 'x', 'x'], why: ['1 is in the list: FALSE', '2 is in the list: FALSE', '3 ≠ NULL is UNKNOWN, so the test is UNKNOWN: dropped', '4 ≠ NULL is UNKNOWN: dropped'] }],
+      after: [{ tab: ILT('zainab_check', ['test', 'answer'], [['3 ≠ 1', 'TRUE'], ['3 ≠ 2', 'TRUE'], ['3 ≠ NULL', 'UNKNOWN'], ['all three together', 'UNKNOWN: not kept']]), role: 'Why Zainab is dropped', m: ['', '', 'x', 'x'], why: [null, null, 'nobody can say whether 3 equals an unknown value', 'WHERE keeps a row only when the test is TRUE'] }],
+      out: { c: ['name'], r: [] },
+      lg: { x: '✕ not kept' } }),
+    S_({ h: 'Step 5 · The fix: NOT EXISTS', ts: 'n', qfirst: 1,
+      link: 'NOT IN returned nobody because of one NULL.',
+      ask: 'Does NOT EXISTS get Zainab and Chidi?',
+      say: 'NOT EXISTS asks, for each listener, “is there a stream of song 14 by <b>this</b> listener?”. The NULL row never equals anyone’s listener_id, so it is simply not found. Zainab and Chidi have no such stream, so they are kept. Prefer NOT EXISTS for “never” questions.',
+      sql: QNE,
+      ins: [{ t: 'listeners', role: 'listeners', m: ['x', 'x', 'm', 'm'], why: ['stream 1 found: removed', 'stream 2 found: removed', 'no song-14 stream by listener 3: kept', 'no streams at all: kept'] }],
+      out: { c: ['name'], r: [['Zainab'], ['Chidi']], m: ['m', 'm'], why: ['streamed song 8 only', 'no streams'] }, lg: LG_KEEP }),
+    Q_(mcq('sql6.v16', 'Change one row: the stream with the missing listener is deleted (table below). What does the NOT IN query return now?', ['Zainab and Chidi', 'nobody', 'everyone', 'only Chidi'],
+      [null, 'With no NULL in the list (1, 2), every comparison is TRUE or FALSE again.', 'Ada and Tunde are in the list, so they are still dropped.', 'Zainab never streamed song 14 either.'],
+      'Without the NULL, 3 NOT IN (1, 2) is TRUE, so NOT IN works. The trap only bites when the list contains a NULL, which is why NOT EXISTS is the safe habit.', { ts: 'n2' })),
+    Q_(mcq('sql6.v17', 'If you keep NOT IN, which change also fixes it?', ['add <code>AND listener_id IS NOT NULL</code> inside the subquery', 'write <code>NOT IN (… , 0)</code>', 'use <code>!= ALL</code>', 'change NOT IN to IN'],
+      [null, 'Adding 0 to the list does not remove the NULL.', '!= ALL has the same NULL problem: one UNKNOWN makes the whole test UNKNOWN.', 'IN would return the listeners who did stream song 14: the opposite.'],
+      'Removing NULLs from the list makes every comparison TRUE or FALSE again.', N)),
+    Q_(mcq('sql6.v18', '🛒 Shop: some order rows have a missing customer_id (NULL). “Which customers never ordered?” with <code>customer_id NOT IN (SELECT customer_id FROM orders)</code> returns nobody. Why?', ['the list contains a NULL, so every NOT IN test is UNKNOWN', 'every customer has ordered', 'NOT IN only works on text', 'the subquery needs DISTINCT'],
+      [null, 'Tobi has never ordered, yet he is dropped too.', 'NOT IN works on numbers and text alike.', 'Duplicates in the list do not change IN or NOT IN.'],
+      'One NULL in a NOT IN list makes the test UNKNOWN for everybody. Use NOT EXISTS, or filter the NULLs out of the list.', SH)),
+    // ---- Step 6: combine two known pieces, planned first (the lesson's problems) ----
+    S_({ h: 'Step 6 · Combine: charted, but never top 3', ts: 'e',
+      link: 'You know EXISTS (at least one row) and NOT EXISTS (no row). This task needs both at once.',
+      ask: 'Which songs appeared on the chart but never reached position 3 or better?',
+      say: 'Two checks per song, both by hand: (1) is there any chart row for this song? (2) is there a chart row for this song at position 1, 2 or 3? Keep the song when (1) is yes and (2) is no. Heaven Baby and SLICK fail check 2 (#1); Love Na Drug and Calm Down fail check 1 (no rows). Only <b>Owo Oluwa</b> passes: it charted, at #5.',
+      ins: [{ t: 'songs', role: 'songs' }, { t: 'chart_entries', role: 'chart_entries' }], stack: true,
+      after: [{ tab: ILT('two_checks', ['title', 'any chart row?', 'a row at 1–3?', 'kept?'], [['Heaven Baby', 'yes', 'yes (#1)', 'no'], ['SLICK', 'yes', 'yes (#1, #2)', 'no'], ['Owo Oluwa', 'yes', 'no (#5)', 'yes'], ['Love Na Drug', 'no', 'no', 'no'], ['Calm Down', 'no', 'no', 'no']]), role: 'The two checks, one song at a time (a worked result)', m: ['x', 'x', 'm', 'x', 'x'], why: ['reached #1', 'reached #1', 'charted, never top 3', 'never charted', 'never charted'] }],
+      lg: LG_KEEP }),
+    Q_(mcq('sql6.v19', 'Plan: what does one row of the result stand for, and how many rows do you expect here?', ['one song; 1 row (Owo Oluwa)', 'one chart row; 5 rows', 'one song; 3 rows', 'one chart day; 3 rows'],
+      [null, 'The question asks for songs, each once.', '3 is the NOT EXISTS answer alone; the EXISTS check removes the two songs that never charted.', 'Days are not asked about.'],
+      'One row per song; your by-hand table kept only Owo Oluwa.', Object.assign({ plan: 'grain6', pl: 'One result row' }, E))),
+    Q_(mcq('sql6.v20', 'Plan: which two tests go in WHERE, joined by AND?', ['EXISTS (a chart row for this song) AND NOT EXISTS (a chart row for this song with position &lt;= 3)', 'EXISTS (position &lt;= 3) AND NOT EXISTS (any row)', 'NOT IN (position &lt;= 3)', 'position &gt; 3'],
+      [null, 'That is the opposite of each check.', 'NOT IN carries the NULL risk, and it is not correlated to each song.', 'songs has no position; positions are in chart_entries, one per day.'],
+      'Check 1 is EXISTS, check 2 is NOT EXISTS, and both are correlated with <code>c.song_id = s.song_id</code>.', Object.assign({ plan: 'tests6', pl: 'Tests' }, E))),
+    Q_({ id: 'sql6.v21', k: 'run', ts: 'e', planShow: ['grain6', 'tests6'], q: 'Write it from your plan: fill in the two blanks.',
+      code: 'SELECT s.title\nFROM songs s\nWHERE ____ (SELECT 1 FROM chart_entries c WHERE c.song_id = s.song_id)\n  AND ____ (\n    SELECT 1 FROM chart_entries c\n    WHERE c.song_id = s.song_id AND c.position <= 3\n  );', sol: QP2,
+      need: [['\\bNOT\\s+EXISTS\\b', 'NOT EXISTS'], ['WHERE\\s+EXISTS\\b', 'EXISTS']],
+      why: 'EXISTS keeps songs that charted, and NOT EXISTS removes those that ever reached 1–3: only Owo Oluwa. The lesson’s problem asks the same on the full chart.' }),
+    S_({ h: 'Step 6 · Spot the mistake: whose average?', ts: 'p', qfirst: 1,
+      link: 'Step 1’s scalar subquery, combined with a date filter: “On 2026-10-17, which entries had more streams than that day’s average?”',
+      ask: 'Why does position 2 sneak in?',
+      say: 'The outer query keeps 2026-10-17 only, but the inner query has no date filter, so it averages <b>both</b> days: (100 + 60 + 20 + 120 + 75 + 45) ÷ 6 = 70. The day’s own average is (120 + 75 + 45) ÷ 3 = 80. 75 is above 70 but not above 80. The inner query needs the same date filter.',
+      sql: QP1BAD,
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy, 2 days (streams in thousands)', m: ['', '', '', 'm', 'x', 'x'], why: [null, null, null, '120 &gt; 70', 'wrong: 75 &gt; 70, but below the day’s average of 80', '45 is not above 70'] }],
+      out: { c: ['position', 'streams'], r: [[1, 120], [2, 75]], m: ['m', 'x'], why: ['right: 120 is above 80', 'should not be here: 75 is below 80'] },
+      lg: { m: '✓ right', x: '✕ wrong or not kept' } }),
+    Q_({ id: 'sql6.v22', k: 'run', ts: 'p', q: 'Fix it: give the inner query the same date filter, so position 1 is the only row left.',
+      code: "SELECT position, streams\nFROM chart_entries\nWHERE chart_date = '2026-10-17'\n  AND streams > (\n    SELECT AVG(streams)\n    FROM chart_entries\n    WHERE ____\n  );", sol: QP1,
+      need: [["chart_date\\s*=\\s*'2026-10-17'[\\s\\S]*chart_date\\s*=\\s*'2026-10-17'", 'the date filter in both queries']],
+      why: 'With the date filter inside, the subquery returns 80, the average of 2026-10-17 only, and only 120 is above it. This is the lesson’s problem “Above the day’s average”.' }),
+    S_({ h: 'Step 6 · Now the lesson’s cards and problems', ts: 'e',
+      link: 'You have traced every subquery shape the cards use: one value (Step 1), a list with IN (Step 2), a table in FROM (Step 3), EXISTS and NOT EXISTS (Step 4), and the NOT IN trap (Step 5).',
+      ask: 'What comes next?',
+      say: 'The lesson’s four code cards and two problems use exactly these shapes on the full app tables. Before each one, ask the same planning questions: what does one result row stand for, which shape does the inner query have (one value, a list, a table, or a check per row), and how many rows do you expect?',
+      ins: [{ t: 'songs', role: 'songs' }] })
+  ]);
+  L.order = add;
+}
+
+{ // ---- sql7 finish: Step 9 chained CTEs, Step 10 UNION ALL / UNION, Step 11 WITH RECURSIVE, Step 12 percentages (sql7-p1) ----
+  const L = ILLUS.sql7;
+  const C9 = { chart_entries: ILT('chart_entries', ['chart_date', 'song_id', 'streams'], [['2026-10-16', 1, 100], ['2026-10-16', 2, 90], ['2026-10-17', 1, 110], ['2026-10-17', 11, 80], ['2026-10-17', 4, 70]], 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER, streams INTEGER);'),
+    songs: ILT('songs', ['song_id', 'artist_id'], [[1, 1], [2, 2], [4, 4], [11, 1]], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, artist_id INTEGER);'),
+    artists: ILT('artists', ['artist_id', 'name'], [[1, 'Ayra Starr'], [2, 'Victony'], [4, 'Kizz Daniel']], 'CREATE TABLE artists (artist_id INTEGER PRIMARY KEY, name TEXT);') };
+  const MON = L.tables.chart_mon, TUE = L.tables.chart_tue;
+  const TUE2 = ILT('chart_tue', ['title'], [['Calm Down'], ['Essence'], ['Rush']]);
+  const PC = { chart_entries: ILT('chart_entries', ['chart_date', 'position', 'streams'], [['2026-10-16', 1, 50], ['2026-10-16', 2, 30], ['2026-10-16', 3, 20], ['2026-10-17', 1, 70], ['2026-10-17', 2, 50], ['2026-10-17', 3, 30]], 'CREATE TABLE chart_entries (chart_date TEXT, position INTEGER, streams INTEGER);') };
+  const STAFF = { staff: ILT('staff', ['emp_id', 'name', 'manager_id'], [[1, 'Ngozi', null], [2, 'Bisi', 1], [3, 'Kunle', 2]], 'CREATE TABLE staff (emp_id INTEGER PRIMARY KEY, name TEXT, manager_id INTEGER);') };
+  Object.assign(L.tsets, { c9: C9, u: { chart_mon: MON, chart_tue: TUE }, u2: { chart_mon: MON, chart_tue: TUE2 }, r: {}, pc: PC, staff: STAFF,
+    shop2: { online_orders: ILT('online_orders', ['order_id', 'customer_id'], [[1, 21], [2, 22]]), shop_orders: ILT('shop_orders', ['order_id', 'customer_id'], [[7, 21], [8, 23]]) } });
+  const VM = 'chart_mon: a view (titles on Monday’s chart)', VT = 'chart_tue: a view (titles on Tuesday’s chart)';
+  const Q9 = 'WITH artist_streams AS (\n  SELECT s.artist_id, SUM(c.streams) AS total\n  FROM chart_entries c\n  JOIN songs s ON s.song_id = c.song_id\n  GROUP BY s.artist_id\n),\nnamed AS (\n  SELECT a.name, x.total\n  FROM artist_streams x\n  JOIN artists a ON a.artist_id = x.artist_id\n)\nSELECT name, total\nFROM named;';
+  const UA = 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title FROM chart_tue;', UN = UA.replace('UNION ALL', 'UNION');
+  const REC = (start, step, stop) => 'WITH RECURSIVE days(n) AS (\n  SELECT ' + start + '\n  UNION ALL\n  SELECT n + ' + step + ' FROM days\n  WHERE ' + stop + '\n)\nSELECT n FROM days;';
+  const R7 = REC(1, 1, 'n < 7');
+  const P1 = 'WITH daily AS (\n  SELECT chart_date, SUM(streams) AS total\n  FROM chart_entries\n  GROUP BY chart_date\n),\ntop1 AS (\n  SELECT chart_date, streams\n  FROM chart_entries\n  WHERE position = 1\n)\nSELECT t.chart_date,\n       ROUND(100.0 * t.streams / d.total, 1) AS pct_top1\nFROM top1 t\nJOIN daily d ON d.chart_date = t.chart_date;';
+  const G = (n, k) => Array(n).fill(k);
+  const add = v104Seq(L, [
+    // ---- Step 9: chained CTEs ----
+    S_({ h: 'Step 9 · Two named steps, the second reads the first', ts: 'c9',
+      link: 'Step 6 already had two CTEs, song_counts and avg_count, separated by a comma. This step names that pattern and uses it with a join.',
+      ask: 'What is each artist’s total streams, shown with the artist’s name?',
+      say: 'By hand in two steps. Step 1: pile the chart rows by artist (songs 1 and 11 are Ayra Starr’s) and add up the streams: Ayra Starr 100 + 110 + 80 = 290, Victony 90, Kizz Daniel 70. Step 2: swap each artist_id for the name from <code>artists</code>. Step 2 reads only step 1’s small table, not the chart rows.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy (streams in thousands)', m: ['g0', 'g1', 'g0', 'g0', 'g2'], why: ['song 1: Ayra Starr', 'song 2: Victony', 'song 1: Ayra Starr', 'song 11: Ayra Starr', 'song 4: Kizz Daniel'] }],
+      after: [{ tab: ILT('artist_streams', ['artist_id', 'total'], [[1, 290], [2, 90], [4, 70]]), role: 'step 1: artist_streams (a step result)', m: ['g0', 'g1', 'g2'], why: ['100 + 110 + 80', 'one row: 90', 'one row: 70'] },
+        { tab: ILT('named', ['name', 'total'], [['Ayra Starr', 290], ['Victony', 90], ['Kizz Daniel', 70]]), role: 'step 2: named (reads step 1)', m: ['g0', 'g1', 'g2'], why: ['artist 1 is Ayra Starr', 'artist 2 is Victony', 'artist 4 is Kizz Daniel'] }],
+      lg: { g: 'same colour and shape = same artist' } }),
+    S_({ h: 'Step 9 · Chained CTEs: WITH once, then commas', ts: 'c9', qfirst: 1,
+      link: 'By hand, step 2 (named) read step 1 (artist_streams).',
+      ask: 'How do you write two named steps in one query?',
+      say: 'Write <code>WITH</code> once. Each named step is <code>name AS ( … )</code>, and a <b>comma</b> separates one from the next. A later step can read an earlier one by its name, like a table: <code>named</code> reads <code>FROM artist_streams</code>. This is called <b>chaining</b> CTEs, and it is the card sql7-c2. The final SELECT reads the last step.',
+      sql: Q9,
+      ins: [{ tab: ILT('artist_streams', ['artist_id', 'total'], [[1, 290], [2, 90], [4, 70]]), role: 'step 1: artist_streams (a step result)', m: ['g0', 'g1', 'g2'], why: ['Ayra Starr’s 3 rows added', 'Victony’s 1 row', 'Kizz Daniel’s 1 row'] }],
+      out: { c: ['name', 'total'], r: [['Ayra Starr', 290], ['Victony', 90], ['Kizz Daniel', 70]], m: ['g0', 'g1', 'g2'], why: ['name from artists', 'name from artists', 'name from artists'] },
+      lg: { g: 'same colour and shape = same artist' } }),
+    Q_(mcq('sql7.h1', 'What goes between two CTEs?', ['a comma', 'another WITH', 'a semicolon', 'AND'],
+      [null, 'WITH is written once, at the start; a second WITH is a syntax error (next screen).', 'A semicolon ends the whole statement; the final SELECT would be cut off.', 'AND joins conditions in WHERE, not query steps.'],
+      '<code>WITH a AS ( … ), b AS ( … ) SELECT …</code>: WITH once, then commas.', { ts: 'c9' })),
+    S_({ h: 'Step 9 · Spot the mistake: WITH written twice', ts: 'c9', norun: 1,
+      link: 'The rule is WITH once, then commas.',
+      ask: 'Why is this query refused?',
+      sql: 'WITH artist_streams AS (\n  SELECT s.artist_id, SUM(c.streams) AS total\n  FROM chart_entries c\n  JOIN songs s ON s.song_id = c.song_id\n  GROUP BY s.artist_id\n)\nWITH named AS (\n  SELECT a.name, x.total\n  FROM artist_streams x\n  JOIN artists a ON a.artist_id = x.artist_id\n)\nSELECT name, total FROM named;',
+      say: 'After the first CTE’s closing bracket the database expects either a comma (another step) or the final SELECT. A second <code>WITH</code> is neither, so it stops with a syntax error. Replace the second WITH with a comma.',
+      ins: [{ tab: ILT('artist_streams', ['artist_id', 'total'], [[1, 290], [2, 90], [4, 70]]), role: 'step 1: artist_streams (what step 1 would give; the query never gets there)' }],
+      out: { err: 'near "WITH": syntax error' } }),
+    Q_(mcq('sql7.h2', '🛒 Shop: step 1 totals each customer’s orders; step 2 keeps customers over 5000. Which shape is right?', ['WITH totals AS (…), big AS (SELECT * FROM totals WHERE total &gt; 5000) SELECT * FROM big', 'WITH totals AS (…) WITH big AS (…) SELECT * FROM big', 'WITH totals AS (…); big AS (…) SELECT * FROM big', 'WITH big AS (SELECT * FROM totals WHERE total &gt; 5000) SELECT * FROM big'],
+      [null, 'WITH twice is a syntax error.', 'The semicolon ends the statement after the first CTE.', 'There is no totals step here, so big has nothing to read.'],
+      'Two named steps, WITH once, a comma between them, and the final SELECT reads the last step.', { ts: 'c9' })),
+    // ---- Step 10: stacking rows with UNION ALL and UNION ----
+    S_({ h: 'Step 10 · Stack two lists, by hand', ts: 'u',
+      link: 'Every query so far read rows side by side (joins) or squashed them (GROUP BY). Sometimes you need two lists one under the other.',
+      ask: 'What are all the chart entries of Monday and Tuesday in one list?',
+      say: 'Write Monday’s titles, then Tuesday’s titles <b>underneath</b>. That is <b>stacking</b>: the column stays the same (title) and the rows add up, 2 + 2 = 4. Compare it with a join on title (the second “After” table): a join puts matching rows <b>side by side</b>, adding columns, and only Calm Down matches.',
+      ins: [{ t: 'chart_mon', role: VM, m: ['g0', 'g0'], why: ['Monday', 'Monday'] }, { t: 'chart_tue', role: VT, m: ['g1', 'g1'], why: ['Tuesday', 'Tuesday'] }],
+      after: [{ tab: ILT('stacked', ['title'], [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']]), role: 'Stacked: rows under rows (a result)', m: ['g0', 'g0', 'g1', 'g1'], why: ['from Monday', 'from Monday', 'from Tuesday', 'from Tuesday'] },
+        { tab: ILT('joined', ['mon.title', 'tue.title'], [['Calm Down', 'Calm Down']]), role: 'For contrast, a JOIN on title: side by side (a result)' }],
+      lg: { g: 'blue ● = Monday’s rows, orange ▲ = Tuesday’s rows' } }),
+    Q_(mcq('sql7.h3', 'Stacking Monday’s 2 titles and Tuesday’s 2 titles gives how many rows and columns?', ['4 rows, 1 column', '2 rows, 2 columns', '1 row, 2 columns', '3 rows, 1 column'],
+      [null, 'Side by side is what a join does; stacking keeps one title column.', 'That is the join on title: only Calm Down matches.', 'Stacking keeps every row, including Calm Down twice.'],
+      'Stacking adds rows (2 + 2) and keeps the same columns.', { ts: 'u' })),
+    S_({ h: 'Step 10 · UNION ALL: stack and keep every row', ts: 'u', qfirst: 1,
+      link: 'By hand, the stacked list had 4 rows.',
+      ask: 'Which SQL stacks two results?',
+      say: 'Write two complete SELECTs and put <b>UNION ALL</b> between them. The second result goes under the first, and every row is kept, so Calm Down appears twice. Both SELECTs must return the <b>same number of columns</b>, in the same order, because the rows share one set of columns.',
+      sql: UA,
+      ins: [{ t: 'chart_mon', role: VM, m: ['g0', 'g0'], why: ['first SELECT', 'first SELECT'] }, { t: 'chart_tue', role: VT, m: ['g1', 'g1'], why: ['second SELECT', 'second SELECT'] }],
+      out: { c: ['title'], r: [['Rush'], ['Calm Down'], ['Calm Down'], ['Essence']], m: ['g0', 'g0', 'g1', 'g1'], why: ['Monday', 'Monday', 'Tuesday: the same title again, kept', 'Tuesday'] },
+      lg: { g: 'blue ● = Monday’s rows, orange ▲ = Tuesday’s rows' } }),
+    S_({ h: 'Step 10 · Spot the mistake: different column counts', ts: 'u', qfirst: 1,
+      link: 'Stacked rows share one set of columns.',
+      ask: 'Why is this refused?',
+      say: 'The first SELECT returns 1 column and the second returns 2. A stacked row cannot have 1 column on top and 2 underneath, so the database stops before reading any rows. Make both SELECTs return the same columns in the same order.',
+      sql: 'SELECT title FROM chart_mon\nUNION ALL\nSELECT title, title FROM chart_tue;',
+      ins: [{ t: 'chart_mon', role: VM }, { t: 'chart_tue', role: VT }],
+      out: { err: 'SELECTs to the left and right of UNION ALL do not have the same number of result columns' } }),
+    S_({ h: 'Step 10 · UNION: stack, then remove duplicate rows', ts: 'u', qfirst: 1,
+      link: 'UNION ALL kept Calm Down twice. Change one word: drop ALL.',
+      ask: 'What does UNION return?',
+      say: '<b>UNION</b> stacks the same way, then removes rows that are exact copies, so Calm Down appears once: 3 rows. Removing copies is extra work for the database (it has to compare rows), so use UNION ALL unless you really want copies removed.',
+      sql: UN,
+      ins: [{ t: 'chart_mon', role: VM, m: ['g0', 'g0'], why: ['first SELECT', 'first SELECT'] }, { t: 'chart_tue', role: VT, m: ['d', 'g1'], why: ['a copy of Monday’s Calm Down: removed', 'second SELECT'] }],
+      out: { c: ['title'], r: [['Calm Down'], ['Essence'], ['Rush']], m: ['g0', 'g1', 'g0'], why: ['once only', 'from Tuesday', 'from Monday'] },
+      lg: { g: 'blue ● = Monday’s rows, orange ▲ = Tuesday’s rows', d: '2× an exact copy: UNION removes it' } }),
+    Q_(mcq('sql7.h4', 'Change one row: Rush is on Tuesday’s chart too (table below). How many rows do UNION ALL and UNION return?', ['UNION ALL 5, UNION 3', 'UNION ALL 5, UNION 4', 'UNION ALL 4, UNION 3', 'UNION ALL 3, UNION 3'],
+      [null, 'Rush is now a copy too, so UNION removes it as well: Rush, Calm Down, Essence.', 'UNION ALL keeps every row: 2 + 3 = 5.', 'UNION ALL never removes rows.'],
+      'UNION ALL: 2 + 3 = 5 rows. UNION: the copies of Rush and Calm Down go, leaving 3 different titles.', { ts: 'u2' })),
+    Q_(mcq('sql7.h5', 'You want to count on how many chart days each title appeared, from Monday’s and Tuesday’s lists. Which do you stack with?', ['UNION ALL, because every appearance is a day to count', 'UNION, because duplicates are always mistakes', 'either: they return the same rows', 'JOIN, because the titles must match'],
+      [null, 'Here the “duplicate” Calm Down is a real second day. UNION would remove it, and Calm Down would get 1 day instead of 2.', 'They differ exactly on the copies, which is what you are counting.', 'A join keeps only titles on both days, side by side; titles on one day would be lost.'],
+      'When each row is a separate event, keep them all: UNION ALL, then GROUP BY title and COUNT(*).', { ts: 'u' })),
+    Q_(mcq('sql7.h6', '🛒 Shop: online orders and in-shop orders are in two tables with the same columns. You want one list of every order. Which is right?', ['SELECT order_id, customer_id FROM online_orders UNION ALL SELECT order_id, customer_id FROM shop_orders', 'SELECT * FROM online_orders JOIN shop_orders ON …', 'SELECT order_id FROM online_orders UNION ALL SELECT order_id, customer_id FROM shop_orders', 'SELECT order_id, customer_id FROM online_orders UNION SELECT customer_id, order_id FROM shop_orders'],
+      [null, 'A join pairs orders side by side; you want them one under the other.', 'The column counts differ (1 and 2), so it is refused.', 'The columns are in a different order, so customer IDs land under order_id.'],
+      'Same columns in the same order, UNION ALL to keep every order: 4 rows.', { ts: 'shop2' })),
+    // ---- Step 11: WITH RECURSIVE, round by round ----
+    S_({ h: 'Step 11 · Numbers 1 to 7, built round by round', ts: 'r',
+      link: 'Step 10 stacked one result under another. A recursive CTE stacks a new row under the table again and again.',
+      ask: 'How do you get a table of the numbers 1 to 7 when no table holds them?',
+      say: 'Use three rules and follow them by hand. <b>Start rule</b>: the first row is 1. <b>Repeat rule</b>: take the row added in the last round, add 1, and stack the new row underneath. <b>Stop rule</b>: only repeat while n &lt; 7. Read the trace one round at a time. Round 7 reads 7, and 7 &lt; 7 is false, so no row 8 is added and the work stops. A real use: list every day in a date range, to spot chart days that are missing.',
+      after: [{ tab: ILT('rounds', ['round', 'reads', 'n < 7?', 'adds'], [['start', '(nothing)', '(no test)', 1], [1, 1, 'yes', 2], [2, 2, 'yes', 3], [3, 3, 'yes', 4], [4, 4, 'yes', 5], [5, 5, 'yes', 6], [6, 6, 'yes', 7], [7, 7, 'no: 7 < 7 is false', 'nothing: stop']]), role: 'The trace, one round per row (a worked result)', m: ['n', 'n', 'n', 'n', 'n', 'n', 'n', 'x'], why: ['the start rule gives 1', '1 &lt; 7, so 1 + 1 = 2', '2 &lt; 7, so 3', '3 &lt; 7, so 4', '4 &lt; 7, so 5', '5 &lt; 7, so 6', '6 &lt; 7, so 7', 'the stop rule: nothing more to add'] }],
+      lg: { n: '＋ a row added this round', x: '✕ no row: the stop rule' } }),
+    Q_(mcq('sql7.h7', 'In round 7 the repeat rule reads n = 7. Why is no 8 added?', ['the stop rule n &lt; 7 is false for 7', 'the table can only hold 7 rows', 'UNION ALL removes the 8', '7 is the start value'],
+      [null, 'A table can hold any number of rows; the rule decides.', 'UNION ALL never removes rows (Step 10).', 'The start value is 1.'],
+      '7 &lt; 7 is false, so the repeat rule returns no row, and when a round adds nothing the query stops.', { ts: 'r', ref: false, show: illTable(ILT('rounds', ['round', 'reads', 'n < 7?', 'adds'], [[6, 6, 'yes', 7], [7, 7, '?', '?']]), null, { role: 'The last two rounds (a worked result)' }) })),
+    S_({ h: 'Step 11 · The three rules in SQL: WITH RECURSIVE', ts: 'r', qfirst: 1,
+      link: 'By hand you used a start rule, a repeat rule and a stop rule.',
+      ask: 'Where is each rule in the query?',
+      say: 'Line by line: <code>WITH RECURSIVE days(n)</code> names the step <code>days</code> with one column <code>n</code>; <b>RECURSIVE</b> tells the database that this step reads itself. <code>SELECT 1</code> is the start rule (called the <b>anchor</b>). <code>UNION ALL</code> stacks each new row under the table (Step 10). <code>SELECT n + 1 FROM days</code> is the repeat rule: it reads the row added in the last round. <code>WHERE n &lt; 7</code> is the stop rule. This is the card sql7-c3.',
+      sql: R7,
+      out: { c: ['n'], r: [[1], [2], [3], [4], [5], [6], [7]], m: G(7, 'n'), why: ['start rule', 'round 1', 'round 2', 'round 3', 'round 4', 'round 5', 'round 6 (round 7 adds nothing)'] },
+      lg: { n: '＋ a row added by a rule' } }),
+    Q_({ id: 'sql7.h8', k: 'line', ts: 'r', q: 'Tap the line that is the <b>stop rule</b>.', code: R7, ans: 4,
+      why: '<code>WHERE n &lt; 7</code> lets the repeat rule add a row only while n is below 7.', lw: 'Line 2 (SELECT 1) is the start rule; line 4 (SELECT n + 1 FROM days) is the repeat rule; UNION ALL stacks.' }),
+    Q_(mcq('sql7.h9', 'Change one thing: <code>WHERE n &lt; 5</code>. What does the query return?', ['1, 2, 3, 4, 5', '1, 2, 3, 4', '1 to 7', '5'],
+      [null, 'Round 4 reads 4; 4 &lt; 5, so it still adds 5. Round 5 reads 5 and stops.', 'Only the stop rule changed.', 'The start rule still adds 1 first, and every row is kept.'],
+      'Rounds stop once the last row is 5: 1, 2, 3, 4, 5.', { ts: 'r', sql: REC(1, 1, 'n < 5') })),
+    S_({ h: 'Step 11 · One change at a time: stop, start, step', ts: 'r', qfirst: 1,
+      link: 'You predicted 1 to 5 for n &lt; 5. Here it is, then two more single changes.',
+      ask: 'What does <code>n &lt; 5</code> return?',
+      say: 'Only the stop rule changed. Round 4 reads 4, and 4 &lt; 5, so 5 is added; round 5 reads 5, and 5 &lt; 5 is false, so it stops.',
+      sql: REC(1, 1, 'n < 5'), out: { c: ['n'], r: [[1], [2], [3], [4], [5]], m: G(5, 'n'), why: ['start rule', '1 &lt; 5', '2 &lt; 5', '3 &lt; 5', '4 &lt; 5: last one'] }, lg: { n: '＋ a row added by a rule' } }),
+    Q_(mcq('sql7.h10', 'Back to <code>n &lt; 7</code>, and change the start: <code>SELECT 3</code>. What comes back?', ['3, 4, 5, 6, 7', '1 to 7', '3 to 9', '3'],
+      [null, 'The first row is now 3; nothing adds 1 or 2.', 'The stop rule still ends at 7.', 'The repeat rule still runs while n &lt; 7.'],
+      'Start at 3, add 1 each round, stop once 7 is added: 5 rows.', { ts: 'r', sql: REC(3, 1, 'n < 7') })),
+    S_({ h: 'Step 11 · Start at 3', ts: 'r', qfirst: 1, link: 'You predicted 3 to 7.', ask: 'What does <code>SELECT 3</code> as the start rule return?',
+      say: 'Only the start rule changed: the first row is 3, and the same repeat and stop rules give 4, 5, 6, 7.',
+      sql: REC(3, 1, 'n < 7'), out: { c: ['n'], r: [[3], [4], [5], [6], [7]], m: G(5, 'n'), why: ['start rule: 3', '3 &lt; 7', '4 &lt; 7', '5 &lt; 7', '6 &lt; 7: last one'] }, lg: { n: '＋ a row added by a rule' } }),
+    Q_(mcq('sql7.h11', 'Start at 1 again, stop at <code>n &lt; 7</code>, and change the step: <code>n + 2</code>. What comes back?', ['1, 3, 5, 7', '1, 3, 5', '1, 3, 5, 7, 9', '2, 4, 6'],
+      [null, 'Round 3 reads 5; 5 &lt; 7, so 7 is added.', 'Round 4 reads 7; 7 &lt; 7 is false, so 9 is never added.', 'The start rule still gives 1.'],
+      '1, then 3, 5, 7; the round that reads 7 stops.', { ts: 'r', sql: REC(1, 2, 'n < 7') })),
+    S_({ h: 'Step 11 · Step by 2', ts: 'r', qfirst: 1, link: 'You predicted 1, 3, 5, 7.', ask: 'What does <code>n + 2</code> return?',
+      say: 'Only the repeat rule changed: each round adds 2. The round that reads 7 stops, so there are 4 rows.',
+      sql: REC(1, 2, 'n < 7'), out: { c: ['n'], r: [[1], [3], [5], [7]], m: G(4, 'n'), why: ['start rule', '1 &lt; 7, so 1 + 2', '3 &lt; 7, so 3 + 2', '5 &lt; 7, so 5 + 2: last one'] }, lg: { n: '＋ a row added by a rule' } }),
+    S_({ h: 'Step 11 · Spot the mistakes: no stop rule, and <= 7', ts: 'r', qfirst: 1,
+      link: 'Each rule has a job. Two common slips break the stop rule.',
+      ask: 'What does <code>WHERE n &lt;= 7</code> return, and what happens with no WHERE at all?',
+      say: 'With <code>&lt;= 7</code>, round 7 reads 7, and 7 &lt;= 7 is true, so 8 is added: one row too many. With <b>no</b> stop rule, every round adds a row, so the query never ends (in the app it would run until it is stopped). Do not run that one. Always check the round that reads the last number you want.',
+      sql: REC(1, 1, 'n <= 7'), out: { c: ['n'], r: [[1], [2], [3], [4], [5], [6], [7], [8]], m: G(7, 'n').concat(['x']), why: ['start rule', '1 &lt;= 7', '2 &lt;= 7', '3 &lt;= 7', '4 &lt;= 7', '5 &lt;= 7', '6 &lt;= 7', 'wrong: 7 &lt;= 7 is true, so 8 sneaks in'] },
+      lg: { n: '＋ a row added by a rule', x: '✕ one row too many' } }),
+    Q_(mcq('sql7.h12', 'A colleague writes <code>WITH days(n) AS ( … FROM days … )</code> without the word RECURSIVE. What should you tell them?', ['add RECURSIVE: Postgres and most databases refuse a CTE that reads itself without it (SQLite happens to allow it)', 'it is fine everywhere', 'it returns only the start row', 'it removes duplicates'],
+      [null, 'SQLite, the engine in this app, lets it pass, so it may work here and fail at work.', 'Without RECURSIVE, Postgres looks for a table called days and fails with “relation \"days\" does not exist”.', 'That is UNION, not a missing keyword.'],
+      'RECURSIVE tells the database the step reads itself. Write it every time.', { ts: 'r' })),
+    Q_({ id: 'sql7.h13', k: 'run', ts: 'r', q: 'Write it: fill in the blanks to return 10, 20, 30.', code: 'WITH ____ nums(n) AS (\n  SELECT 10\n  ____\n  SELECT n + 10 FROM nums\n  WHERE n < ____\n)\nSELECT n FROM nums;',
+      sol: 'WITH RECURSIVE nums(n) AS (\n  SELECT 10\n  UNION ALL\n  SELECT n + 10 FROM nums\n  WHERE n < 30\n)\nSELECT n FROM nums;', need: [['\\bRECURSIVE\\b', 'RECURSIVE'], ['\\bUNION\\s+ALL\\b', 'UNION ALL']],
+      why: 'RECURSIVE, UNION ALL to stack each new row, and a stop rule of n &lt; 30: the round that reads 30 adds nothing.' }),
+    S_({ h: 'Step 11 · Another use: who reports to whom', ts: 'staff', qfirst: 1,
+      link: 'The repeat rule does not have to add 1. It can follow a link from one row to the next.',
+      ask: '🛒 Shop staff: starting from the manager, who is at each level below her?',
+      say: 'This practice table (not part of the music data) has one row per staff member and the manager they report to. Start rule: the person with no manager (Ngozi), level 1. Repeat rule: find the staff whose manager_id is a person found in the last round, one level down. There is no WHERE: it stops by itself when a round finds nobody (no one reports to Kunle).',
+      sql: 'WITH RECURSIVE chain(emp_id, name, level) AS (\n  SELECT emp_id, name, 1\n  FROM staff WHERE manager_id IS NULL\n  UNION ALL\n  SELECT s.emp_id, s.name, c.level + 1\n  FROM staff s\n  JOIN chain c ON s.manager_id = c.emp_id\n)\nSELECT name, level FROM chain;',
+      ins: [{ t: 'staff', role: 'staff: practice table', m: ['g0', 'g1', 'g2'], why: ['no manager: the start row', 'reports to emp 1 (Ngozi)', 'reports to emp 2 (Bisi)'] }],
+      out: { c: ['name', 'level'], r: [['Ngozi', 1], ['Bisi', 2], ['Kunle', 3]], m: ['g0', 'g1', 'g2'], why: ['start rule', 'round 1: reports to Ngozi', 'round 2: reports to Bisi; round 3 finds nobody'] },
+      lg: { g: 'one colour and shape per level' } }),
+    Q_(mcq('sql7.h14', 'Why does the staff query stop without a WHERE n &lt; … rule?', ['a round that finds nobody adds no row, and a round with no new rows ends the query', 'recursive CTEs always stop after 3 rounds', 'NULL stops it', 'UNION ALL removes the last round'],
+      [null, 'There is no fixed number of rounds; the data decides.', 'The NULL only picks the start row (the person with no manager).', 'UNION ALL keeps every row.'],
+      'Round 3 looks for staff who report to Kunle and finds none, so nothing more is added. The join plays the part of the stop rule.', { ts: 'staff' })),
+    // ---- Step 12: percentages and integer division (before the lesson's problem sql7-p1) ----
+    S_({ h: 'Step 12 · What share of the day went to #1? By hand', ts: 'pc',
+      link: 'The lesson’s problem “How dominant is #1?” combines two CTEs (Step 9) with a percentage. The percentage has a trap.',
+      ask: 'What percentage of each day’s streams went to the #1 song?',
+      say: 'By hand. 2026-10-16: the day’s total is 50 + 30 + 20 = 100, and #1 had 50, so 50 ÷ 100 = 0.5 = <b>50%</b>. 2026-10-17: the total is 70 + 50 + 30 = 150, and 70 ÷ 150 = 0.4667 = <b>46.7%</b> (rounded to one decimal place).',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy (streams in thousands)', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['#1 on 10-16: 50', 'part of the 10-16 total', 'part of the 10-16 total', '#1 on 10-17: 70', 'part of the 10-17 total', 'part of the 10-17 total'] }],
+      after: [{ tab: ILT('by_hand', ['chart_date', 'top1', 'total', 'percent'], [['2026-10-16', 50, 100, '50.0'], ['2026-10-17', 70, 150, '46.7']]), role: 'Worked out by hand (a result)', m: ['g0', 'g1'], why: ['50 ÷ 100 × 100', '70 ÷ 150 × 100 = 46.67'] }],
+      lg: { g: 'one colour and shape per day' } }),
+    S_({ h: 'Step 12 · Whole numbers divide to a whole number', ts: 'pc', qfirst: 1,
+      link: 'By hand, 70 ÷ 150 = 0.4667.',
+      ask: 'What does SQLite say 70 / 150 is?',
+      say: 'When <b>both</b> numbers are whole numbers (INTEGER), SQLite, Postgres and SQL Server do <b>integer division</b>: they keep only the whole part of the answer and drop the rest. 70 / 150 = 0.4667 becomes 0, and 7 / 2 becomes 3. Multiplying by 100 first helps but still drops the decimals: 100 * 70 / 150 = 7000 / 150 = 46. Writing <code>100.0</code> makes the number a decimal, so the division keeps its decimals: 46.666…, and <code>ROUND(…, 1)</code> gives 46.7. (Some engines, like DuckDB and MySQL, give decimals anyway; the cleaning lesson comes back to this.)',
+      sql: 'SELECT 70 / 150 AS a,\n       100 * 70 / 150 AS b,\n       100.0 * 70 / 150 AS c,\n       ROUND(100.0 * 70 / 150, 1) AS d;',
+      out: { c: ['a', 'b', 'c', 'd'], r: [[0, 46, 46.666666666666664, 46.7]], m: ['n'], why: ['a: 0 and b: 46 drop the decimals; c keeps them; d rounds to one place'] }, lg: { n: '＋ four ways to divide' } }),
+    Q_(mcq('sql7.h15', 'In SQLite, what is <code>7 / 2</code>?', ['3', '3.5', '4', 'an error'],
+      [null, 'Both 7 and 2 are whole numbers, so the .5 is dropped.', 'Integer division drops the decimals; it does not round up.', 'It runs; it just drops the decimals.'],
+      'Integer ÷ integer keeps only the whole part: 3. Write <code>7.0 / 2</code> or <code>1.0 * 7 / 2</code> for 3.5.', { ts: 'pc' })),
+    Q_(mcq('sql7.h16', 'Change one thing: <code>70 / 150 * 100.0</code> (the 100.0 moved to the end). What comes out?', ['0.0', '46.67', '46', '0.4667'],
+      [null, 'The database works left to right: 70 / 150 runs first, on two whole numbers, and gives 0; 0 × 100.0 is 0.0.', '46 is 100 * 70 / 150 with whole numbers only.', 'The decimals are already gone before 100.0 is used.'],
+      'Put <code>100.0 *</code> first, so the division already has a decimal on its left.', { ts: 'pc' })),
+    S_({ h: 'Step 12 · Combine: two CTEs and a percentage', ts: 'pc', qfirst: 1,
+      link: 'Step 9 chained CTEs; this step taught 100.0 and ROUND.',
+      ask: 'For each day, what percentage of streams went to #1?',
+      say: 'Plan, then read. One result row is one day. Step 1, <code>daily</code>: the total per day. Step 2, <code>top1</code>: the #1 row per day. Join them on chart_date and divide, with <code>100.0 *</code> first and ROUND to one place. Two rows expected, 50.0 and 46.7, matching your by-hand table. This is the lesson’s problem, on 6 practice rows.',
+      sql: P1,
+      ins: [{ tab: ILT('daily', ['chart_date', 'total'], [['2026-10-16', 100], ['2026-10-17', 150]]), role: 'step 1: daily (a step result)', m: ['g0', 'g1'], why: ['50 + 30 + 20', '70 + 50 + 30'] }, { tab: ILT('top1', ['chart_date', 'streams'], [['2026-10-16', 50], ['2026-10-17', 70]]), role: 'step 2: top1 (a step result)', m: ['g0', 'g1'], why: ['position 1 on 10-16', 'position 1 on 10-17'] }], stack: true,
+      out: { c: ['chart_date', 'pct_top1'], r: [['2026-10-16', 50.0], ['2026-10-17', 46.7]], m: ['g0', 'g1'], why: ['100.0 × 50 ÷ 100', '100.0 × 70 ÷ 150, rounded'] },
+      lg: { g: 'one colour and shape per day' } }),
+    Q_({ id: 'sql7.h17', k: 'run', ts: 'pc', q: 'Fill in the blanks so each day shows the #1 share as a percentage with one decimal place.',
+      code: 'WITH daily AS (\n  SELECT chart_date, SUM(streams) AS total\n  FROM chart_entries\n  GROUP BY chart_date\n)____\ntop1 AS (\n  SELECT chart_date, streams\n  FROM chart_entries\n  WHERE position = 1\n)\nSELECT t.chart_date,\n       ROUND(____ * t.streams / d.total, 1) AS pct_top1\nFROM top1 t\nJOIN daily d ON d.chart_date = t.chart_date;', sol: P1,
+      need: [['100\\.0\\s*\\*', '100.0 * first'], ['\\)\\s*,\\s*top1', 'a comma between the CTEs']],
+      why: 'A comma chains the second CTE, and 100.0 * first keeps the decimals: 50.0 and 46.7.' }),
+    Q_(mcq('sql7.h18', '🛒 Shop: an order of 1500 in a day worth 4000. Which gives its share as a percentage in SQLite?', ['ROUND(100.0 * 1500 / 4000, 1) → 37.5', '1500 / 4000 * 100 → 37.5', '100 * 1500 / 4000 → 37.5', 'ROUND(1500 / 4000, 1) * 100 → 37.5'],
+      [null, '1500 / 4000 is 0 with whole numbers, so the answer is 0.', '150000 / 4000 = 37.5 becomes 37: the .5 is dropped.', '1500 / 4000 is already 0 before ROUND sees it.'],
+      'A decimal first (100.0), then divide, then round: 37.5.', { ts: 'pc' }))
+  ]);
+  // the two old one-screen UNION pictures and their questions are replaced by Step 10 (kept in L.qs for their stored answers)
+  const isOld = ([t, i]) => (t === 's' && /^UNION/.test(L.scenes[i].h) && !L.scenes[i].v104) || (t === 'q' && !L.qs[i].id && /UNION/.test(L.qs[i].q));
+  L.retired = L.order.filter(isOld);
+  const firstLegacy = L.order.findIndex(([t, i]) => t === 's' && !L.scenes[i].v103);
+  const keep = L.order.filter(x => !isOld(x));
+  const at = keep.findIndex(([t, i]) => t === 's' && !L.scenes[i].v103 && !L.scenes[i].v104);
+  L.order = at < 0 ? keep.concat(add) : keep.slice(0, at).concat(add, keep.slice(at));
+}
+
+{ // ---- sql8 Window functions: rows kept, PARTITION BY, ORDER BY in OVER, ranking ties, LAG/LEAD, running totals, filtering with a CTE ----
+  const L = ILLUS.sql8; L.id = 'sql8';
+  const legacy = L.scenes.map((_, i) => ['s', i]).concat(L.qs.map((_, i) => ['q', i]));
+  const DDL = 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER, position INTEGER, streams INTEGER);';
+  const W = ILT('chart_entries', ['chart_date', 'song_id', 'position', 'streams'], [['2026-10-16', 1, 1, 100], ['2026-10-16', 2, 2, 90], ['2026-10-16', 3, 3, 80], ['2026-10-17', 1, 1, 120], ['2026-10-17', 3, 2, 100], ['2026-10-17', 2, 3, 80]], DDL);
+  const TIE = ILT('chart_entries', ['chart_date', 'song_id', 'streams'], [['2026-10-17', 1, 100], ['2026-10-17', 2, 90], ['2026-10-17', 3, 90], ['2026-10-17', 4, 80]], 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER, streams INTEGER);');
+  const RUN = ILT('chart_entries', ['chart_date', 'song_id', 'streams'], [['2026-10-15', 1, 95], ['2026-10-16', 1, 100], ['2026-10-17', 1, 120], ['2026-10-15', 2, 98], ['2026-10-16', 2, 90], ['2026-10-17', 2, 80]], 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER, streams INTEGER);');
+  const RAW = ILT('raw_loads', ['chart_date', 'song_id', 'position', 'loaded_at'], [['2026-10-17', 1, 1, '06:00'], ['2026-10-17', 1, 1, '06:05'], ['2026-10-17', 2, 3, '06:00'], ['2026-10-17', 2, 2, '06:05'], ['2026-10-17', 3, 3, '06:05']], 'CREATE TABLE raw_loads (chart_date TEXT, song_id INTEGER, position INTEGER, loaded_at TEXT);');
+  const SHOP = { orders: ILT('orders', ['order_id', 'customer_id', 'order_date', 'total'], [[1, 21, '2026-10-03', 5000], [2, 21, '2026-10-11', 2000], [3, 22, '2026-10-05', 3000], [4, 22, '2026-10-19', 3000], [5, 22, '2026-10-25', 1000]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, order_date TEXT, total INTEGER);') };
+  L.tsets = { w: { chart_entries: W }, tie: { chart_entries: TIE }, run: { chart_entries: RUN }, raw: { raw_loads: RAW }, shop: SHOP };
+  const RW = 'chart_entries: practice copy, top 3 on two days (streams in thousands)';
+  const DAY = ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], DAYW = ['day 1: 2026-10-16', 'day 1: 2026-10-16', 'day 1: 2026-10-16', 'day 2: 2026-10-17', 'day 2: 2026-10-17', 'day 2: 2026-10-17'];
+  const SONG = ['g0', 'g1', 'g2', 'g0', 'g2', 'g1'];
+  const LGD = { g: 'blue ● = 2026-10-16, orange ▲ = 2026-10-17' }, LGS = { g: 'one colour and shape per song' };
+  const LAGQ = 'SELECT chart_date, song_id, position,\n  LAG(position) OVER (\n    PARTITION BY song_id ORDER BY chart_date\n  ) AS prev_position\nFROM chart_entries;';
+  const RANKQ = 'SELECT song_id, streams,\n  ROW_NUMBER() OVER (ORDER BY streams DESC, song_id) AS row_num,\n  RANK()       OVER (ORDER BY streams DESC) AS rnk,\n  DENSE_RANK() OVER (ORDER BY streams DESC) AS dense\nFROM chart_entries;';
+  const TOP = 'WITH ranked AS (\n  SELECT chart_date, song_id, streams,\n    ROW_NUMBER() OVER (\n      PARTITION BY chart_date ORDER BY streams DESC\n    ) AS rn\n  FROM chart_entries\n)\nSELECT chart_date, song_id, streams\nFROM ranked\nWHERE rn = 1;';
+  const CLIMB = "WITH movement AS (\n  SELECT chart_date, song_id, position,\n    LAG(position) OVER (\n      PARTITION BY song_id ORDER BY chart_date\n    ) AS prev_position\n  FROM chart_entries\n)\nSELECT song_id, position, prev_position,\n       prev_position - position AS places_gained\nFROM movement\nWHERE chart_date = '2026-10-17'\n  AND prev_position IS NOT NULL;";
+  const add = v104Seq(L, [
+    // ---- Step 1: GROUP BY squashes rows; a window keeps them ----
+    S_({ h: 'Step 1 · Each song next to its day’s average, by hand', ts: 'w',
+      link: 'GROUP BY squashed each pile into one row. Some questions need the pile’s number while keeping every row.',
+      ask: 'For each chart row, what was the average streams of its day?',
+      say: 'By hand: day 1 (2026-10-16) averages (100 + 90 + 80) ÷ 3 = <b>90</b>, day 2 (2026-10-17) averages (120 + 100 + 80) ÷ 3 = <b>100</b>. Now write the day’s average next to <b>every</b> row of that day. All 6 rows stay, and each gets one new number.',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      after: [{ tab: ILT('with_day_avg', ['chart_date', 'song_id', 'streams', 'day_avg'], [['2026-10-16', 1, 100, 90], ['2026-10-16', 2, 90, 90], ['2026-10-16', 3, 80, 90], ['2026-10-17', 1, 120, 100], ['2026-10-17', 3, 100, 100], ['2026-10-17', 2, 80, 100]]), role: 'By hand: every row kept, the day’s average added (a result)', m: DAY, why: ['day 1 average: 90', 'day 1 average: 90', 'day 1 average: 90', 'day 2 average: 100', 'day 2 average: 100', 'day 2 average: 100'] }],
+      lg: LGD }),
+    S_({ h: 'Step 1 · GROUP BY gives the averages but loses the rows', ts: 'w', qfirst: 1,
+      link: 'By hand you kept all 6 rows. GROUP BY does something else.',
+      ask: 'What does GROUP BY chart_date return?',
+      say: 'GROUP BY makes one row per pile: 2 rows, 90 and 100. The averages are right, but the songs are gone, so you cannot put a song next to its day’s average.',
+      sql: 'SELECT chart_date, AVG(streams) AS day_avg\nFROM chart_entries\nGROUP BY chart_date;',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      out: { c: ['chart_date', 'day_avg'], r: [['2026-10-16', 90.0], ['2026-10-17', 100.0]], m: ['g0', 'g1'], why: ['3 rows squashed into one', '3 rows squashed into one'] }, lg: LGD }),
+    S_({ h: 'Step 1 · A window function keeps every row', ts: 'w', qfirst: 1,
+      link: 'GROUP BY returned 2 rows. Your by-hand table had 6.',
+      ask: 'Which SQL gives the by-hand table?',
+      say: '<code>AVG(streams) OVER (PARTITION BY chart_date)</code> is a <b>window function</b>: it computes over a set of related rows (the <b>window</b>) but keeps every row and adds a column. <code>OVER ( … )</code> says which rows form the window. <b>PARTITION BY chart_date</b> makes one window per day, like GROUP BY’s piles, except the rows stay. 6 rows in, 6 rows out.',
+      sql: 'SELECT chart_date, song_id, streams,\n  AVG(streams) OVER (PARTITION BY chart_date) AS day_avg\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      out: { c: ['chart_date', 'song_id', 'streams', 'day_avg'], r: [['2026-10-16', 1, 100, 90.0], ['2026-10-16', 2, 90, 90.0], ['2026-10-16', 3, 80, 90.0], ['2026-10-17', 1, 120, 100.0], ['2026-10-17', 3, 100, 100.0], ['2026-10-17', 2, 80, 100.0]], m: DAY, nc: [3], why: ['day 1 window', 'day 1 window', 'day 1 window', 'day 2 window', 'day 2 window', 'day 2 window'] }, lg: LGD }),
+    Q_(mcq('sql8.v1', 'How many rows does each query return on these 6 rows: GROUP BY chart_date, and AVG(…) OVER (PARTITION BY chart_date)?', ['2 and 6', '6 and 2', '2 and 2', '6 and 6'],
+      [null, 'It is the other way round: GROUP BY squashes, the window keeps.', 'The window keeps every row.', 'GROUP BY makes one row per day.'],
+      'GROUP BY: one row per pile (2). A window function: every row stays (6) and gets a new column.', { ts: 'w' })),
+    Q_(mcq('sql8.v2', 'Using day_avg from the window query, which rows had more streams than their day’s average?', ['song 1 on both days (100 &gt; 90 and 120 &gt; 100)', 'song 1 on day 2 only', 'every row with 100 or more', 'song 3 on day 2'],
+      [null, '100 &gt; 90 on day 1 too.', 'Song 3 on day 2 has exactly 100, which is not more than 100.', '100 is equal to day 2’s average, not above it.'],
+      'Compare each row with its own day’s average: 100 &gt; 90 and 120 &gt; 100. In the subqueries lesson you needed a subquery per date for this; a window does every date at once.', { ts: 'w' })),
+    // ---- Step 2: PARTITION BY decides the windows ----
+    Q_(mcq('sql8.v3', 'Change one thing: <code>AVG(streams) OVER ()</code>, with nothing inside the brackets. What is day_avg on every row?', ['95: the average of all 6 rows', '90 and 100, as before', 'NULL', 'each row’s own streams'],
+      [null, 'Without PARTITION BY there is one window: the whole table.', 'An empty OVER () still computes; it just uses all rows.', 'The window is a set of rows, not one row.'],
+      '(100 + 90 + 80 + 120 + 100 + 80) ÷ 6 = 570 ÷ 6 = 95, written on every row.', { ts: 'w' })),
+    S_({ h: 'Step 2 · No PARTITION BY: one window for the whole table', ts: 'w', qfirst: 1,
+      link: 'You predicted 95 on every row.',
+      ask: 'What does <code>OVER ()</code> do?',
+      say: 'With nothing inside OVER, every row belongs to one big window: all 6 rows. Each row gets the same number, 95. <b>PARTITION BY</b> is what splits the table into separate windows, one per value.',
+      sql: 'SELECT chart_date, song_id, streams,\n  AVG(streams) OVER () AS all_avg\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: RW, m: ['g2', 'g2', 'g2', 'g2', 'g2', 'g2'], why: ['one window', 'one window', 'one window', 'one window', 'one window', 'one window: all 6 rows'] }],
+      out: { c: ['chart_date', 'song_id', 'streams', 'all_avg'], r: W.r.map(r => [r[0], r[1], r[3], 95.0]), m: ['g2', 'g2', 'g2', 'g2', 'g2', 'g2'], nc: [3] }, lg: { g: 'one colour = one window (the whole table)' } }),
+    Q_(mcq('sql8.v4', 'Which window gives each <b>song’s</b> average over the two days, on every row?', ['AVG(streams) OVER (PARTITION BY song_id)', 'AVG(streams) OVER (PARTITION BY chart_date)', 'AVG(streams) OVER ()', 'AVG(streams) GROUP BY song_id'],
+      [null, 'That is one window per day, not per song.', 'That is one window for everything.', 'GROUP BY would squash the rows; the question keeps them.'],
+      'PARTITION BY names what one window is: here one song. Song 1: (100 + 120) ÷ 2 = 110 on both its rows.', { ts: 'w' })),
+    Q_(mcq('sql8.v5', '🛒 Shop: show every order next to its customer’s average order. Which is right?', ['SELECT order_id, total, AVG(total) OVER (PARTITION BY customer_id) FROM orders', 'SELECT customer_id, AVG(total) FROM orders GROUP BY customer_id', 'SELECT order_id, total, AVG(total) OVER () FROM orders', 'SELECT order_id, total, AVG(total) OVER (PARTITION BY order_id) FROM orders'],
+      [null, 'GROUP BY gives one row per customer; the orders are gone.', 'OVER () averages all orders, not each customer’s.', 'Each order is its own window of one row, so the “average” is just its own total.'],
+      'Customer 21: (5000 + 2000) ÷ 2 = 3500 next to both orders; customer 22: (3000 + 3000 + 1000) ÷ 3 ≈ 2333.', { ts: 'shop' })),
+    // ---- Step 3: ORDER BY inside OVER, ROW_NUMBER ----
+    S_({ h: 'Step 3 · Number each day’s rows, by hand', ts: 'w',
+      link: 'A window can also count rows inside it, in an order you choose.',
+      ask: 'Within each day, which song had the most streams, the second most, and so on?',
+      say: 'By hand: in each day’s pile, sort the rows by streams from biggest to smallest, then number them 1, 2, 3. Each day starts again at 1. On 2026-10-17 song 3 (100) is second, ahead of song 2 (80).',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      after: [{ tab: ILT('numbered', ['chart_date', 'song_id', 'streams', 'number'], [['2026-10-16', 1, 100, 1], ['2026-10-16', 2, 90, 2], ['2026-10-16', 3, 80, 3], ['2026-10-17', 1, 120, 1], ['2026-10-17', 3, 100, 2], ['2026-10-17', 2, 80, 3]]), role: 'By hand: numbered inside each day (a result)', m: DAY, why: ['biggest on day 1', 'second', 'third', 'biggest on day 2: start again at 1', 'second', 'third'] }],
+      lg: LGD }),
+    S_({ h: 'Step 3 · ROW_NUMBER and ORDER BY inside OVER', ts: 'w', qfirst: 1,
+      link: 'By hand you sorted each day’s pile and numbered it.',
+      ask: 'How does SQL number the rows inside each day?',
+      say: '<code>ROW_NUMBER()</code> numbers the rows of each window 1, 2, 3. <b>ORDER BY inside OVER</b> sets the order used for numbering (here biggest streams first, <code>DESC</code>). It does not sort the final result; it only decides who is 1, 2, 3 inside each window.',
+      sql: 'SELECT chart_date, song_id, streams,\n  ROW_NUMBER() OVER (\n    PARTITION BY chart_date ORDER BY streams DESC\n  ) AS rn\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      out: { c: ['chart_date', 'song_id', 'streams', 'rn'], r: [['2026-10-16', 1, 100, 1], ['2026-10-16', 2, 90, 2], ['2026-10-16', 3, 80, 3], ['2026-10-17', 1, 120, 1], ['2026-10-17', 3, 100, 2], ['2026-10-17', 2, 80, 3]], m: DAY, nc: [3], why: ['100: most on day 1', '90', '80', '120: most on day 2', '100', '80'] }, lg: LGD }),
+    Q_(mcq('sql8.v6', 'Change one thing: <code>ORDER BY streams</code> without DESC. What is rn for song 1 on 2026-10-16 (100 streams)?', ['3', '1', '2', 'NULL'],
+      [null, 'Without DESC the order is smallest first, so 80 is number 1 and 100 is number 3.', '90 is in the middle.', 'ROW_NUMBER always gives a number.'],
+      'ASC (the default) numbers from the smallest: 80 → 1, 90 → 2, 100 → 3.', { ts: 'w' })),
+    // ---- Step 4: ties: ROW_NUMBER, RANK, DENSE_RANK ----
+    S_({ h: 'Step 4 · A tie, numbered three ways, by hand', ts: 'tie',
+      link: 'Step 3 had no ties. Here two songs have the same streams.',
+      ask: 'Songs 2 and 3 both have 90. Who is second?',
+      say: 'Three fair answers, three functions. <b>ROW_NUMBER</b>: everyone gets a different number, so one of the tied songs is 2 and the other 3 (you choose the tie-breaker, here song_id). <b>RANK</b>: tied songs share 2, and the next number skips to 4 (two songs are ahead of song 4). <b>DENSE_RANK</b>: tied songs share 2, and the next is 3 (no gap).',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy, one day with a tie', m: ['g0', 'g1', 'g1', 'g2'], why: ['100: clearly first', '90: tied', '90: tied', '80: after the tie'] }],
+      after: [{ tab: ILT('three_ways', ['song_id', 'streams', 'ROW_NUMBER', 'RANK', 'DENSE_RANK'], [[1, 100, 1, 1, 1], [2, 90, 2, 2, 2], [3, 90, 3, 2, 2], [4, 80, 4, 4, 3]]), role: 'By hand (a result)', m: ['g0', 'g1', 'g1', 'g2'], why: ['first everywhere', 'tied: 2, 2, 2', 'tied: 3, 2, 2', 'after the tie: 4, 4, 3'] }],
+      lg: { g: 'same colour and shape = same streams' } }),
+    S_({ h: 'Step 4 · ROW_NUMBER, RANK and DENSE_RANK in SQL', ts: 'tie', qfirst: 1,
+      link: 'By hand: 1, 2, 3, 4 / 1, 2, 2, 4 / 1, 2, 2, 3.',
+      ask: 'Do the three functions match your table?',
+      say: 'Yes. No PARTITION BY here because there is one day. ROW_NUMBER has <code>song_id</code> as a tie-breaker so its order is fixed; without one, the database may number the tied rows either way.',
+      sql: RANKQ,
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy, one day with a tie', m: ['g0', 'g1', 'g1', 'g2'], why: ['100', '90: tied', '90: tied', '80'] }],
+      out: { c: ['song_id', 'streams', 'row_num', 'rnk', 'dense'], r: [[1, 100, 1, 1, 1], [2, 90, 2, 2, 2], [3, 90, 3, 2, 2], [4, 80, 4, 4, 3]], m: ['g0', 'g1', 'g1', 'g2'], nc: [2, 3, 4], why: ['first', 'tie-breaker song_id 2 first', 'shares RANK and DENSE_RANK 2', 'RANK skips to 4; DENSE_RANK is 3'] },
+      lg: { g: 'same colour and shape = same streams' } }),
+    Q_(mcq('sql8.v7', 'Three songs tie for first. What does RANK give the next song?', ['4', '2', '1', '3'],
+      [null, '2 is what DENSE_RANK gives (no gaps).', 'Only the tied songs share 1.', 'RANK skips one number per extra tied song: 1, 1, 1, then 4.'],
+      'RANK counts how many rows are ahead: three songs are ahead, so the next is 4. DENSE_RANK would say 2.', { ts: 'tie' })),
+    Q_(mcq('sql8.v8', '🛒 Shop: you must keep <b>exactly one</b> order per customer, the biggest. Two of customer 22’s orders tie at 3000. Which function?', ['ROW_NUMBER, with a tie-breaker such as order_id', 'RANK', 'DENSE_RANK', 'COUNT'],
+      [null, 'RANK gives both tied orders 1, so “rank = 1” keeps two.', 'DENSE_RANK also gives both 1.', 'COUNT does not number rows.'],
+      'Only ROW_NUMBER gives every row a different number, so “= 1” keeps one row per customer.', { ts: 'shop' })),
+    // ---- Step 5: LAG and LEAD ----
+    S_({ h: 'Step 5 · Yesterday’s position, by hand', ts: 'w',
+      link: 'Windows can also read a neighbouring row.',
+      ask: 'For each chart row, where was the same song on the previous chart day?',
+      say: 'By hand: put each song’s rows in date order (one pile per song, coloured by song). For each row, look one row back in the <b>same</b> pile. Song 3 was #3 on 2026-10-16 and #2 on 2026-10-17. A song’s first day has no row before it, so its previous position is unknown: <b>NULL</b>.',
+      ins: [{ t: 'chart_entries', role: RW, m: SONG, why: ['song 1', 'song 2', 'song 3', 'song 1', 'song 3', 'song 2'] }],
+      after: [{ tab: ILT('previous', ['chart_date', 'song_id', 'position', 'prev_position'], [['2026-10-16', 1, 1, null], ['2026-10-17', 1, 1, 1], ['2026-10-16', 2, 2, null], ['2026-10-17', 2, 3, 2], ['2026-10-16', 3, 3, null], ['2026-10-17', 3, 2, 3]]), role: 'By hand: one pile per song, in date order (a result)', m: ['g0', 'g0', 'g1', 'g1', 'g2', 'g2'], why: ['first day of song 1: nothing before it', 'one row back: #1', 'first day of song 2', 'one row back: #2 (it fell to #3)', 'first day of song 3', 'one row back: #3 (it rose to #2)'] }],
+      lg: LGS }),
+    S_({ h: 'Step 5 · LAG reads the row before', ts: 'w', qfirst: 1,
+      link: 'By hand, each song’s first day had no previous position.',
+      ask: 'Which SQL looks one row back in the same song’s pile?',
+      say: '<b>LAG(position)</b> returns <code>position</code> from the row before, inside the same window. <code>PARTITION BY song_id</code> makes one window per song, and <code>ORDER BY chart_date</code> decides what “before” means. The first row of each window has no row before it, so LAG returns NULL. This is the card sql8-c1 and the pipeline’s movement logic.',
+      sql: LAGQ,
+      ins: [{ t: 'chart_entries', role: RW, m: SONG, why: ['song 1', 'song 2', 'song 3', 'song 1', 'song 3', 'song 2'] }],
+      out: { c: ['chart_date', 'song_id', 'position', 'prev_position'], r: [['2026-10-16', 1, 1, null], ['2026-10-17', 1, 1, 1], ['2026-10-16', 2, 2, null], ['2026-10-17', 2, 3, 2], ['2026-10-16', 3, 3, null], ['2026-10-17', 3, 2, 3]], m: ['g0', 'g0', 'g1', 'g1', 'g2', 'g2'], nc: [3], why: ['first row of song 1: NULL', '#1 the day before', 'first row of song 2: NULL', '#2 the day before', 'first row of song 3: NULL', '#3 the day before'] },
+      lg: LGS }),
+    Q_(mcq('sql8.v9', 'Change one word: <code>LEAD(position)</code> instead of LAG. What does song 3 get on 2026-10-16?', ['2: its position on the next day', 'NULL', '3', '1'],
+      [null, 'LEAD reads the next row. NULL now goes on each song’s <b>last</b> day.', '3 is its own position that day.', '1 is song 1’s position.'],
+      'LEAD looks one row forward in the same window: song 3 was #2 on 2026-10-17.', { ts: 'w' })),
+    Q_(mcq('sql8.v10', 'Using LAG’s result, which song climbed on 2026-10-17, and by how many places (prev_position − position)?', ['song 3, by 1 (3 − 2)', 'song 2, by 1', 'song 1, by 1', 'none'],
+      [null, 'Song 2 went from #2 to #3: 2 − 3 = −1, a fall.', 'Song 1 stayed at #1: 1 − 1 = 0.', 'Song 3 moved from #3 to #2.'],
+      'A smaller position number is better, so places gained = previous − current: 3 − 2 = 1.', { ts: 'w' })),
+    Q_(mcq('sql8.v17', '🛒 Shop: <code>LAG(total) OVER (PARTITION BY customer_id ORDER BY order_date)</code>. What does order 4 (customer 22, 2026-10-19) get?', ['3000: customer 22’s order before it (order 3)', '2000', 'NULL', '1000'],
+      [null, '2000 is order 2, customer 21’s. It would be the row before only with no PARTITION BY (one window for all orders by date).', 'NULL goes only on each customer’s first order; order 4 is customer 22’s second.', '1000 is order 5, the next order: that is LEAD.'],
+      'Same pattern as the chart: one window per customer, ordered by date; the row before order 4 in customer 22’s window is order 3 (3000).', { ts: 'shop' })),
+    ...legacy.map(old => ({ old })),
+    S_({ h: 'Step 5 · Spot the mistake: filter first, LAG second', ts: 'w', qfirst: 1,
+      link: 'LAG needs the previous day’s row. A colleague filtered to one day in the same query.',
+      ask: 'Why is every prev_position NULL?',
+      say: 'The database runs WHERE <b>before</b> window functions. WHERE keeps only 2026-10-17, so when LAG runs, each song’s window holds one row, and one row has nothing before it. The fix is in Step 7: compute LAG over all days in a CTE, then filter outside it.',
+      sql: "SELECT chart_date, song_id, position,\n  LAG(position) OVER (\n    PARTITION BY song_id ORDER BY chart_date\n  ) AS prev_position\nFROM chart_entries\nWHERE chart_date = '2026-10-17';",
+      ins: [{ t: 'chart_entries', role: RW, m: ['x', 'x', 'x', 'g0', 'g2', 'g1'], why: ['removed by WHERE before LAG runs', 'removed by WHERE before LAG runs', 'removed by WHERE before LAG runs', 'song 1: alone in its window', 'song 3: alone in its window', 'song 2: alone in its window'] }],
+      out: { c: ['chart_date', 'song_id', 'position', 'prev_position'], r: [['2026-10-17', 1, 1, null], ['2026-10-17', 2, 3, null], ['2026-10-17', 3, 2, null]], m: ['x', 'x', 'x'], why: ['wrong: should be 1', 'wrong: should be 2', 'wrong: should be 3'] },
+      lg: { g: LGS.g, x: '✕ removed too early, or a wrong NULL' } }),
+    // ---- Step 6: running totals and frames ----
+    S_({ h: 'Step 6 · A running total, by hand', ts: 'run',
+      link: 'LAG read one row back. A running total adds up everything so far.',
+      ask: 'For each song, what is the total of its streams up to and including each day?',
+      say: 'By hand, one pile per song in date order. Song 1: 95, then 95 + 100 = 195, then 195 + 120 = 315. Song 2: 98, then 188, then 268. Each row adds its own streams to the total of the rows before it in the same pile.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy, two songs over three days', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['song 1, day 1', 'song 1, day 2', 'song 1, day 3', 'song 2, day 1', 'song 2, day 2', 'song 2, day 3'] }],
+      after: [{ tab: ILT('running', ['chart_date', 'song_id', 'streams', 'running'], [['2026-10-15', 1, 95, 95], ['2026-10-16', 1, 100, 195], ['2026-10-17', 1, 120, 315], ['2026-10-15', 2, 98, 98], ['2026-10-16', 2, 90, 188], ['2026-10-17', 2, 80, 268]]), role: 'By hand (a result)', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['95', '95 + 100', '195 + 120', '98', '98 + 90', '188 + 80'] }],
+      lg: LGS }),
+    S_({ h: 'Step 6 · SUM over a frame: from the first row to this row', ts: 'run', qfirst: 1,
+      link: 'By hand, each row added everything from the pile’s first row up to itself.',
+      ask: 'How do you tell SUM which rows to add for each row?',
+      say: 'The rows a window function uses for one row are its <b>frame</b>. <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code> reads: from the first row of the window (<b>UNBOUNDED PRECEDING</b>: as far back as it goes) to this row (<b>CURRENT ROW</b>). ORDER BY chart_date decides which rows count as “before”. This is the card sql8-c3.',
+      sql: 'SELECT chart_date, song_id, streams,\n  SUM(streams) OVER (\n    PARTITION BY song_id\n    ORDER BY chart_date\n    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n  ) AS running\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy, two songs over three days', m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], why: ['song 1', 'song 1', 'song 1', 'song 2', 'song 2', 'song 2'] }],
+      out: { c: ['chart_date', 'song_id', 'streams', 'running'], r: [['2026-10-15', 1, 95, 95], ['2026-10-16', 1, 100, 195], ['2026-10-17', 1, 120, 315], ['2026-10-15', 2, 98, 98], ['2026-10-16', 2, 90, 188], ['2026-10-17', 2, 80, 268]], m: ['g0', 'g0', 'g0', 'g1', 'g1', 'g1'], nc: [3], why: ['frame: day 1 only', 'frame: days 1–2', 'frame: days 1–3', 'frame: day 1 only', 'frame: days 1–2', 'frame: days 1–3'] },
+      lg: LGS }),
+    Q_(mcq('sql8.v11', 'Change one thing: <code>ROWS BETWEEN 1 PRECEDING AND CURRENT ROW</code>. What does song 1 get on 2026-10-17?', ['220 (100 + 120)', '315', '120', '195'],
+      [null, '315 adds all three days; the frame now holds only this row and the one before.', '120 is that day alone.', '195 is the total on 2026-10-16.'],
+      '1 PRECEDING means one row back: 2026-10-16 (100) plus 2026-10-17 (120) = 220. A two-day total.', { ts: 'run' })),
+    Q_(mcq('sql8.v12', 'Spot the mistake: <code>SUM(streams) OVER (PARTITION BY song_id)</code>, with no ORDER BY. What does song 1 get on every row?', ['315, its total over all days', '95, 195, 315', 'NULL', '95 on every row'],
+      [null, 'Without ORDER BY there is no “before”, so every row’s window is the whole pile.', 'SUM always has a number here.', 'The window is the whole pile, not the first row.'],
+      'A running total needs ORDER BY in the window; without it you get the pile’s total on every row.', { ts: 'run' })),
+    Q_(mcq('sql8.v13', '🛒 Shop: each customer’s running total of spend, in date order. Which window?', ['SUM(total) OVER (PARTITION BY customer_id ORDER BY order_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)', 'SUM(total) OVER (ORDER BY order_date)', 'SUM(total) OVER (PARTITION BY customer_id)', 'SUM(total) GROUP BY customer_id'],
+      [null, 'Without PARTITION BY the total runs across all customers together.', 'Without ORDER BY each row gets the customer’s full total.', 'GROUP BY gives one row per customer, not a running total per order.'],
+      'One window per customer, ordered by date, frame from the first order to this one. Customer 22: 3000, 6000, 7000.', { ts: 'shop' })),
+    // ---- Step 7: filtering on a window needs a CTE (top-N, dedupe) ----
+    S_({ h: 'Step 7 · Spot the mistake: WHERE rn = 1', ts: 'w', norun: 1,
+      link: 'Step 3 numbered each day’s rows. To keep each day’s biggest song you want rn = 1.',
+      ask: 'Why is this refused?',
+      sql: 'SELECT chart_date, song_id, streams,\n  ROW_NUMBER() OVER (\n    PARTITION BY chart_date ORDER BY streams DESC\n  ) AS rn\nFROM chart_entries\nWHERE rn = 1;',
+      say: 'WHERE runs before window functions (Step 5’s mistake), so when WHERE runs, rn does not exist yet. SQLite says “misuse of aliased window function rn”. The fix is two steps: number the rows in a CTE, then filter the CTE.',
+      ins: [{ t: 'chart_entries', role: RW, m: DAY, why: DAYW }],
+      out: { err: 'misuse of aliased window function rn' }, lg: LGD }),
+    S_({ h: 'Step 7 · Number in a CTE, then filter', ts: 'w', qfirst: 1,
+      link: 'WHERE could not see rn in the same query.',
+      ask: 'Which song had the most streams each day?',
+      say: 'Step 1, <code>ranked</code>: the CTE numbers each day’s rows (Step 3). Step 2: the outer query reads <code>ranked</code>, where rn is now an ordinary column, and keeps <code>rn = 1</code>. This is the <b>top-N per group</b> pattern (N = 1 here), the card sql8-c4.',
+      sql: TOP,
+      ins: [{ tab: ILT('ranked', ['chart_date', 'song_id', 'streams', 'rn'], [['2026-10-16', 1, 100, 1], ['2026-10-16', 2, 90, 2], ['2026-10-16', 3, 80, 3], ['2026-10-17', 1, 120, 1], ['2026-10-17', 3, 100, 2], ['2026-10-17', 2, 80, 3]]), role: 'step 1: ranked (a step result)', m: ['m', 'x', 'x', 'm', 'x', 'x'], why: ['rn = 1: kept', 'rn = 2: removed', 'rn = 3: removed', 'rn = 1: kept', 'rn = 2: removed', 'rn = 3: removed'] }],
+      out: { c: ['chart_date', 'song_id', 'streams'], r: [['2026-10-16', 1, 100], ['2026-10-17', 1, 120]], m: ['m', 'm'], why: ['most streams on 2026-10-16', 'most streams on 2026-10-17'] }, lg: { m: '✓ kept', x: '✕ not kept' } }),
+    Q_(mcq('sql8.v14', 'Change one thing: <code>WHERE rn &lt;= 2</code>. How many rows come back?', ['4: the top 2 of each day', '2', '6', '3'],
+      [null, 'rn = 1 gave 2 rows; &lt;= 2 also keeps each day’s second.', 'rn 3 rows are still removed.', 'Each day contributes two rows.'],
+      'The top 2 per day: songs 1 and 2 on 2026-10-16, songs 1 and 3 on 2026-10-17.', { ts: 'w' })),
+    Q_(mcq('sql8.v18', '🛒 Shop: a CTE numbers orders with <code>ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY total DESC) AS rn</code>, then the outer query keeps <code>rn = 1</code>. How many rows come back?', ['2: one per customer', '3: customer 22’s two 3000 orders both stay', '1: the single biggest order', '5'],
+      [null, 'That is what RANK would do with the tie. ROW_NUMBER gives the tied orders 1 and 2, so only one stays.', 'PARTITION BY customer_id makes one window per customer, so each customer has its own rn = 1.', 'rn = 1 removes every other row.'],
+      'Top-N per group with N = 1: customer 21 keeps order 1 (5000); customer 22 keeps one of the two 3000 orders.', { ts: 'shop' })),
+    S_({ h: 'Step 7 · Deduplicate: keep the latest copy', ts: 'raw', qfirst: 1,
+      link: 'The same two steps clean data. A retry loaded some chart rows twice.',
+      ask: 'How do you keep only the latest loaded row per (chart_date, song_id)?',
+      say: 'Number the copies of each key (chart_date and song_id together) from the latest <code>loaded_at</code> down, then keep number 1. Song 1 has two identical copies, song 2 has two different ones (the 06:05 load is the correction), and song 3 has one. Use ROW_NUMBER, not RANK: two copies loaded at the same time would both get rank 1. This is the lesson’s problem “Deduplicate a messy load”.',
+      sql: 'WITH ranked AS (\n  SELECT *,\n    ROW_NUMBER() OVER (\n      PARTITION BY chart_date, song_id\n      ORDER BY loaded_at DESC\n    ) AS rn\n  FROM raw_loads\n)\nSELECT chart_date, song_id, position\nFROM ranked\nWHERE rn = 1;',
+      ins: [{ t: 'raw_loads', role: 'raw_loads: the problem’s raw data (a retry loaded rows twice)', m: ['x', 'm', 'x', 'm', 'm'], why: ['older copy of song 1: rn 2', 'latest copy of song 1: rn 1', 'older copy of song 2: rn 2', 'latest copy of song 2: rn 1', 'only copy of song 3: rn 1'] }],
+      out: { c: ['chart_date', 'song_id', 'position'], r: [['2026-10-17', 1, 1], ['2026-10-17', 2, 2], ['2026-10-17', 3, 3]], m: ['m', 'm', 'm'], why: ['from 06:05', 'from 06:05: the corrected position', 'from 06:05'] }, lg: { m: '✓ latest copy: kept', x: '✕ older copy: removed' } }),
+    // ---- Step 8: combine: today's biggest climbers, planned first ----
+    Q_(mcq('sql8.v15', 'Plan for “Today’s biggest climbers” (2026-10-17): which order of steps works?', ['CTE: LAG over all days → outside: keep 2026-10-17 and prev_position IS NOT NULL → places_gained', 'WHERE chart_date = 2026-10-17 → LAG → places_gained', 'GROUP BY song_id → LAG', 'LAG → GROUP BY chart_date'],
+      [null, 'Filtering first removes the previous day, so every LAG is NULL (Step 5’s mistake).', 'GROUP BY squashes each song to one row; there is no previous row left to read.', 'Grouping by date squashes the songs together.'],
+      'Window first over the full history (in a CTE), then filter outside it: the order of operations from Steps 5 and 7.', Object.assign({ plan: 'climb', pl: 'Steps' }, { ts: 'w' }))),
+    Q_({ id: 'sql8.v16', k: 'run', ts: 'w', planShow: ['climb'], q: 'Write it from your plan: fill in the blanks. Expected: songs 1, 3 and 2 with places_gained 0, 1 and −1.',
+      code: "WITH movement AS (\n  SELECT chart_date, song_id, position,\n    ____(position) OVER (\n      PARTITION BY ____ ORDER BY chart_date\n    ) AS prev_position\n  FROM chart_entries\n)\nSELECT song_id, position, prev_position,\n       prev_position - position AS places_gained\nFROM movement\nWHERE chart_date = '2026-10-17'\n  AND prev_position ____;", sol: CLIMB,
+      need: [['\\bLAG\\s*\\(', 'LAG'], ['PARTITION\\s+BY\\s+song_id', 'PARTITION BY song_id'], ['IS\\s+NOT\\s+NULL', 'IS NOT NULL']],
+      why: 'LAG over all days in the CTE, one window per song; outside, keep 2026-10-17 and drop new entries (prev_position IS NOT NULL). Song 3 climbed 1; song 2 fell 1. The lesson’s problem does this on the real chart and adds the title.' }),
+    S_({ h: 'Step 8 · Now the lesson’s cards and problems', ts: 'w',
+      link: 'You traced every window shape the cards use: an average per window (Step 1), PARTITION BY (Step 2), ROW_NUMBER with ORDER BY (Step 3), ties (Step 4), LAG (Step 5), a running total (Step 6) and a CTE to filter (Step 7).',
+      ask: 'What comes next?',
+      say: 'The four code cards and two problems use these shapes on the full chart. Before each one, plan: what one result row stands for, what one window is (PARTITION BY), what order inside it (ORDER BY), whether a filter must wait for a CTE, and how many rows you expect.',
+      ins: [{ t: 'chart_entries', role: RW }] })
+  ]);
+  L.order = add;
+}
+
+{ // ---- sql9 Cleaning: CASE, COALESCE, CAST, integer division and NULLIF, conditional aggregation, then combined ----
+  const L = ILLUS.sql9; L.id = 'sql9';
+  const legacy = L.scenes.map((_, i) => ['s', i]).concat(L.qs.map((_, i) => ['q', i]));
+  const LEN = ILT('songs', ['song_id', 'title', 'duration_sec'], [[2, 'SLICK', 106], [1, 'Heaven Baby', 159], [4, 'Owo Oluwa', 177], [7, 'Love Na Drug', 237]], 'CREATE TABLE songs (song_id INTEGER PRIMARY KEY, title TEXT, duration_sec INTEGER);');
+  const NUL = ILT('chart_entries', ['chart_date', 'song_id', 'streams'], [['2026-10-16', 6, 58], ['2026-10-16', 12, null], ['2026-10-16', 8, 52]], 'CREATE TABLE chart_entries (chart_date TEXT, song_id INTEGER, streams INTEGER);');
+  const TXT = ILT('raw', ['title', 'streams'], [['Rush', '900'], ['Calm Down', '1200'], ['Essence', '700']], 'CREATE TABLE raw (title TEXT, streams TEXT);');
+  const DAILY = ILT('daily', ['chart_date', 'total', 'top1'], [['2026-10-16', 100, 50], ['2026-10-17', 150, 70], ['2026-10-18', 0, 0]], 'CREATE TABLE daily (chart_date TEXT, total INTEGER, top1 INTEGER);');
+  const CA = ILT('chart_entries', ['chart_date', 'position', 'streams'], [['2026-10-16', 1, 50], ['2026-10-16', 2, 30], ['2026-10-16', 4, 20], ['2026-10-17', 1, 70], ['2026-10-17', 3, 50], ['2026-10-17', 5, 30]], 'CREATE TABLE chart_entries (chart_date TEXT, position INTEGER, streams INTEGER);');
+  const SHOP = { orders: ILT('orders', ['order_id', 'customer_id', 'total', 'items'], [[1, 21, 5000, 2], [2, 21, 1000, 1], [3, 22, 3500, 0], [4, 22, 2000, 4]], 'CREATE TABLE orders (order_id INTEGER PRIMARY KEY, customer_id INTEGER, total INTEGER, items INTEGER);') };
+  L.tsets = { len: { songs: LEN }, nul: { chart_entries: NUL }, txt: { raw: TXT }, d0: { daily: DAILY }, ca: { chart_entries: CA }, p1: { chart_entries: V4_CE, songs: V4_SONGS, artists: V4_ART }, shop: SHOP };
+  const CASEQ = "SELECT title, duration_sec,\n  CASE\n    WHEN duration_sec < 150 THEN 'short'\n    WHEN duration_sec < 200 THEN 'medium'\n    ELSE 'long'\n  END AS length_band\nFROM songs;";
+  const LG_CHG = { n: '＋ value made or changed by the query', m: '✓ kept as it was' };
+  const P1 = 'SELECT a.name,\n  SUM(CASE WHEN c.position <= 5 THEN 1 ELSE 0 END) AS top5_entries,\n  SUM(CASE WHEN c.position > 5 THEN 1 ELSE 0 END)  AS other_entries\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nGROUP BY a.artist_id, a.name;';
+  const add = v104Seq(L, [
+    // ---- Step 1: CASE ----
+    S_({ h: 'Step 1 · Label each song by length, by hand', ts: 'len',
+      link: 'Cleaning means making values usable. Often that means adding a label the source never had.',
+      ask: 'Is each song short (under 150 s), medium (under 200 s) or long?',
+      say: 'Check the rules in order and stop at the first one that is true. SLICK (106): under 150, so short. Heaven Baby (159): not under 150, but under 200, so medium. Owo Oluwa (177): medium. Love Na Drug (237): neither rule is true, so it gets the fallback, long.',
+      ins: [{ t: 'songs', role: 'songs: 4 real songs with their length', m: ['g0', 'g1', 'g1', 'g2'], why: ['106 &lt; 150: short', '159: first rule false, second true: medium', '177: medium', '237: no rule true: long'] }],
+      lg: { g: 'blue ● short, orange ▲ medium, green ■ long' } }),
+    S_({ h: 'Step 1 · CASE: the first true WHEN wins', ts: 'len', qfirst: 1,
+      link: 'By hand you checked the rules in order and stopped at the first true one.',
+      ask: 'Which SQL writes those rules?',
+      say: '<code>CASE … END</code> is SQL’s if-then-else. It checks each <code>WHEN</code> from the top and returns the <code>THEN</code> value of the <b>first</b> true one; later WHENs are skipped. <code>ELSE</code> is the fallback when none is true. The whole CASE is one new column, named with AS. This is the card sql9-c1.',
+      sql: CASEQ,
+      ins: [{ t: 'songs', role: 'songs: 4 real songs with their length', m: ['g0', 'g1', 'g1', 'g2'], why: ['first WHEN true', 'second WHEN true', 'second WHEN true', 'ELSE'] }],
+      out: { c: ['title', 'duration_sec', 'length_band'], r: [['SLICK', 106, 'short'], ['Heaven Baby', 159, 'medium'], ['Owo Oluwa', 177, 'medium'], ['Love Na Drug', 237, 'long']], m: ['g0', 'g1', 'g1', 'g2'], nc: [2] },
+      lg: { g: 'blue ● short, orange ▲ medium, green ■ long' } }),
+    Q_(mcq('sql9.v1', 'Change one thing: the two WHEN lines swap places (<code>&lt; 200</code> first, then <code>&lt; 150</code>). What does SLICK (106) get?', ['medium', 'short', 'long', 'NULL'],
+      [null, '106 &lt; 200 is now checked first and is true, so CASE stops there; the &lt; 150 line is never reached.', 'ELSE only applies when no WHEN is true.', 'A WHEN is true, so there is a value.'],
+      'The first true WHEN wins, so put the narrowest rule first. With the lines swapped, nothing is ever short.', { ts: 'len' })),
+    Q_(mcq('sql9.v2', 'Spot the mistake: the ELSE line is left out. What does Love Na Drug (237) get?', ['NULL', 'long', 'medium', 'an error'],
+      [null, 'Nothing says long any more; only ELSE did.', '237 is not under 200.', 'CASE without ELSE is allowed.'],
+      'When no WHEN is true and there is no ELSE, CASE returns NULL. Write an ELSE unless NULL is what you mean.', { ts: 'len' })),
+    Q_(mcq('sql9.v3', '🛒 Shop: label orders “big” (5000 or more), “normal” (1000 or more) or “small”. Which CASE is right?', ["CASE WHEN total &gt;= 5000 THEN 'big' WHEN total &gt;= 1000 THEN 'normal' ELSE 'small' END", "CASE WHEN total &gt;= 1000 THEN 'normal' WHEN total &gt;= 5000 THEN 'big' ELSE 'small' END", "CASE WHEN total &gt;= 5000 THEN 'big' WHEN total &gt;= 1000 THEN 'normal' END", "CASE total WHEN 5000 THEN 'big' ELSE 'small' END"],
+      [null, 'A 5000 order matches &gt;= 1000 first and is called normal; big is never reached.', 'Orders under 1000 get NULL without an ELSE.', 'That only matches a total of exactly 5000.'],
+      'Widest-threshold-last: big first, then normal, then ELSE small.', { ts: 'shop' })),
+    // ---- Step 2: NULL and COALESCE ----
+    S_({ h: 'Step 2 · A missing value, and what it does to an average', ts: 'nul', qfirst: 1,
+      link: 'CASE added values. Sometimes a value is missing.',
+      ask: 'Song 12 has no stream count for 2026-10-16. What is the day’s average?',
+      say: 'This is a real gap in the app’s chart: Freddy Kooger (song 12) has <b>NULL</b> streams on 2026-10-16. NULL means “not known”, not zero. AVG and SUM skip NULLs, so AVG divides by the 2 known values: (58 + 52) ÷ 2 = 55. COUNT(*) counts all 3 rows, but COUNT(streams) counts only the 2 known values.',
+      sql: 'SELECT AVG(streams) AS avg_known,\n       COUNT(*) AS rows_n,\n       COUNT(streams) AS known_n\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: 3 real rows of 2026-10-16 (streams in thousands)', m: ['m', 'x', 'm'], why: ['58: counted', 'NULL: skipped by AVG and COUNT(streams)', '52: counted'] }],
+      out: { c: ['avg_known', 'rows_n', 'known_n'], r: [[55.0, 3, 2]], m: ['n'], why: ['(58 + 52) ÷ 2; 3 rows but 2 known values'] },
+      lg: { m: '✓ a known value', x: '✕ NULL: skipped', n: '＋ computed' } }),
+    S_({ h: 'Step 2 · COALESCE: the first value that is not NULL', ts: 'nul', qfirst: 1,
+      link: 'AVG skipped the NULL. Sometimes a report must show a number instead.',
+      ask: 'How do you show 0 where streams is missing?',
+      say: '<code>COALESCE(streams, 0)</code> returns the first of its values that is not NULL: the streams when known, otherwise 0. It changes only the NULL row. But it also changes the meaning: the average becomes (58 + 0 + 52) ÷ 3 ≈ 36.7, as if nobody streamed song 12. Only fill with 0 when 0 is true. This is the card sql9-c2.',
+      sql: 'SELECT song_id, streams,\n  COALESCE(streams, 0) AS streams_filled\nFROM chart_entries;',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: 3 real rows of 2026-10-16 (streams in thousands)', m: ['m', 'n', 'm'], why: ['known: unchanged', 'NULL: becomes 0', 'known: unchanged'] }],
+      out: { c: ['song_id', 'streams', 'streams_filled'], r: [[6, 58, 58], [12, null, 0], [8, 52, 52]], m: ['m', 'n', 'm'], nc: [2], why: ['58 stays 58', 'NULL → 0', '52 stays 52'] }, lg: LG_CHG }),
+    Q_(mcq('sql9.v4', 'What is <code>AVG(COALESCE(streams, 0))</code> on these 3 rows?', ['about 36.7: (58 + 0 + 52) ÷ 3', '55: (58 + 52) ÷ 2', '110', 'NULL'],
+      [null, '55 is AVG(streams), which skips the NULL. After COALESCE the 0 is a real value and is counted.', '110 is the SUM.', 'COALESCE removed the NULL.'],
+      'COALESCE turns the NULL into a counted 0, so AVG divides by 3. Same data, different meaning: decide which one the report needs.', { ts: 'nul' })),
+    Q_(mcq('sql9.v5', '🛒 Shop: a discount column is NULL when no discount was given. The bill is total − discount. Which is right?', ['total − COALESCE(discount, 0)', 'total − discount', 'COALESCE(total − discount)', 'total − NULLIF(discount, 0)'],
+      [null, 'Anything minus NULL is NULL, so orders without a discount would have no bill.', 'COALESCE needs a fallback value as its second argument.', 'NULLIF turns 0 into NULL: the opposite.'],
+      'No discount really means 0 here, so filling the NULL with 0 is true.', { ts: 'shop' })),
+    // ---- Step 3: CAST ----
+    S_({ h: 'Step 3 · Numbers stored as text sort wrongly', ts: 'txt', qfirst: 1,
+      link: 'A CSV or an API often sends numbers as text.',
+      ask: 'Which song has the most streams, by ORDER BY streams DESC?',
+      say: 'Here <code>streams</code> is TEXT, so the database compares it character by character, like words in a dictionary: “9” comes after “1”, so <b>‘900’</b> sorts above <b>‘1200’</b>. The answer looks plausible but is wrong.',
+      sql: 'SELECT title, streams\nFROM raw\nORDER BY streams DESC;', ordered: 1,
+      ins: [{ t: 'raw', role: 'raw: a practice copy as received (streams as text)', m: ['g0', 'g1', 'g2'], why: ['text ‘900’', 'text ‘1200’', 'text ‘700’'] }],
+      out: { c: ['title', 'streams'], r: [['Rush', '900'], ['Essence', '700'], ['Calm Down', '1200']], m: ['x', 'x', 'x'], why: ['wrong: ‘9’ beats ‘1’ as a character', 'wrong order', 'wrong: the biggest number is last'] },
+      lg: { g: 'one colour and shape per song', x: '✕ wrong order: compared as text' } }),
+    S_({ h: 'Step 3 · CAST turns text into a number', ts: 'txt', qfirst: 1,
+      link: 'As text, ‘900’ sorted above ‘1200’.',
+      ask: 'How do you compare them as numbers?',
+      say: '<code>CAST(streams AS INTEGER)</code> converts each value from text to a whole number (INTEGER). Now 1200 &gt; 900 &gt; 700, as you would expect. CAST changes the <b>type</b> of a value, not the rows. The card sql9-c3 does <code>CAST(\'42\' AS INTEGER) + 1</code> = 43.',
+      sql: 'SELECT title, CAST(streams AS INTEGER) AS streams_n\nFROM raw\nORDER BY streams_n DESC;', ordered: 1,
+      ins: [{ t: 'raw', role: 'raw: a practice copy as received (streams as text)', m: ['g0', 'g1', 'g2'], why: ['‘900’ → 900', '‘1200’ → 1200', '‘700’ → 700'] }],
+      out: { c: ['title', 'streams_n'], r: [['Calm Down', 1200], ['Rush', 900], ['Essence', 700]], m: ['n', 'n', 'n'], nc: [1], why: ['now a number: biggest first', 'a number', 'a number'] }, lg: { g: 'one colour and shape per song', n: '＋ converted to a number' } }),
+    Q_(mcq('sql9.v6', 'With streams still as TEXT, what does <code>MAX(streams)</code> return?', ["'900'", "'1200'", "'700'", 'NULL'],
+      [null, 'As text, ‘9’ is bigger than ‘1’, so ‘900’ wins.', '‘700’ loses to ‘900’ as text too.', 'MAX works on text; it just compares characters.'],
+      'MAX on text picks the last in dictionary order. CAST first: MAX(CAST(streams AS INTEGER)) = 1200.', { ts: 'txt' })),
+    Q_(mcq('sql9.v15', '🛒 Shop: an import stored order totals as text. Which <code>ORDER BY</code> puts the biggest order first?', ['ORDER BY CAST(total AS INTEGER) DESC', 'ORDER BY total DESC', 'ORDER BY total', 'ORDER BY CAST(total AS TEXT) DESC'],
+      [null, 'As text, ‘800’ comes above ‘5000’ because ‘8’ beats ‘5’ as a character.', 'Ascending puts ‘1200’ first: text order again, smallest first.', 'It is already text; casting to TEXT changes nothing.'],
+      'CAST to INTEGER first, then sort: 5000, 1200, 800.', { ref: false, show: illTable(ILT('shop_orders', ['order_id', 'total'], [[1, '5000'], [2, '800'], [3, '1200']]), null, { role: 'shop_orders: practice data, total stored as text' }) })),
+    ...legacy.map(old => ({ old })),
+    // ---- Step 4: integer division and NULLIF ----
+    S_({ h: 'Step 4 · Dividing safely: 100.0 and NULLIF', ts: 'd0', qfirst: 1,
+      link: 'The CTE lesson’s Step 12 showed that whole numbers divide to a whole number, and that <code>100.0 *</code> keeps the decimals. Now one day has a total of 0 (its chart was not loaded yet).',
+      ask: 'What share went to #1 each day, when one day has a total of 0?',
+      say: 'Dividing by 0 has no answer. Postgres stops the whole query with “division by zero”; SQLite quietly returns NULL. <code>NULLIF(total, 0)</code> returns NULL when total is 0 and total otherwise, so the division becomes “÷ NULL”, which is NULL in every engine: the query runs, and the empty day shows NULL instead of a made-up number. The other days use <code>100.0 *</code> as before.',
+      sql: 'SELECT chart_date,\n  ROUND(100.0 * top1 / NULLIF(total, 0), 1) AS pct_top1\nFROM daily;',
+      ins: [{ t: 'daily', role: 'daily: practice table of day totals', m: ['m', 'm', 'n'], why: ['50 of 100', '70 of 150', 'total is 0: NULLIF makes it NULL'] }],
+      out: { c: ['chart_date', 'pct_top1'], r: [['2026-10-16', 50.0], ['2026-10-17', 46.7], ['2026-10-18', null]], m: ['m', 'm', 'n'], why: ['100.0 × 50 ÷ 100', '100.0 × 70 ÷ 150', 'no total: NULL, not a crash'] },
+      lg: { m: '✓ a normal day', n: '＋ the zero day: NULL' } }),
+    Q_(mcq('sql9.v7', 'What does <code>NULLIF(total, 0)</code> return when total is 150, and when it is 0?', ['150, and NULL', 'NULL, and 0', '150, and 0', '0, and NULL'],
+      [null, 'NULLIF returns NULL only when its two values are equal.', 'For 0 it returns NULL, which is the point.', 'For 150 it returns 150 unchanged.'],
+      'NULLIF(a, b) is NULL when a = b, otherwise a.', { ts: 'd0' })),
+    Q_(mcq('sql9.v8', 'In SQLite, what is <code>7 / 2</code>, and what is <code>7.0 / 2</code>?', ['3, and 3.5', '3.5, and 3.5', '3, and 3', '4, and 3.5'],
+      [null, '7 and 2 are both whole numbers, so SQLite drops the .5.', 'A decimal on one side keeps the decimals.', 'Integer division drops the decimals; it does not round.'],
+      'Integer ÷ integer keeps the whole part (CTE lesson, Step 12). DuckDB and MySQL would give 3.5 for both, so check your engine.', { ts: 'd0' })),
+    Q_(mcq('sql9.v9', '🛒 Shop: price per item is total ÷ items, and order 3 has 0 items (it was cancelled). Which works in every engine?', ['1.0 * total / NULLIF(items, 0)', 'total / items', '1.0 * total / items', 'NULLIF(total / items, 0)'],
+      [null, 'Order 3 divides by 0 (an error in Postgres), and whole numbers drop decimals.', 'Still divides by 0 for order 3.', 'The division by 0 happens before NULLIF sees it.'],
+      'Decimal first (1.0 *), and NULLIF turns the 0 into NULL before dividing. Order 3 gets NULL.', { ts: 'shop' })),
+    // ---- Step 5: conditional aggregation ----
+    S_({ h: 'Step 5 · Count only some rows inside each pile, by hand', ts: 'ca',
+      link: 'CASE labels rows. Inside SUM, it can count or add only the rows you want.',
+      ask: 'How many streams went to the top 3 on each day?',
+      say: 'By hand, per day: add the streams of rows at position 1, 2 or 3, and add 0 for the others. 2026-10-16: 50 + 30 + 0 (position 4) = <b>80</b>. 2026-10-17: 70 + 50 (position 3) + 0 (position 5) = <b>120</b>.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy (streams in thousands)', m: ['m', 'm', 'x', 'm', 'm', 'x'], why: ['position 1: add 50', 'position 2: add 30', 'position 4: add 0', 'position 1: add 70', 'position 3: add 50', 'position 5: add 0'] }],
+      lg: { m: '✓ top 3: its streams count', x: '✕ outside the top 3: adds 0' } }),
+    S_({ h: 'Step 5 · SUM(CASE WHEN …): conditional aggregation', ts: 'ca', qfirst: 1,
+      link: 'By hand: 80 and 120.',
+      ask: 'Which SQL adds only the top-3 streams per day?',
+      say: 'Inside SUM, the CASE gives each row a number: its streams when position &lt;= 3, otherwise 0. SUM adds those numbers per pile (GROUP BY chart_date). This is called <b>conditional aggregation</b>, and it is the card sql9-c4. Writing <code>THEN 1</code> instead would count the top-3 rows instead of adding streams.',
+      sql: 'SELECT chart_date,\n  SUM(CASE WHEN position <= 3 THEN streams ELSE 0 END) AS top3_streams\nFROM chart_entries\nGROUP BY chart_date;',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: practice copy (streams in thousands)', m: ['g0', 'g0', 'x', 'g1', 'g1', 'x'], why: ['CASE gives 50', 'CASE gives 30', 'CASE gives 0', 'CASE gives 70', 'CASE gives 50', 'CASE gives 0'] }],
+      out: { c: ['chart_date', 'top3_streams'], r: [['2026-10-16', 80], ['2026-10-17', 120]], m: ['g0', 'g1'], why: ['50 + 30 + 0', '70 + 50 + 0'] },
+      lg: { g: 'blue ● = 2026-10-16, orange ▲ = 2026-10-17', x: '✕ outside the top 3: CASE gives 0' } }),
+    Q_(mcq('sql9.v10', 'Change one thing: <code>THEN 1</code> instead of <code>THEN streams</code>. What do the two days get?', ['2 and 2', '80 and 120', '3 and 3', '1 and 1'],
+      [null, 'That was the streams version; now each top-3 row adds 1.', 'Positions 4 and 5 add 0, so only two rows per day count.', 'SUM adds the 1s of every matching row.'],
+      'Each day has two rows in the top 3, so SUM of 1s counts them: 2 and 2.', { ts: 'ca' })),
+    Q_(mcq('sql9.v11', 'Spot the mistake: <code>WHERE position &lt;= 3</code> and <code>SUM(streams)</code> gives 80 and 120 too. Why use CASE?', ['with CASE you can add a second column for the other rows in the same query; WHERE throws them away', 'WHERE gives wrong numbers', 'CASE is faster than WHERE', 'SUM cannot be used with WHERE'],
+      [null, 'For this one column, WHERE is right.', 'Speed is not the point here.', 'SUM works fine with WHERE.'],
+      'Conditional aggregation puts several filtered counts side by side (top 3, the rest) from one pass over the rows. The lesson’s problem needs exactly that.', { ts: 'ca' })),
+    Q_(mcq('sql9.v12', '🛒 Shop: per customer, the number of orders of 2000 or more and the number under 2000. Which is right?', ['SUM(CASE WHEN total &gt;= 2000 THEN 1 ELSE 0 END), SUM(CASE WHEN total &lt; 2000 THEN 1 ELSE 0 END) … GROUP BY customer_id', 'COUNT(total &gt;= 2000), COUNT(total &lt; 2000) … GROUP BY customer_id', 'SUM(total &gt;= 2000) … with no GROUP BY', 'WHERE total &gt;= 2000 … COUNT(*), plus WHERE total &lt; 2000 … COUNT(*)'],
+      [null, 'COUNT counts every non-NULL value, and a comparison is 0 or 1, never NULL: both columns would count all orders.', 'Without GROUP BY there is one row for all customers.', 'One query can only have one WHERE; the two counts need two queries.'],
+      'Two SUM(CASE …) columns per customer: 21 → 1 and 1, 22 → 2 and 0.', { ts: 'shop' })),
+    // ---- Step 6: combine: top 5 vs the rest, per artist (the lesson's problem) ----
+    S_({ h: 'Step 6 · Combine: top-5 entries and the rest, per artist', ts: 'p1',
+      link: 'You know joins to reach the artist (real task), GROUP BY, and SUM(CASE …). The lesson’s problem combines them.',
+      ask: 'For each artist, how many chart entries were in the top 5, and how many outside it?',
+      say: 'These are the 7 chart rows from the real-task lesson. By hand: Ayra Starr has positions 1, 6, 1 and 4 (songs 1 and 11), so 3 in the top 5 and 1 outside. Victony: 2 and 2, so 2 and 0. Kizz Daniel: 5, so 1 and 0. No WHERE: the rows outside the top 5 must stay to be counted.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: 7 real rows copied from the app', m: ['g0', 'g1', 'g0', 'g0', 'g1', 'g0', 'g2'], why: ['Ayra Starr, #1', 'Victony, #2', 'Ayra Starr, #6: outside', 'Ayra Starr, #1', 'Victony, #2', 'Ayra Starr, #4', 'Kizz Daniel, #5'] }, { t: 'songs', role: 'songs' }, { t: 'artists', role: 'artists' }], stack: true,
+      after: [{ tab: ILT('by_hand', ['name', 'top5_entries', 'other_entries'], [['Ayra Starr', 3, 1], ['Victony', 2, 0], ['Kizz Daniel', 1, 0]]), role: 'By hand (a result)', m: ['g0', 'g1', 'g2'], why: ['#1, #1, #4 in; #6 out', '#2, #2', '#5'] }],
+      lg: { g: 'same colour and shape = same artist' } }),
+    Q_(mcq('sql9.v13', 'Plan: what does one result row stand for, and how many rows do you expect on these 7 rows?', ['one artist; 3 rows', 'one chart row; 7 rows', 'one artist; 2 rows', 'one day; 2 rows'],
+      [null, 'GROUP BY the artist squashes the chart rows.', 'There is no HAVING: every artist with a chart row stays, including Kizz Daniel.', 'The question asks per artist, not per day.'],
+      'One row per artist that charted: Ayra Starr, Victony, Kizz Daniel.', Object.assign({ plan: 'grain9', pl: 'One result row' }, { ts: 'p1' }))),
+    Q_({ id: 'sql9.v14', k: 'run', ts: 'p1', planShow: ['grain9'], q: 'Write it from your plan: fill in the blanks.',
+      code: 'SELECT a.name,\n  SUM(CASE WHEN c.position <= 5 THEN ____ ELSE 0 END) AS top5_entries,\n  SUM(CASE WHEN c.position ____ THEN 1 ELSE 0 END)  AS other_entries\nFROM chart_entries c\nJOIN songs s   ON s.song_id = c.song_id\nJOIN artists a ON a.artist_id = s.artist_id\nGROUP BY ____;', sol: P1,
+      need: [['SUM\\s*\\(\\s*CASE', 'SUM(CASE …)'], ['GROUP\\s+BY\\s+[\\s\\S]*(artist_id|name)', 'GROUP BY the artist']],
+      why: 'THEN 1 counts a row, &gt; 5 picks the rest, and GROUP BY the artist (ID and name) makes one row each: 3/1, 2/0, 1/0.' }),
+    S_({ h: 'Step 6 · Now the lesson’s cards and problem', ts: 'p1',
+      link: 'You traced CASE (Step 1), COALESCE (Step 2), CAST (Step 3), 100.0 and NULLIF (Step 4) and SUM(CASE …) (Step 5), then combined them.',
+      ask: 'What comes next?',
+      say: 'The four code cards and the problem use these on the full app tables. Before each one, plan: what one result row stands for, which values need cleaning (missing, text, a label, a division), and how many rows you expect.',
+      ins: [{ t: 'chart_entries', role: 'chart_entries: 7 real rows copied from the app' }] })
+  ]);
+  L.order = add;
+}
+
+/* v10.4a switch. V104_ON lists the v10.4 content that is shown: a lesson id → true (every new step) or a list of step numbers.
+   Everything else stays in the source but is parked: a parked lesson runs exactly as in v10.3 (its new scenes and questions are
+   removed at load, its old order restored), so it is not a catch-up and holds no card. To turn lessons on next week, e.g.:
+   var V104_ON = { sqlrt: true, sql6: true, sql7: true, sql8: true, sql9: true };
+   sql7 Steps 9 and 12 carry the release key v105 (not v104), so learners who finish Steps 10–11 now still get them as new later. */
+var V104_ON = { sql7: [10, 11] };
+var V105_STEPS = { sql7: [9, 12] };
+(function () {
+  Object.keys(V104_ORIG).forEach(lid => { const L = ILLUS[lid], on = V104_ON[lid], o = V104_ORIG[lid];
+    const get = ([t, i]) => t === 's' ? L.scenes[i] : L.qs[i];
+    if (!on) { L.scenes.length = o.ns; L.qs.length = o.nq; if (o.order) L.order = o.order.slice(); else delete L.order; if (o.retired) L.retired = o.retired; else delete L.retired; return; }
+    let step = 0; const keep = [], park = [], late = V105_STEPS[lid] || [];
+    L.order.forEach(e => { const x = get(e); if (!x.v104) { keep.push(e); return; }
+      if (e[0] === 's') { const m = /^Step (\d+)/.exec(x.h); if (m) step = +m[1]; }
+      if (late.includes(step)) { delete x.v104; x.v105 = 1; }
+      (on === true || on.includes(step) ? keep : park).push(e); });
+    L.order = keep; if (park.length) L.parked = park; });
+})();
+
+/* ---------- end v10.4 ---------- */
 var ILL_WHY = {
   'sql5|INNER JOIN: only matches': {
     i0: ['song 10 (Last Last) has artist_id 1', 'song 11 (Free Mind) has artist_id 2', 'no song has artist_id 3, so INNER JOIN drops Asake'],
@@ -5486,9 +6460,11 @@ function rankName(lv) { return RANKS[Math.min(RANKS.length - 1, Math.floor((lv -
 function itemProgress(id) { if (ITEMS[id] && ITEMS[id].kind === 'term' && T) return S.items[id] && S.items[id].mastered ? 1 : termShown(id); const s = S.items[id]; if (!s) return 0; if (s.mastered) return 1; return isBite(id) ? Math.max(s.lvl / 5, biteFrac(id)) : s.lvl / 5; }
 function lessonProgress(l) { return Math.max(lessonProgressRaw(l), (FLOOR10.l && FLOOR10.l[l.id]) || 0); }
 // v10: application lessons (rung 2/3) have no terms or code: their % is the share of questions answered right once
-function rungProgress(l) { const L = ILLUS[l.id]; if (!L || !L.qs.length) return 0; const ok = L.qs.filter((q, i) => { const r = vqRec(l.id, i); return r && r.ok; }).length;
+// v10.4: the % counts only the questions that existed before v10.4, so adding the rebuilt steps never moves a %
+function rungProgress(l) { const L = ILLUS[l.id]; if (!L || !L.qs.length) return 0; const base = L.qs.map((q, i) => i).filter(i => !L.qs[i].v104); if (!base.length) return 0;
+  const ok = base.filter(i => { const r = vqRec(l.id, i); return r && r.ok; }).length;
   const ps = l.problems || []; const pp = ps.length ? ps.filter(p => S.problems[p.id] && S.problems[p.id].solved).length / ps.length : 0;
-  return ps.length ? (ok / L.qs.length) * 0.85 + pp * 0.15 : ok / L.qs.length; }
+  return ps.length ? (ok / base.length) * 0.85 + pp * 0.15 : ok / base.length; }
 function lessonProgressRaw(l) {
   if (l.rung) return rungProgress(l);
   const ids = l.itemIds; if (!ids || !ids.length) return 0;
@@ -5679,14 +6655,15 @@ function nextLesson() {
   }
   return null;
 }
-function pickProblem(cur) {
+function pickProblem(cur, showsNew) {
   const all = Object.values(PROBLEMS).filter(p => (p.track || 'core') === SCOPE);
-  const open = all.filter(p => (S.theory[p.lesson] || (cur && p.lesson === cur.id)) && !(S.problems[p.id] && S.problems[p.id].solved));
+  const open = all.filter(p => (S.theory[p.lesson] || (cur && p.lesson === cur.id)) && !(S.problems[p.id] && S.problems[p.id].solved) && (!problemHeld(p) || (showsNew && cur && p.lesson === cur.id)));
   const mods = orderedReadyModules().map(m => m.id);
   open.sort((a, b) => mods.indexOf(a.module) - mods.indexOf(b.module));
   if (open.length) return open[0];
   const seen = all.filter(p => S.problems[p.id]).sort((a, b) => (S.problems[a.id].last || '') < (S.problems[b.id].last || '') ? -1 : 1);
-  return seen[0] || (cur ? PROBLEMS[cur.problems[0] && cur.problems[0].id] : null) || null;
+  const fb = cur ? PROBLEMS[cur.problems[0] && cur.problems[0].id] : null;
+  return seen[0] || (fb && !problemHeld(fb) ? fb : null) || null;
 }
 /* ---------- v4 session builders ----------
    Daily order: [help once] → opening term block → code flashcards → code/Q&A fade reviews
@@ -5714,12 +6691,15 @@ function buildDailySession() {
       // asked about with visual questions, and only then explained (theory) and drilled (terms).
       if (!S.theory[lesson.id]) { if (ILLUS[lesson.id] && !visSeen(lesson.id)) { illus = illusSteps(lesson.id); illus.forEach(x => other.push(x)); mins += illus.length * COST.illus; rem -= illus.length * COST.illus; }
         other.push({ type: 'theory', lesson: lesson.id }); mins += COST.theory; rem -= COST.theory; theory = true; }
-      const newIds = lesson.itemIds.filter(id => !S.items[id] && notTerm(id));
+      else if (ILLUS[lesson.id] && lesson.itemIds.some(itemHeld)) { // v10.4: the lesson's new steps come first, then its new cards
+        illus = illusSteps(lesson.id, null, visSeen(lesson.id)); illus.forEach(x => other.push(x)); mins += illus.length * COST.illus; rem -= illus.length * COST.illus; }
+      const showsNew = stepsShowV104(illus);
+      const newIds = lesson.itemIds.filter(id => !S.items[id] && notTerm(id) && (showsNew || !itemHeld(id)));
       const k = Math.min(newIds.length, S.settings.newPerDay, 12, Math.max(3, Math.floor(rem / COST.newItem)));
       newIds.slice(0, k).forEach(id => { other.push({ type: 'fade', id, isNew: true }); mins += COST.newItem; newN++; });
     }
   }
-  const prob = pickProblem(lesson);
+  const prob = pickProblem(lesson, stepsShowV104(illus));
   if (prob) { other.push({ type: 'problem', id: prob.id }); mins += COST.problem; }
   // catch-up for learners who read lessons before v6: at most one unseen illustration a day (not on a day a new one is shown)
   const cu = illus.length ? null : catchUpIllus(); const cuSteps = cu ? illusSteps(cu.id, null, cu.onlyNew) : [];
@@ -6905,7 +7885,7 @@ function paceInfo4base() {
 function termBudget(other) { return Math.max(2, Math.min(10, Math.round(other / 2))); }
 function newTermQueue(extraLesson) {
   const out = [];
-  orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (!((S.theory[l.id] || l.id === extraLesson) && visSeen(l.id))) return; /* v6: illustrated lessons' terms wait until the pictures were seen */ l.itemIds.forEach(id => { if (T4[id] && !T.terms[id] && !(S.items[id] && S.items[id].mastered) && !S.cards[id]) out.push(id); }); }));
+  orderedReadyModules().forEach(m => m.lessons.forEach(l => { if (!((S.theory[l.id] || l.id === extraLesson) && visSeen(l.id))) return; /* v6: illustrated lessons' terms wait until the pictures were seen */ if (v104Held(l.id)) return; /* v10.4: a not-started term (e.g. Recursive CTE, UNION ALL vs UNION) waits until the lesson's new steps are seen */ l.itemIds.forEach(id => { if (T4[id] && !T.terms[id] && !(S.items[id] && S.items[id].mastered) && !S.cards[id]) out.push(id); }); }));
   return out;
 }
 function tierUpQueue() {
@@ -7326,7 +8306,7 @@ const ACT = {
   ctNext: () => { F.k++; F.picked = null; if (F.k >= F.c.steps.length) { const r = A.ct[F.c.id] || { n: 0 }; r.done = today(); r.n++; r.miss = F.miss; A.ct[F.c.id] = r; saveAws(); addXP(F.miss ? 5 : 10); } render(); window.scrollTo(0, 0); },
   startCt: el => startSession({ steps: [{ type: 'ct', id: el.dataset.id }], mode: 'aws' }),
   /* v6 illustration steps */
-  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order) { vs.v10 = vs.v10 || today(); vs.v101 = vs.v101 || today(); vs.v103 = vs.v103 || today(); } saveTerms(); save(); } nextStep(); },
+  illNext: () => { const st = SESSION.steps[SESSION.i]; const L = ILLUS[st.lesson]; if (L.order ? st.last : st.sc + 1 >= L.scenes.length) { const vs = visState(st.lesson); if (!vs.seen) { vs.seen = today(); addXP(5); } if (L.order) { vs.v10 = vs.v10 || today(); vs.v101 = vs.v101 || today(); vs.v103 = vs.v103 || today(); const hasK = k => L.order.some(([t, i]) => (t === 's' ? L.scenes[i] : L.qs[i])[k]); if (hasK('v104')) vs.v104 = vs.v104 || today(); if (hasK('v105')) vs.v105 = vs.v105 || today(); } saveTerms(); save(); } nextStep(); },
   illRun: async () => { const st = SESSION.steps[SESSION.i]; const sc = ILLUS[st.lesson].scenes[st.sc];
     try { F.run = tableHTML(await runIll(sc.sql, st.lesson, sc.ts), 20) + '<div class="muted small">Same rows as the drawing above (row order may differ: without ORDER BY it is not guaranteed).</div>'; } catch (e) { F.run = '<div class="ill-err">✕ ' + esc(e.message) + '</div><div class="muted small">That error is the point: the database refused the duplicate.</div>'; }
     render(); },

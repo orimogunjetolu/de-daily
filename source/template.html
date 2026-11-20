@@ -105,8 +105,14 @@ table.mini.ill td.null span{display:inline-block;padding:0 5px;border:1.5px dash
 .mk-x td{opacity:.55;text-decoration:line-through}.mk-x td.mk,.mk-x td.null{text-decoration:none}.mk-x td.mk{color:var(--bad);opacity:1}
 .mk-d{background:repeating-linear-gradient(45deg,var(--mehbg),var(--mehbg) 6px,transparent 6px,transparent 12px)}.mk-d td.mk{color:var(--meh)}
 .mk-n{background:#dbeafe}.mk-n td.mk{color:#1d4ed8}@media (prefers-color-scheme:dark){.mk-n{background:#14284a}.mk-n td.mk{color:#93c5fd}}
-.mk-g0{background:#e0f2fe}.mk-g1{background:#fce7f3}.mk-g2{background:#ede9fe}.mk-g3{background:#fef3c7}
-@media (prefers-color-scheme:dark){.mk-g0{background:#0c2d40}.mk-g1{background:#3d1530}.mk-g2{background:#2a1f4a}.mk-g3{background:#3a2c0a}}
+/* v10.4: groups use a colour-blind-safe palette (blue, vermilion, green, purple) plus a shape per group; the strong colour runs down the left edge of each row and its reason line */
+.mk-g0{--gc:#0072b2;--gt:#d9eaf7}.mk-g1{--gc:#d55e00;--gt:#fbe2cf}.mk-g2{--gc:#009e73;--gt:#d2efe5}.mk-g3{--gc:#8e44ad;--gt:#ecdcf4}
+@media (prefers-color-scheme:dark){.mk-g0{--gc:#56b4e9;--gt:#0e2c42}.mk-g1{--gc:#f08a3c;--gt:#3f2311}.mk-g2{--gc:#3ccf9f;--gt:#0f3529}.mk-g3{--gc:#c99be0;--gt:#33203f}}
+.mk-g0,.mk-g1,.mk-g2,.mk-g3,table.mini.ill tr.why.mk-g0,table.mini.ill tr.why.mk-g1,table.mini.ill tr.why.mk-g2,table.mini.ill tr.why.mk-g3{background:var(--gt)}
+table.mini.ill tr[class*="mk-g"]>td:first-child{box-shadow:inset 5px 0 0 var(--gc)}table.mini.ill tr[class*="mk-g"] td.mk{color:var(--gc);font-size:.95rem}
+table.mini.ill tr.why[class*="mk-g"] td{color:var(--ink)}.lg .gly{font-weight:700;letter-spacing:2px}
+.fc[class*="mk-g"]{background:var(--gc);border-color:var(--gc)}
+.ill .ill-step~.ill-step::before{content:'↓ ';color:var(--pri);font-size:.9rem}
 table.mini.ill th.newc,table.mini.ill td[data-new]{box-shadow:inset 0 0 0 2px var(--pri)}.newc-k{box-shadow:inset 0 -2px 0 var(--pri)}
 .ill-err{padding:8px 10px;border-radius:10px;background:var(--badbg);color:var(--bad);font-weight:600;font-size:.9rem}
 .ill-lg{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.lg{font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}

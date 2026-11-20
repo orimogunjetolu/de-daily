@@ -16,13 +16,14 @@ It builds a scratch web root in source/tests/.www with
   v10/ = index.html of commit e5c4319 (v10: joins step by step; last version before v10.1)
   v101/ = index.html of commit 192662b (v10.1: last version before the v10.2 SQL checker fix)
   v102/ = index.html of commit 9ab5ff9 (v10.2: last version before the v10.3 CTE and derived-table steps)
+  v103/ = index.html of commit 5a80296 (v10.3: last version before the v10.4 rebuild of the lessons after joins)
   new/ = the current build (index.html, sw.js, manifest, icons)
 and checks that saved progress from both old versions survives the update untouched."""
 import json, os, shutil, subprocess, threading, http.server, functools, datetime
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.abspath(os.path.join(HERE, '..', '..')); WWW = os.path.join(HERE, '.www')
 shutil.rmtree(WWW, ignore_errors=True)
-for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624'), ('v91', '98eb8f9'), ('v10', 'e5c4319'), ('v101', '192662b'), ('v102', '9ab5ff9')]:
+for name, rev in [('v2', '08c6b1a'), ('v3', '371b94a'), ('v4', 'c35b2c9'), ('v5', '051a0fb'), ('v6', 'f5aa839'), ('v7', '19df660'), ('v8', '60df8f4'), ('v81', '1f045a9'), ('v82', 'b4f492d'), ('v9', '7f59624'), ('v91', '98eb8f9'), ('v10', 'e5c4319'), ('v101', '192662b'), ('v102', '9ab5ff9'), ('v103', '5a80296')]:
     os.makedirs(os.path.join(WWW, name)); open(os.path.join(WWW, name, 'index.html'), 'wb').write(subprocess.check_output(['git', 'show', rev + ':index.html'], cwd=REPO))
 os.makedirs(os.path.join(WWW, 'new'))
 for f in ['index.html', 'sw.js', 'manifest.json', 'icon-192.png', 'icon-512.png']: shutil.copy(os.path.join(REPO, f), os.path.join(WWW, 'new', f))
@@ -74,7 +75,8 @@ def drive(page, maxsteps=300, wrong_every=4):
                 if 'tCheck' in acts:
                     page.fill('.inputs input, textarea.recall', 'wrong answer words' if wrong else info['ans']); c('[data-act="tCheck"]')
                 elif 'tTap' in acts:
-                    k = info['tap'] if not wrong else (info['tap'] + 1) % page.locator('[data-act="tTap"]').count(); c(f'[data-act="tTap"][data-i="{k}"]')
+                    btn = page.eval_on_selector_all('[data-act="tTap"]', 'els => els.map(e => +e.dataset.i)')  # spans between buttons also use an index
+                    k = info['tap'] if not wrong else next((b for b in btn if b != info['tap']), info['tap']); c(f'[data-act="tTap"][data-i="{k}"]')
                 else:
                     k = info['ok'] if not wrong else (info['ok'] + 1) % page.locator('[data-act="tPick"]').count(); c(f'[data-act="tPick"][data-i="{k}"]')
                 if SHOTS and wrong and 'shot:fb' not in seen: seen.add('shot:fb'); page.screenshot(path=f'{SHOTS}/v4-feedback-wrong.png', full_page=True)
@@ -638,6 +640,7 @@ def cte103_state(br):
     check(not lower, f'[{label}] every lesson and item % identical ({len(oldprog)} checked) ' + str(lower[:5]))
     newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); chm = [m for m, v in oldmod if abs(newmod.get(m, 0) - v) > 1e-9]
     check(not chm, f'[{label}] every module % identical ' + str(chm))
+    # v10.4: sqlrt and sql6 now have new steps that come first in curriculum order; this test is about sql7's v10.3 steps, so mark those two seen
     cu = page.evaluate("catchUpIllus()"); check(cu == {'id': 'sql7', 'onlyNew': True}, f'[{label}] the new CTE steps are the pending catch-up ({cu})')
     # the catch-up is shown on a day when no new lesson's pictures are shown (the v6 rule); simulate such a day
     page.evaluate("nextLesson = () => null; go('home')")
@@ -654,7 +657,7 @@ def cte103_state(br):
     new_ids = [k for k in at['vis']['sql7'].get('qid', {}) if k.startswith('sql7.g')]; check(len(new_ids) >= 30, f'[{label}] new answers stored under stable IDs ({len(new_ids)})')
     prog2 = page.evaluate(PROG); low2 = [k for k in oldprog if ITEM_KIND.get(k) != 'code' and prog2.get(k, 0) + 1e-9 < oldprog[k]]
     check(not low2, f'[{label}] no lesson or term % lowered after the session ' + str(low2[:5]))
-    page.click('main.summary [data-to="home"]'); plan2 = page.inner_text('.today'); check('CTEs (WITH)' not in plan2, f'[{label}] the catch-up is not offered again')
+    page.click('main.summary [data-to="home"]'); rk = page.evaluate("[v10Pending('sql7'), relKey('sql7'), !!T.vis.sql7.v103]"); check(rk[0] is False and rk[2], f'[{label}] the catch-up is not offered again (no sql7 step pending: {rk})')
     check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
 def cte103_ui(br):
@@ -751,6 +754,90 @@ def fix102_ui(br):
     page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K102}/c-level4-run-check.png', full_page=True)
     check(not errs, '[fix102 ui] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
 
+K104 = os.environ.get('KEEP104') or '/workspace/dd-test/shots-v104'; os.makedirs(K104, exist_ok=True)
+V104L = ['sqlrt', 'sql6', 'sql7', 'sql8', 'sql9']; V104S = ['sql7']  # shown in v10.4a; the rest is parked behind V104_ON
+def v104_state(br):
+    # a rich v10.3 (5a80296) state that has seen every lesson after joins, with cards, SM-2 data and items in progress; then load v10.4
+    ctx, page, errs = p390(br); label = 'from v10.3 5a80296'
+    page.goto(f'{BASE}/v103/index.html'); page.wait_for_selector('#startBtn'); page.evaluate(CRAFT); page.reload(); page.wait_for_selector('#startBtn')
+    if page.locator('[data-act="startFresh"]').count(): page.click('[data-act="startFresh"]')
+    page.click('#startBtn'); drive(page); page.click('main.summary [data-to="home"]')
+    for l in ['sql4', 'sqlt', 'sqlr', 'sql5', 'sqlm', 'sqlc', 'sqlrt', 'sql6', 'sql7', 'sql8', 'sql9']:
+        page.evaluate(f"startSession(buildLessonSession('{l}'))"); drive(page, wrong_every=3); page.click('main.summary [data-to="home"]')
+    # an sql8 card in progress (started items are never held) and SM-2 cards with future due dates; sql9 code items left not started
+    page.evaluate("(() => { ['sql8-c1', 'sql7-c3'].forEach((id, k) => { S.items[id] = Object.assign({}, S.items[id] || {}, { lvl: 2 + k, due: today(), right: 2, wrong: 1, seen: today(), intro: '2026-11-10', mastered: false }); }); \
+      S.cards['sql6-c4'] = { ease: 2.4, ivl: 5, reps: 2, lapses: 0, due: addDays(today(), 6), added: '2026-11-02' }; S.cards['sql8-c2'] = { ease: 2.1, ivl: 9, reps: 3, lapses: 1, due: addDays(today(), 9), added: '2026-11-05' }; \
+      Object.keys(S.items).filter(id => /^sql9-c/.test(id)).forEach(id => delete S.items[id]); Object.keys(S.cards).filter(id => /^sql9-c/.test(id)).forEach(id => delete S.cards[id]); \
+      ['sqlrt', 'sql6', 'sql7', 'sql8', 'sql9'].forEach(l => S.theory[l] = S.theory[l] || '2026-11-10'); save(); })()")
+    # earlier lessons' pictures marked seen (as a learner who kept up would have), so only the v10.4 steps are pending
+    page.evaluate("(() => { let c, k = 0; while ((c = catchUpIllus()) && k++ < 60) { T.vis[c.id] = Object.assign(T.vis[c.id] || {}, { seen: '2026-11-10', v10: '2026-11-10', v101: '2026-11-10', v103: '2026-11-10' }); } saveTerms(); })()")
+    page.reload(); page.wait_for_selector('#startBtn')
+    keys = ['deLearn.v1', 'deLearn.ext', 'deLearn.terms', 'deLearn.aws', 'deLearn.floor10', 'deLearn.fix102', 'deLearn.v1.v9bak', 'deLearn.terms.v9bak']; old = {k: get(page, k) for k in keys}
+    page.reload(); page.wait_for_selector('#startBtn'); check(all(get(page, k) == old[k] for k in keys), f'[{label}] control: reloading v10.3 itself changes nothing')
+    oldprog = page.evaluate(PROG); oldmod = page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])"); o1 = json.loads(old['deLearn.v1']); ot = json.loads(old['deLearn.terms'])
+    check(all(ot['vis'].get(l, {}).get('seen') for l in V104L) and o1['items'].get('sql8-c1') and o1['xp'] > 1234, f'[{label}] seeded state: all five lessons seen, sql8-c1 in progress, XP {o1["xp"]}, streak {o1["streak"]}, {len(o1["cards"])} cards')
+    page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    for k in keys: check(get(page, k) == old[k], f'[{label}] {k} byte-identical after loading v10.4')
+    newprog = page.evaluate(PROG); chg = [k for k in oldprog if abs(newprog.get(k, 0) - oldprog[k]) > 1e-9]
+    check(not chg, f'[{label}] every lesson and item % identical ({len(oldprog)} checked) ' + str(chg[:5]))
+    newmod = dict(page.evaluate("CURRICULUM.modules.map(m => [m.id, moduleProgress(m)])")); chm = [m for m, v in oldmod if abs(newmod.get(m, 0) - v) > 1e-9]
+    check(not chm, f'[{label}] every module % identical ' + str(chm))
+    cu = page.evaluate("catchUpIllus()"); check(cu == {'id': 'sql7', 'onlyNew': True}, f'[{label}] the new UNION / RECURSIVE steps (sql7) are the pending catch-up ({cu})')
+    held = page.evaluate("Object.keys(ITEMS).filter(itemHeld)"); check(all(h.startswith('sql7-') for h in held) and 'sql8-c1' not in held and 'sql7-c3' not in held, f'[{label}] only not-started cards of the five lessons are held ({len(held)}); started sql8-c1 and sql7-c3 are not')
+    page.evaluate("nextLesson = () => null; go('home')")
+    page.click('#startBtn'); first = page.inner_text('main'); check('🆕 new' in first.lower() and 'Step 10' in first, f'[{label}] the session opens with the 🆕 new Step 10 (stacking): ' + first[:90].replace('\n', ' | '))
+    page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K104}/0-catch-up-first-step.png', full_page=True)
+    n, seen = drive(page, wrong_every=5); check(n > 0, f'[{label}] daily session with the catch-up completes ({n} steps)')
+    a1 = json.loads(get(page, 'deLearn.v1')); at = json.loads(get(page, 'deLearn.terms'))
+    check(a1['xp'] >= o1['xp'] and a1['streak'] >= o1['streak'] and a1['best'] >= o1['best'] and all(a1['theory'].get(k) == v for k, v in o1['theory'].items()), f'[{label}] XP {o1["xp"]}→{a1["xp"]}, streak {o1["streak"]}→{a1["streak"]}, best and theory kept')
+    check(all(a1['cards'].get(k) == v for k, v in o1['cards'].items() if v['due'] > page.evaluate('today()')), f'[{label}] flashcards not yet due are byte-identical (SM-2 due dates, ease, intervals)')
+    check(all(k in a1['cards'] for k in o1['cards']), f'[{label}] every flashcard kept ({len(o1["cards"])})')
+    check(all(k in a1['items'] and a1['items'][k]['lvl'] >= v['lvl'] - 1 for k, v in o1['items'].items()), f'[{label}] every item record kept (code items follow the normal one-level fade rule on a wrong answer)')
+    check(at['vis']['sql7'].get('v104') and at['vis']['sql7'].get('q') == ot['vis']['sql7'].get('q') and all(at['vis']['sql7'].get('qid', {}).get(k, {}).get('n', 0) >= v.get('n', 0) for k, v in ot['vis']['sql7'].get('qid', {}).items()), f'[{label}] catch-up recorded under vis.sql7.v104; earlier sql7 answers kept')
+    early = [k for k in a1['items'] if k not in o1['items'] and k.split('-')[0] in V104L and not at['vis'].get(k.split('-')[0], {}).get('v104')]
+    check(not early, f'[{label}] no card of a lesson started before its new steps are seen ' + str(early))
+    still = [l for l in V104L if at['vis'][l].get('v104')]; check(still == ['sql7'], f'[{label}] only sql7 recorded v104; parked lessons untouched ({still})')
+    prog2 = page.evaluate(PROG); low2 = [k for k in oldprog if ITEM_KIND.get(k) != 'code' and prog2.get(k, 0) + 1e-9 < oldprog[k]]
+    check(not low2, f'[{label}] no lesson or term % lowered after the session ' + str(low2[:5]))
+    page.click('main.summary [data-to="home"]'); cu2 = page.evaluate("catchUpIllus()"); check(cu2 is None, f'[{label}] no further catch-up while the rest is parked ({cu2})')
+    check(not errs, f'[{label}] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
+V104_SHOTS = {
+  'sqlrt': [('Chart task · The request and the rows', 'a-request'), ('Chart task 3 · One pile per artist', 'b-piles'), ('Chart task 4 · COUNT(*) or COUNT(DISTINCT chart_date)?', 'c-count-vs-distinct'), ('Chart task · Change one row: Heaven Baby was #6 on 2026-10-16', 'd-change-one-row'), ('Chart task 5 · Keep the artists on more than one day: HAVING', 'e-having')],
+  'sql6': [('Step 1 · Put the inner query where the number goes', 'a-scalar'), ('Step 2 · IN checks each artist against the list', 'b-in'), ('Step 3 · The derived table in SQL', 'c-derived'), ('Step 4 · NOT EXISTS: no matching row at all', 'd-not-exists'), ('Step 5 · NOT IN returns nobody', 'e-not-in-null'), ('Step 6 · Combine: charted, but never top 3', 'f-combine')],
+  'sql7': [('Step 9 · Chained CTEs: WITH once, then commas', 'a-chained'), ('Step 10 · Stack two lists, by hand', 'b-stack-by-hand'), ('Step 10 · UNION: stack, then remove duplicate rows', 'c-union'), ('Step 11 · Numbers 1 to 7, built round by round', 'd-recursive-rounds'), ('Step 11 · Spot the mistakes: no stop rule, and <= 7', 'e-recursive-mistakes'), ('Step 11 · Another use: who reports to whom', 'f-hierarchy'), ('Step 12 · Whole numbers divide to a whole number', 'g-integer-division')],
+  'sql8': [('Step 1 · GROUP BY gives the averages but loses the rows', 'a-groupby-vs-window'), ('Step 4 · ROW_NUMBER, RANK and DENSE_RANK in SQL', 'b-ties'), ('Step 5 · LAG reads the row before', 'c-lag'), ('Step 6 · SUM over a frame: from the first row to this row', 'd-frame'), ('Step 7 · Spot the mistake: WHERE rn = 1', 'e-where-rn'), ('Step 7 · Deduplicate: keep the latest copy', 'f-dedupe')],
+  'sql9': [('Step 1 · CASE: the first true WHEN wins', 'a-case'), ('Step 2 · COALESCE: the first value that is not NULL', 'b-coalesce'), ('Step 3 · Numbers stored as text sort wrongly', 'c-text-sort'), ('Step 4 · Dividing safely: 100.0 and NULLIF', 'd-nullif'), ('Step 5 · SUM(CASE WHEN …): conditional aggregation', 'e-sum-case'), ('Step 6 · Combine: top-5 entries and the rest, per artist', 'f-combine')]}
+def v104_ui(br):
+    # key screens of each rebuilt lesson at phone width (several per lesson), the colour legend, and the write-it questions marked by result
+    ctx, page, errs = p390(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+    def scene(lid, h, name):
+        i = page.evaluate(f"ILLUS.{lid}.scenes.findIndex(s => s.h === {json.dumps(h)})"); check(i >= 0, f'[v104 ui] {lid}: screen “{h}” exists')
+        page.evaluate(f"startSession({{ mode: 'lesson', lesson: LESSONS.{lid}, steps: [{{ type: 'illus', lesson: '{lid}', sc: {i}, isNew: true, pos: 1, of: 1, last: true }}] }})")
+        if page.locator('[data-act="illRun"]').count(): page.click('[data-act="illRun"]'); page.wait_for_selector('.ill-run table, .ill-run .ill-err', timeout=8000)
+        ov = page.evaluate("Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)"); check(ov <= 390, f'[v104 ui] {lid} {name}: no overflow at 390px ({ov})')
+        info = page.evaluate(f"(() => {{ const s = ILLUS.{lid}.scenes[{i}]; const m = (s.ins || []).concat(s.after || []).concat(s.out ? [s.out] : []).flatMap(x => x.m || []); const html = document.querySelector('main').innerHTML; return {{ g: m.some(k => /^g/.test(k)), legend: !!document.querySelector('main .ill-lg'), tbl: html.indexOf('<table'), say: html.indexOf('ill-say') }}; }})()")
+        check(info['tbl'] > -1 and info['tbl'] < info['say'], f'[v104 ui] {lid} {name}: tables before the text')
+        check(not info['g'] or info['legend'], f'[v104 ui] {lid} {name}: colour groups come with a one-line legend')
+        page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K104}/{lid}-{name}.png', full_page=True); return page.inner_text('main')
+    def vq(lid, qid, code=None, name=None):
+        qi = page.evaluate(f"ILLUS.{lid}.qs.findIndex(q => q.id === '{qid}')")
+        page.evaluate(f"startSession({{ mode: 'lesson', lesson: LESSONS.{lid}, steps: [{{ type: 'vq', lesson: '{lid}', qi: {qi}, isNew: true, pos: 1, of: 1 }}] }})")
+        if code is not None: page.fill('#vqCode', code); page.click('[data-act="vqCheck"]'); page.wait_for_selector('[data-act="next"]', timeout=8000)
+        if name: page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K104}/{lid}-{name}.png', full_page=True)
+        return page.inner_text('main')
+    for lid, lst in [(l, [x for x in V104_SHOTS[l] if x[1] in ('b-stack-by-hand', 'c-union', 'd-recursive-rounds', 'e-recursive-mistakes', 'f-hierarchy')]) for l in V104S]:
+        for h, name in lst: scene(lid, h, name)
+    s7 = page.evaluate("ILLUS.sql7.qs.find(q => q.id === 'sql7.h13').sol"); t = vq('sql7', 'sql7.h13', s7.replace('n < 30', 'n <= 30'), 'h-recursive-wrong-stop'); check('Not quite' in t, '[v104 ui] sql7.h13: a <= stop rule (one round too many) is marked wrong')
+    # an older lesson with colour groups still reads correctly with the new palette
+    i = page.evaluate("ILLUS.sqlm.scenes.findIndex(s => JSON.stringify(s).indexOf('\"g0\"') > -1)")
+    if i >= 0:
+        page.evaluate(f"startSession({{ mode: 'lesson', lesson: LESSONS.sqlm, steps: [{{ type: 'illus', lesson: 'sqlm', sc: {i}, isNew: false, pos: 1, of: 1, last: true }}] }})")
+        page.evaluate('scrollTo(0, 0)'); page.screenshot(path=f'{K104}/older-sqlm-palette.png', full_page=True)
+        check(page.evaluate("document.querySelectorAll('main tr[class*=mk-g]').length") > 0, '[v104 ui] an older lesson (sqlm) still shows its colour groups with the new palette')
+    check(not errs, '[v104 ui] no JS errors: ' + '; '.join(errs[:5])); ctx.close()
+
+
 with sync_playwright() as p:
     br = p.chromium.launch(executable_path=os.environ.get('CHROME', '/usr/bin/google-chrome'), args=['--no-sandbox'])
     if os.environ.get('ONLY') == 'unlock91':
@@ -764,6 +851,10 @@ with sync_playwright() as p:
         ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
         ITEM_KIND = page.evaluate("Object.fromEntries(Object.values(ITEMS).map(i => [i.id, i.kind]))"); ctx.close()
         cte103_state(br); cte103_ui(br); v10_lesson(br, 'sql7', 'cte', KCTE + '/all'); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
+    if os.environ.get('ONLY') == 'v104':
+        ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
+        ITEM_KIND = page.evaluate("Object.fromEntries(Object.values(ITEMS).map(i => [i.id, i.kind]))"); ctx.close()
+        v104_state(br); v104_ui(br); [v10_lesson(br, l, l, K104 + '/all') for l in V104S]; print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     if os.environ.get('ONLY') == 'aws9':
         aws9(br); print('FAILS: %d' % len(fails)); [print(' - ' + f) for f in fails]; raise SystemExit(1 if fails else 0)
     ctx, page, errs = ctxpage(br); page.goto(f'{BASE}/new/index.html'); page.wait_for_selector('#startBtn')
@@ -804,10 +895,13 @@ with sync_playwright() as p:
     cte103_state(br)
     cte103_ui(br)
     v10_lesson(br, 'sql7', 'cte', KCTE + '/all')
+    v104_state(br)
+    v104_ui(br)
+    for l in V104S: v10_lesson(br, l, l, K104 + '/all')
     k1 = lesson_390(br, 'sqlr', 13, 'v7-sqlr'); check({'cls', 'tapc', 'tap', 'mc', 'run'} <= k1, 'relationships lesson uses classify, tap-column, tap-rows, pick and run questions')
     k8 = lesson_390(br, 'sqlt', 17, 'v8-sqlt'); check({'cls', 'tap', 'mc', 'run'} <= k8, 'table lesson uses classify, tap-rows, pick and run questions')
     lesson_390(br, 'sql2', 2, 'v81-sql2'); lesson_390(br, 'sql4', 5, 'v81-sql4'); lesson_390(br, 'sql3', 2, 'v81-sql3')  # v8.1: daily_streams and labelled views
-    lesson_390(br, 'sql8', 4, 'v82-sql8'); lesson_390(br, 'etl2', 4, 'v82-etl2')  # v8.2: song_id keys, partitions, rewritten text
+    lesson_390(br, 'etl2', 4, 'v82-etl2')  # v8.2: partitions, rewritten text (sql8 is now walked in teaching order by v10_lesson, v10.4)
     shots82(br)
     transfer_wrong(br)
     fast_lane_ui(br)
@@ -830,7 +924,7 @@ with sync_playwright() as p:
     # ---------- PWA offline ----------
     ctx = br.new_context(); page = ctx.new_page(); page.goto(BASE + '/new/'); page.wait_for_selector('#startBtn')
     page.evaluate("navigator.serviceWorker.ready.then(() => true)"); page.wait_for_timeout(1500)
-    caches = page.evaluate("caches.keys()"); check('de-daily-v10-3' in caches, 'service worker cache de-daily-v10-3: ' + str(caches))
+    caches = page.evaluate("caches.keys()"); check('de-daily-v10-4' in caches, 'service worker cache de-daily-v10-4: ' + str(caches))
     ctx.set_offline(True); page.reload(); page.wait_for_selector('#startBtn', timeout=8000)
     check(page.locator('#startBtn').count() == 1, 'app loads offline from the service worker')
     ctx.close(); br.close()
